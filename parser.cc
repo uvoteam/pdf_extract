@@ -92,7 +92,7 @@ char get_node_status(const string &buffer, size_t offset)
     size_t start_offset = offset + BYTE_OFFSET_LEN + GENERATION_NUMBER_LEN + 1;
     if (start_offset + 2 >= buffer.length()) throw runtime_error(FUNC_STRING + "node info record is too small");
     if (buffer[start_offset] != ' ') throw runtime_error(FUNC_STRING + "no space for node info record");
-    if (buffer[start_offset + 2] != '\r')
+    if (strchr("\r\n ", buffer[start_offset + 2]) == NULL)
     {
         throw runtime_error(FUNC_STRING + "no newline for node info record");
     }

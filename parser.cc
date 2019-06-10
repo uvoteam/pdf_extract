@@ -2,6 +2,7 @@
 #include <string>
 #include <cstring>
 #include <vector>
+#include <tuple>
 
 //for test
 #include <fstream>
@@ -83,7 +84,7 @@ size_t get_cross_ref_offset(const string &buffer)
 void append_node(const string &buf, size_t offset, vector<size_t> &nodes)
 {
     if (offset + BYTE_OFFSET_LEN >= buf.length()) throw runtime_error(FUNC_STRING + "node info record is too small");
-    if (buf[offset + BYTE_OFFSET_LEN] >= buf.length()) throw runtime_error(FUNC_STRING + "no space for node info");
+    if (buf[offset + BYTE_OFFSET_LEN] != ' ') throw runtime_error(FUNC_STRING + "no space for node info");
     nodes.push_back(strict_stoul(buf.substr(offset, BYTE_OFFSET_LEN)));
 }
 
@@ -102,36 +103,61 @@ char get_node_status(const string &buffer, size_t offset)
     return ret;
 }
 
+size_t get_start_offset(const string &buffer, size_t offset)
+{
+    offset = buffer.find(' ', offset);
+    if (offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find space after xref");
+    ++offset;
+    if (offset >= buffer.size()) throw runtime_error(FUNC_STRING + "no data for elements size");
+    return offset;
+}
+
+tuple<size_t, size_t, bool> get_node_info_data(const string &buffer, size_t offset)
+{
+    if (prefix("trailer", buffer.data() + offset)) return make_tuple(0, 0, false);
+    offset = get_start_offset(buffer, offset);
+    size_t end_offset = buffer.find_first_of("\r\n ", offset);
+    if (end_offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find space symbol for elements size");
+    size_t nodes_offset = end_offset;
+    if (buffer.at(nodes_offset) == ' ') ++nodes_offset;
+    if (buffer.at(nodes_offset) == '\r') ++nodes_offset;
+    if (buffer.at(nodes_offset) == '\n') ++nodes_offset;
+
+    size_t elements_num = strict_stoul(buffer.substr(offset, end_offset - offset));
+    if (elements_num == 0) throw runtime_error(FUNC_STRING + "number of elements in cross ref table can`t be zero.");
+    
+    return make_tuple(elements_num, nodes_offset, true);
+}
+
 vector<size_t> get_nodes_offsets(const string &buffer, size_t cross_ref_offset)
 {
     size_t offset = buffer.find("xref", cross_ref_offset);
     if (offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find xref");
     offset += LEN("xref");
-    if (offset >= buffer.size() - CROSS_REFERENCE_LINE_SIZE) throw runtime_error(FUNC_STRING + "No data for xref");
-    offset = buffer.find(' ', offset);
-    if (offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find space after xref");
-    ++offset;
-    if (offset >= buffer.size()) throw runtime_error(FUNC_STRING + "no data for elements size");
-    size_t end_offset = buffer.find_first_of("\r\n ", offset);
-    if (end_offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find space symbol for elements size");
-    size_t elements_num = strict_stoul(buffer.substr(offset, end_offset - offset));
-    size_t nodes_offset = end_offset;
-    if (buffer[nodes_offset] == ' ') ++nodes_offset;
-    if (buffer[nodes_offset] == '\r') ++nodes_offset;
-    if (buffer[nodes_offset] == '\n') ++nodes_offset;
-    size_t end_nodes_offset = nodes_offset + elements_num * CROSS_REFERENCE_LINE_SIZE;
-    if (end_nodes_offset >= buffer.size())
-    {
-        throw runtime_error(FUNC_STRING + "pdf buffer has no data for nodes");
-    }
+    //rewrite
+    tuple<size_t, size_t, bool> r = get_node_info_data(buffer, offset);
+    size_t elements_num = get<0>(r), nodes_offset = get<1>(r);
+    bool is_success = get<2>(r);
+//    auto [ elements_num, nodes_offset, is_success ] = get_node_info_data(buffer, offset);
+    if (!is_success) throw runtime_error(FUNC_STRING + "no size data for cross reference table");
     vector<size_t> ret;
     ret.reserve(elements_num);
-    while (nodes_offset < end_nodes_offset)
+    while (is_success)
     {
-        if (get_node_status(buffer, nodes_offset) == 'n') append_node(buffer, nodes_offset, ret);
-        nodes_offset += CROSS_REFERENCE_LINE_SIZE;
+        size_t end_nodes_offset = nodes_offset + elements_num * CROSS_REFERENCE_LINE_SIZE;
+        if (end_nodes_offset >= buffer.size()) throw runtime_error(FUNC_STRING + "pdf buffer has no data for nodes");
+        while (nodes_offset < end_nodes_offset)
+        {
+            if (get_node_status(buffer, nodes_offset) == 'n') append_node(buffer, nodes_offset, ret);
+            nodes_offset += CROSS_REFERENCE_LINE_SIZE;
+        }
+        //rewrite
+        r = get_node_info_data(buffer, nodes_offset);
+        elements_num = get<0>(r);
+        nodes_offset = get<1>(r);
+        is_success = get<2>(r);
+//        auto [ elements_num, nodes_offset, is_success ] = get_node_info_data(buffer, offset);
     }
-
     return ret;
 }
 
@@ -141,6 +167,7 @@ string pdf2txt(const string &buffer)
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     vector<size_t> offsets = get_nodes_offsets(buffer, cross_ref_offset);
 
+    for (size_t off : offsets) cout << off << endl;
     return string();
 }
 

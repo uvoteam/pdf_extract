@@ -11,9 +11,12 @@ using namespace std;
 
 #define LEN(S) (sizeof(S) - 1)
 #define FUNC_STRING (string(__func__) + ": ")
-#define CROSS_REFERENCE_LINE_SIZE 20
 
-enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what-is-the-smallest-possible-valid-pdf*/};
+enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what-is-the-smallest-possible-valid-pdf*/,
+      CROSS_REFERENCE_LINE_SIZE = 20,
+      BYTE_OFFSET_LEN = 10, /* length for byte offset in cross reference record */
+      GENERATION_NUMBER_LEN = 5 /* length for generation number */
+};
 
 
 size_t strict_stoul(const string &str)
@@ -79,9 +82,24 @@ size_t get_cross_ref_offset(const string &buffer)
 
 void append_node(const string &buf, size_t offset, vector<size_t> &nodes)
 {
-    size_t end_offset = buf.find(' ', offset);
-    if (end_offset == string::npos) throw runtime_error(FUNC_STRING + "no space for node info");
-    nodes.push_back(strict_stoul(buf.substr(offset, end_offset - offset)));
+    if (offset + BYTE_OFFSET_LEN >= buf.length()) throw runtime_error(FUNC_STRING + "node info record is too small");
+    if (buf[offset + BYTE_OFFSET_LEN] >= buf.length()) throw runtime_error(FUNC_STRING + "no space for node info");
+    nodes.push_back(strict_stoul(buf.substr(offset, BYTE_OFFSET_LEN)));
+}
+
+char get_node_status(const string &buffer, size_t offset)
+{
+    size_t start_offset = offset + BYTE_OFFSET_LEN + GENERATION_NUMBER_LEN + 1;
+    if (start_offset + 2 >= buffer.length()) throw runtime_error(FUNC_STRING + "node info record is too small");
+    if (buffer[start_offset] != ' ') throw runtime_error(FUNC_STRING + "no space for node info record");
+    if (buffer[start_offset + 2] != '\r' && buffer[start_offset + 2] != '\n')
+    {
+        throw runtime_error(FUNC_STRING + "no newline for node info record");
+    }
+    char ret = buffer[start_offset + 1];
+    if (ret != 'n' && ret != 'f') throw runtime_error(FUNC_STRING + "info node record status entry must be 'n' or 'f'");
+
+    return ret;
 }
 
 vector<size_t> get_nodes_offsets(const string &buffer, size_t cross_ref_offset)
@@ -110,7 +128,7 @@ vector<size_t> get_nodes_offsets(const string &buffer, size_t cross_ref_offset)
     ret.reserve(elements_num);
     while (nodes_offset < end_nodes_offset)
     {
-        append_node(buffer, nodes_offset, ret);
+        if (get_node_status(buffer, nodes_offset) == 'n') append_node(buffer, nodes_offset, ret);
         nodes_offset += CROSS_REFERENCE_LINE_SIZE;
     }
 
@@ -122,7 +140,7 @@ string pdf2txt(const string &buffer)
     if (buffer.size() < SMALLEST_PDF_SIZE) throw runtime_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     vector<size_t> offsets = get_nodes_offsets(buffer, cross_ref_offset);
-    
+
     return string();
 }
 

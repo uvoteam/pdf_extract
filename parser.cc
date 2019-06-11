@@ -3,6 +3,8 @@
 #include <cstring>
 #include <vector>
 #include <tuple>
+#include <map>
+#include <utility>
 
 //for test
 #include <fstream>
@@ -154,13 +156,37 @@ vector<size_t> get_nodes_offsets(const string &buffer, size_t cross_ref_offset)
     return ret;
 }
 
+map<size_t, size_t> get_id2offset(const string &buffer, const vector<size_t> &offsets)
+{
+    map<size_t, size_t> ret;
+    for (size_t offset : offsets)
+    {
+        size_t start_offset = buffer.find_first_of("0123456789", offset);
+        if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find start offset for object id");
+        size_t end_offset = buffer.find(' ', offset);
+        if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find end offset for object id");
+        ret.insert(make_pair(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset));
+    }
+    return ret;
+}
+
+void validate_offsets(const string &buffer, const vector<size_t> &offsets)
+{
+    for (size_t offset : offsets)
+    {
+        if (offset >= buffer.size()) throw runtime_error(FUNC_STRING + "offset is greater than pdf buffer");
+    }
+}
+
 string pdf2txt(const string &buffer)
 {
     if (buffer.size() < SMALLEST_PDF_SIZE) throw runtime_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     vector<size_t> offsets = get_nodes_offsets(buffer, cross_ref_offset);
+    validate_offsets(buffer, offsets);
+    map<size_t, size_t> id2offset = get_id2offset(buffer, offsets);
+    for (const pair<size_t, size_t> &p : id2offset) cout << p.first << ' ' << p.second << endl;
 
-    for (size_t off : offsets) cout << off << endl;
     return string();
 }
 

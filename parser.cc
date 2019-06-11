@@ -94,24 +94,24 @@ size_t get_cross_ref_offset(const string &buffer)
     return r;
 }
 
-void append_node(const string &buf, size_t offset, vector<size_t> &nodes)
+void append_object(const string &buf, size_t offset, vector<size_t> &objects)
 {
-    if (offset + BYTE_OFFSET_LEN >= buf.length()) throw runtime_error(FUNC_STRING + "node info record is too small");
-    if (buf[offset + BYTE_OFFSET_LEN] != ' ') throw runtime_error(FUNC_STRING + "no space for node info");
-    nodes.push_back(strict_stoul(buf.substr(offset, BYTE_OFFSET_LEN)));
+    if (offset + BYTE_OFFSET_LEN >= buf.length()) throw runtime_error(FUNC_STRING + "object info record is too small");
+    if (buf[offset + BYTE_OFFSET_LEN] != ' ') throw runtime_error(FUNC_STRING + "no space for object info");
+    objects.push_back(strict_stoul(buf.substr(offset, BYTE_OFFSET_LEN)));
 }
 
-char get_node_status(const string &buffer, size_t offset)
+char get_object_status(const string &buffer, size_t offset)
 {
     size_t start_offset = offset + BYTE_OFFSET_LEN + GENERATION_NUMBER_LEN + 1;
-    if (start_offset + 2 >= buffer.length()) throw runtime_error(FUNC_STRING + "node info record is too small");
-    if (buffer[start_offset] != ' ') throw runtime_error(FUNC_STRING + "no space for node info record");
+    if (start_offset + 2 >= buffer.length()) throw runtime_error(FUNC_STRING + "object info record is too small");
+    if (buffer[start_offset] != ' ') throw runtime_error(FUNC_STRING + "no space for object info record");
     if (strchr("\r\n ", buffer[start_offset + 2]) == NULL)
     {
-        throw runtime_error(FUNC_STRING + "no newline for node info record");
+        throw runtime_error(FUNC_STRING + "no newline for object info record");
     }
     char ret = buffer[start_offset + 1];
-    if (ret != 'n' && ret != 'f') throw runtime_error(FUNC_STRING + "info node record status entry must be 'n' or 'f'");
+    if (ret != 'n' && ret != 'f') throw runtime_error(FUNC_STRING + "info object record status entry must be 'n' or 'f'");
 
     return ret;
 }
@@ -125,44 +125,44 @@ size_t get_start_offset(const string &buffer, size_t offset)
     return offset;
 }
 
-tuple<size_t, size_t, bool> get_node_info_data(const string &buffer, size_t offset)
+tuple<size_t, size_t, bool> get_object_info_data(const string &buffer, size_t offset)
 {
     if (prefix("trailer", buffer.data() + offset)) return make_tuple(0, 0, false);
     offset = get_start_offset(buffer, offset);
     size_t end_offset = buffer.find_first_of("\r\n ", offset);
     if (end_offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find space symbol for elements size");
-    size_t nodes_offset = end_offset;
-    if (buffer.at(nodes_offset) == ' ') ++nodes_offset;
-    if (buffer.at(nodes_offset) == '\r') ++nodes_offset;
-    if (buffer.at(nodes_offset) == '\n') ++nodes_offset;
+    size_t objects_offset = end_offset;
+    if (buffer.at(objects_offset) == ' ') ++objects_offset;
+    if (buffer.at(objects_offset) == '\r') ++objects_offset;
+    if (buffer.at(objects_offset) == '\n') ++objects_offset;
 
     size_t elements_num = strict_stoul(buffer.substr(offset, end_offset - offset));
     if (elements_num == 0) throw runtime_error(FUNC_STRING + "number of elements in cross ref table can`t be zero.");
     
-    return make_tuple(elements_num, nodes_offset, true);
+    return make_tuple(elements_num, objects_offset, true);
 }
 
-vector<size_t> get_nodes_offsets(const string &buffer, size_t cross_ref_offset)
+vector<size_t> get_objects_offsets(const string &buffer, size_t cross_ref_offset)
 {
     size_t offset = buffer.find("xref", cross_ref_offset);
     if (offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find xref");
     offset += LEN("xref");
-    size_t elements_num, nodes_offset;
+    size_t elements_num, objects_offset;
     bool is_success;
-    tie (elements_num, nodes_offset, is_success) = get_node_info_data(buffer, offset);
+    tie (elements_num, objects_offset, is_success) = get_object_info_data(buffer, offset);
     if (!is_success) throw runtime_error(FUNC_STRING + "no size data for cross reference table");
     vector<size_t> ret;
     ret.reserve(elements_num);
     while (is_success)
     {
-        size_t end_nodes_offset = nodes_offset + elements_num * CROSS_REFERENCE_LINE_SIZE;
-        if (end_nodes_offset >= buffer.size()) throw runtime_error(FUNC_STRING + "pdf buffer has no data for nodes");
-        while (nodes_offset < end_nodes_offset)
+        size_t end_objects_offset = objects_offset + elements_num * CROSS_REFERENCE_LINE_SIZE;
+        if (end_objects_offset >= buffer.size()) throw runtime_error(FUNC_STRING + "pdf buffer has no data for objects");
+        while (objects_offset < end_objects_offset)
         {
-            if (get_node_status(buffer, nodes_offset) == 'n') append_node(buffer, nodes_offset, ret);
-            nodes_offset += CROSS_REFERENCE_LINE_SIZE;
+            if (get_object_status(buffer, objects_offset) == 'n') append_object(buffer, objects_offset, ret);
+            objects_offset += CROSS_REFERENCE_LINE_SIZE;
         }
-        tie (elements_num, nodes_offset, is_success) = get_node_info_data(buffer, nodes_offset);
+        tie (elements_num, objects_offset, is_success) = get_object_info_data(buffer, objects_offset);
     }
     return ret;
 }
@@ -193,7 +193,7 @@ string pdf2txt(const string &buffer)
 {
     if (buffer.size() < SMALLEST_PDF_SIZE) throw runtime_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
-    vector<size_t> offsets = get_nodes_offsets(buffer, cross_ref_offset);
+    vector<size_t> offsets = get_objects_offsets(buffer, cross_ref_offset);
     validate_offsets(buffer, offsets);
     map<size_t, size_t> id2offset = get_id2offset(buffer, offsets);
     size_t root_id = get_root_id(buffer, cross_ref_offset);

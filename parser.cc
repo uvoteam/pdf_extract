@@ -134,11 +134,9 @@ vector<size_t> get_nodes_offsets(const string &buffer, size_t cross_ref_offset)
     size_t offset = buffer.find("xref", cross_ref_offset);
     if (offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find xref");
     offset += LEN("xref");
-    //rewrite
-    tuple<size_t, size_t, bool> r = get_node_info_data(buffer, offset);
-    size_t elements_num = get<0>(r), nodes_offset = get<1>(r);
-    bool is_success = get<2>(r);
-//    auto [ elements_num, nodes_offset, is_success ] = get_node_info_data(buffer, offset);
+    size_t elements_num, nodes_offset;
+    bool is_success;
+    tie (elements_num, nodes_offset, is_success) = get_node_info_data(buffer, offset);
     if (!is_success) throw runtime_error(FUNC_STRING + "no size data for cross reference table");
     vector<size_t> ret;
     ret.reserve(elements_num);
@@ -151,12 +149,7 @@ vector<size_t> get_nodes_offsets(const string &buffer, size_t cross_ref_offset)
             if (get_node_status(buffer, nodes_offset) == 'n') append_node(buffer, nodes_offset, ret);
             nodes_offset += CROSS_REFERENCE_LINE_SIZE;
         }
-        //rewrite
-        r = get_node_info_data(buffer, nodes_offset);
-        elements_num = get<0>(r);
-        nodes_offset = get<1>(r);
-        is_success = get<2>(r);
-//        auto [ elements_num, nodes_offset, is_success ] = get_node_info_data(buffer, offset);
+        tie (elements_num, nodes_offset, is_success) = get_node_info_data(buffer, nodes_offset);
     }
     return ret;
 }

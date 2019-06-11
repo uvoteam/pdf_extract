@@ -56,6 +56,17 @@ size_t get_cross_ref_offset_start(const string &buffer, size_t end)
     return start;
 }
 
+size_t get_root_id(const string &buffer, size_t cross_ref_offset)
+{
+    size_t start_offset = buffer.find("/Root ", cross_ref_offset);
+    if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find /Root object");
+    start_offset += LEN("/Root ");
+    if (start_offset >= buffer.length()) throw runtime_error(FUNC_STRING + "No data for /Root object");
+    size_t end_offset = buffer.find(' ', start_offset);
+
+    return strict_stoul(buffer.substr(start_offset, end_offset - start_offset));
+}
+
 size_t get_cross_ref_offset_end(const string &buffer)
 {
     size_t end = buffer.size() - 1;
@@ -185,7 +196,8 @@ string pdf2txt(const string &buffer)
     vector<size_t> offsets = get_nodes_offsets(buffer, cross_ref_offset);
     validate_offsets(buffer, offsets);
     map<size_t, size_t> id2offset = get_id2offset(buffer, offsets);
-    for (const pair<size_t, size_t> &p : id2offset) cout << p.first << ' ' << p.second << endl;
+    size_t root_id = get_root_id(buffer, cross_ref_offset);
+    cout << root_id << endl;
 
     return string();
 }

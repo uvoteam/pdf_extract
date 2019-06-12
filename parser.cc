@@ -252,7 +252,8 @@ vector<size_t> get_pages_offsets(const string &buffer, size_t catalog_pages_id, 
     ret.reserve(count);
     for (size_t i = 0, start_offset = kids_offset; i < count; ++i)
     {
-        size_t end_offset = efind(buffer, ' ', start_offset);
+        size_t end_offset = buffer.find_first_of(" \r\n", start_offset);
+        if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find number end offset");
         ret.push_back(id2offset.at(strict_stoul(buffer.substr(start_offset, end_offset - start_offset))));
         start_offset = efind(buffer, 'R', end_offset);
         start_offset = buffer.find_first_of("0123456789", start_offset);

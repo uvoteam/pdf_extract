@@ -22,6 +22,34 @@ enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what
 };
 
 
+size_t efind(const string &src, const string& str, size_t pos = 0)
+{
+    size_t ret = src.find(str, pos);
+    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + str + " in pos " + to_string(pos) + " failed");
+    return ret;
+}
+
+size_t efind(const string &src, const char* s, size_t pos = 0)
+{
+    size_t ret = src.find(s, pos);
+    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
+    return ret;
+}
+
+size_t efind(const string &src, const char* s, size_t pos, size_t n)
+{
+    size_t ret = src.find(s, pos, n);
+    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
+    return ret;
+}
+
+size_t efind(const string &src, char c, size_t pos = 0)
+{
+    size_t ret = src.find(c, pos);
+    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + c + " in pos " + to_string(pos) + " failed");
+    return ret;
+}
+
 size_t strict_stoul(const string &str)
 {
     if (str.empty()) throw runtime_error(FUNC_STRING + "string is empty");
@@ -58,11 +86,11 @@ size_t get_cross_ref_offset_start(const string &buffer, size_t end)
 
 size_t get_number(const string &buffer, size_t offset, const char *name)
 {
-    size_t start_offset = buffer.find(name, offset);
-    if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find " + name + " object");
+    size_t start_offset = efind(buffer, name, offset);
     start_offset += strlen(name);
     if (start_offset >= buffer.length()) throw runtime_error(FUNC_STRING + "No data for " + name + " object");
     size_t end_offset = buffer.find_first_of("  \r\n", start_offset);
+    if (end_offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find end offset");
 
     return strict_stoul(buffer.substr(start_offset, end_offset - start_offset));
 }
@@ -118,8 +146,7 @@ char get_object_status(const string &buffer, size_t offset)
 
 size_t get_start_offset(const string &buffer, size_t offset)
 {
-    offset = buffer.find(' ', offset);
-    if (offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find space after xref");
+    offset = efind(buffer, ' ', offset);
     ++offset;
     if (offset >= buffer.size()) throw runtime_error(FUNC_STRING + "no data for elements size");
     return offset;
@@ -144,8 +171,7 @@ tuple<size_t, size_t, bool> get_object_info_data(const string &buffer, size_t of
 
 vector<size_t> get_objects_offsets(const string &buffer, size_t cross_ref_offset)
 {
-    size_t offset = buffer.find("xref", cross_ref_offset);
-    if (offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find xref");
+    size_t offset = efind(buffer, "xref", cross_ref_offset);
     offset += LEN("xref");
     size_t elements_num, objects_offset;
     bool is_success;
@@ -174,8 +200,7 @@ map<size_t, size_t> get_id2offset(const string &buffer, const vector<size_t> &of
     {
         size_t start_offset = buffer.find_first_of("0123456789", offset);
         if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find start offset for object id");
-        size_t end_offset = buffer.find(' ', offset);
-        if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find end offset for object id");
+        size_t end_offset = efind(buffer, ' ', offset);
         ret.insert(make_pair(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset));
     }
     return ret;
@@ -193,19 +218,16 @@ vector<size_t> get_pages_id(const string &buffer, size_t offset)
 {
     size_t count = get_number(buffer, offset, "/Count ");
     if (count == 0) throw runtime_error(FUNC_STRING + "number of pages is zero");
-    size_t kids_offset = buffer.find("/Kids", offset);
-    if (kids_offset == string::npos) throw runtime_error(FUNC_STRING + "no /Kids");
+    size_t kids_offset = efind(buffer, "/Kids", offset);
     kids_offset = buffer.find_first_of("0123456789", kids_offset);
     if (kids_offset == string::npos) throw runtime_error(FUNC_STRING + "no numbers for /Kids");
     vector<size_t> ret;
     ret.reserve(count);
     for (size_t i = 0, start_offset = kids_offset; i < count; ++i)
     {
-        size_t end_offset = buffer.find(' ', start_offset);
-        if (end_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find end offset for number");
+        size_t end_offset = efind(buffer, ' ', start_offset);
         ret.push_back(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)));
-        start_offset = buffer.find('R', end_offset);
-        if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find 'R' for number");
+        start_offset = efind(buffer, 'R', end_offset);
         start_offset = buffer.find_first_of("0123456789", start_offset);
         if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find new page number");
     }

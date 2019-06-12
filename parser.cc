@@ -347,10 +347,17 @@ set<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset, c
     size_t root_id = get_number(buffer, cross_ref_offset, "/Root ");
     size_t catalog_pages_id = get_number(buffer, id2offset.at(root_id), "/Pages ");
     set<size_t> page_offsets = get_pages_offsets(buffer, id2offset.at(catalog_pages_id), id2offset);
-    for (size_t off : page_offsets) cout << off << endl;
     for (size_t page_offset : page_offsets) append_content_offsets(buffer, page_offset, id2offset, result);
 
     return result;
+}
+
+string output_content(const string &buffer, size_t offset)
+{
+    size_t end_offset = efind(buffer, ">>", offset);
+    size_t len = get_number(buffer, offset, "/Length ", end_offset);
+
+    return string();
 }
 
 string pdf2txt(const string &buffer)
@@ -359,8 +366,10 @@ string pdf2txt(const string &buffer)
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset);
     set<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);
+    string result;
+    for (size_t offset : content_offsets) result += output_content(buffer, offset);
 
-    return string();
+    return result;
 }
 
 int main(int argc, char *argv[])

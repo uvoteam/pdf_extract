@@ -240,8 +240,9 @@ map<size_t, size_t> get_id2offset(const string &buffer, size_t cross_ref_offset)
     return ret;
 }
 
-vector<size_t> get_pages_id(const string &buffer, size_t offset)
+vector<size_t> get_pages_offsets(const string &buffer, size_t catalog_pages_id, const map<size_t, size_t> &id2offset)
 {
+    size_t offset = id2offset.at(catalog_pages_id);
     size_t count = get_number(buffer, offset, "/Count ");
     if (count == 0) throw runtime_error(FUNC_STRING + "number of pages is zero");
     size_t kids_offset = efind(buffer, "/Kids", offset);
@@ -252,7 +253,7 @@ vector<size_t> get_pages_id(const string &buffer, size_t offset)
     for (size_t i = 0, start_offset = kids_offset; i < count; ++i)
     {
         size_t end_offset = efind(buffer, ' ', start_offset);
-        ret.push_back(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)));
+        ret.push_back(id2offset.at(strict_stoul(buffer.substr(start_offset, end_offset - start_offset))));
         start_offset = efind(buffer, 'R', end_offset);
         start_offset = buffer.find_first_of("0123456789", start_offset);
         if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find new page number");
@@ -266,13 +267,10 @@ string pdf2txt(const string &buffer)
     if (buffer.size() < SMALLEST_PDF_SIZE) throw runtime_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset);
-    for (const pair<size_t, size_t> &p : id2offset) cout << p.first << ' ' << p.second << endl;
     size_t root_id = get_number(buffer, cross_ref_offset, "/Root ");
     size_t catalog_pages_id = get_number(buffer, id2offset.at(root_id), "/Pages ");
-
-
-    vector<size_t> pages_id = get_pages_id(buffer, id2offset.at(catalog_pages_id));
-//    for (size_t page_id : pages_id) cout << page_id << endl;
+    vector<size_t> page_offsets = get_pages_offsets(buffer, catalog_pages_id, id2offset);
+    for (size_t off : page_offsets) cout << off << endl;
 
     return string();
 }

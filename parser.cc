@@ -169,30 +169,6 @@ tuple<size_t, size_t, bool> get_object_info_data(const string &buffer, size_t of
     return make_tuple(elements_num, objects_offset, true);
 }
 
-vector<size_t> get_objects_offsets(const string &buffer, size_t cross_ref_offset)
-{
-    size_t offset = efind(buffer, "xref", cross_ref_offset);
-    offset += LEN("xref");
-    size_t elements_num, objects_offset;
-    bool is_success;
-    tie (elements_num, objects_offset, is_success) = get_object_info_data(buffer, offset);
-    if (!is_success) throw runtime_error(FUNC_STRING + "no size data for cross reference table");
-    vector<size_t> ret;
-    ret.reserve(elements_num);
-    while (is_success)
-    {
-        size_t end_objects_offset = objects_offset + elements_num * CROSS_REFERENCE_LINE_SIZE;
-        if (end_objects_offset >= buffer.size()) throw runtime_error(FUNC_STRING + "pdf buffer has no data for objects");
-        while (objects_offset < end_objects_offset)
-        {
-            if (get_object_status(buffer, objects_offset) == 'n') append_object(buffer, objects_offset, ret);
-            objects_offset += CROSS_REFERENCE_LINE_SIZE;
-        }
-        tie (elements_num, objects_offset, is_success) = get_object_info_data(buffer, objects_offset);
-    }
-    return ret;
-}
-
 map<size_t, size_t> get_id2offset(const string &buffer, const vector<size_t> &offsets)
 {
     map<size_t, size_t> ret;
@@ -250,15 +226,47 @@ vector<size_t> get_trailer_offsets(const string &buffer, size_t cross_ref_offset
     return trailer_offsets;
 }
 
+void get_object_offsets(const string &buffer, size_t cross_ref_offset, vector<size_t> &result)
+{
+    size_t offset = efind(buffer, "xref", cross_ref_offset);
+    offset += LEN("xref");
+    size_t elements_num, objects_offset;
+    bool is_success;
+    tie (elements_num, objects_offset, is_success) = get_object_info_data(buffer, offset);
+    if (!is_success) throw runtime_error(FUNC_STRING + "no size data for cross reference table");
+    while (is_success)
+    {
+        size_t end_objects_offset = objects_offset + elements_num * CROSS_REFERENCE_LINE_SIZE;
+        if (end_objects_offset >= buffer.size()) throw runtime_error(FUNC_STRING + "pdf buffer has no data for objects");
+        while (objects_offset < end_objects_offset)
+        {
+            if (get_object_status(buffer, objects_offset) == 'n') append_object(buffer, objects_offset, result);
+            objects_offset += CROSS_REFERENCE_LINE_SIZE;
+        }
+        tie (elements_num, objects_offset, is_success) = get_object_info_data(buffer, objects_offset);
+    }
+}
+
+vector<size_t> get_all_object_offsets(const string &buffer, size_t cross_ref_offset)
+{
+    vector<size_t> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
+    vector<size_t> object_offsets;
+    for (size_t off : trailer_offsets)
+    {
+        get_object_offsets(buffer, off, object_offsets);
+    }
+    validate_offsets(buffer, object_offsets);
+
+    return object_offsets;
+}
+
 string pdf2txt(const string &buffer)
 {
     if (buffer.size() < SMALLEST_PDF_SIZE) throw runtime_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
-    vector<size_t> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
-    for (size_t off : trailer_offsets) cout << off << endl;
-    return string();
-    vector<size_t> offsets = get_objects_offsets(buffer, cross_ref_offset);
-    validate_offsets(buffer, offsets);
+    vector<size_t> offsets = get_all_object_offsets(buffer, cross_ref_offset);
+    for (size_t offset : offsets) cout << offset << endl;
+
     map<size_t, size_t> id2offset = get_id2offset(buffer, offsets);
     size_t root_id = get_number(buffer, cross_ref_offset, "/Root ");
     size_t catalog_pages_id = get_number(buffer, id2offset.at(root_id), "/Pages ");

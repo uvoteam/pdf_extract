@@ -23,14 +23,14 @@ enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what
 };
 
 
-size_t efind_first(const string &src, const string& str, size_t pos = 0)
+size_t efind_first(const string &src, const string& str, size_t pos)
 {
     size_t ret = src.find_first_of(str, pos);
     if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + str + " in pos " + to_string(pos) + " failed");
     return ret;
 }
 
-size_t efind_first(const string &src, const char* s, size_t pos = 0)
+size_t efind_first(const string &src, const char* s, size_t pos)
 {
     size_t ret = src.find_first_of(s, pos);
     if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
@@ -44,14 +44,14 @@ size_t efind_first(const string &src, const char* s, size_t pos, size_t n)
     return ret;
 }
 
-size_t efind(const string &src, const string& str, size_t pos = 0)
+size_t efind(const string &src, const string& str, size_t pos)
 {
     size_t ret = src.find(str, pos);
     if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + str + " in pos " + to_string(pos) + " failed");
     return ret;
 }
 
-size_t efind(const string &src, const char* s, size_t pos = 0)
+size_t efind(const string &src, const char* s, size_t pos)
 {
     size_t ret = src.find(s, pos);
     if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
@@ -65,7 +65,7 @@ size_t efind(const string &src, const char* s, size_t pos, size_t n)
     return ret;
 }
 
-size_t efind(const string &src, char c, size_t pos = 0)
+size_t efind(const string &src, char c, size_t pos)
 {
     size_t ret = src.find(c, pos);
     if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + c + " in pos " + to_string(pos) + " failed");
@@ -106,18 +106,24 @@ size_t get_cross_ref_offset_start(const string &buffer, size_t end)
     return start;
 }
 
-string get_string(const string &buffer, size_t offset, const char *name)
+string get_string(const string &buffer, size_t offset, const char *name, size_t end = string::npos)
 {
+    if (end == string::npos) end = buffer.length();
     size_t start_offset = efind(buffer, name, offset);
     start_offset += strlen(name);
     if (start_offset >= buffer.length()) throw runtime_error(FUNC_STRING + "No data for " + name + " object");
     size_t end_offset = efind_first(buffer, "  \r\n", start_offset);
+    if (end_offset >= end) return string();
     return buffer.substr(start_offset, end_offset - start_offset);
 }
 
-size_t get_number(const string &buffer, size_t offset, const char *name)
+size_t get_number(const string &buffer, size_t offset, const char *name, size_t end = string::npos)
 {
-    return strict_stoul(get_string(buffer, offset, name));
+    if (end == string::npos) end = buffer.length();
+    const string str = get_string(buffer, offset, name, end);
+    if (str.empty()) throw runtime_error(FUNC_STRING + "no number for " + name +
+                                         " offset " + to_string(offset) + " end " + to_string(end)); 
+    return strict_stoul(str);
 }
 
 size_t get_cross_ref_offset_end(const string &buffer)
@@ -287,7 +293,8 @@ void append_set(const string &buffer, size_t start_offset, const map<size_t, siz
 
 void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, size_t> &id2offset, set<size_t> &result)
 {
-    if (get_string(buffer, off, "/Type ") != "/Pages") return;
+    size_t end_offset = efind(buffer, "endobj", off);
+    if (get_string(buffer, off, "/Type ", end_offset) != "/Pages") return;
     size_t kids_offset = efind(buffer, "/Kids", off);
     kids_offset = efind(buffer, '[', kids_offset);
     set<size_t> pages;
@@ -301,7 +308,11 @@ void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, s
 
 set<size_t> get_pages_offsets(const string &buffer, size_t offset, const map<size_t, size_t> &id2offset)
 {
-    if (get_string(buffer, offset, "/Type ") != "/Pages") throw runtime_error("Root catalog type must be 'Pages'");
+    size_t end_offset = efind(buffer, "endobj", offset);
+    if (get_string(buffer, offset, "/Type ", end_offset) != "/Pages")
+    {
+        throw runtime_error("Root catalog type must be 'Pages'");
+    }
     set<size_t> result;
     get_pages_offsets_int(buffer, offset, id2offset, result);
 

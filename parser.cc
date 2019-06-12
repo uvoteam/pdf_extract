@@ -258,26 +258,6 @@ map<size_t, size_t> get_id2offset(const string &buffer, size_t cross_ref_offset)
     return ret;
 }
 
-vector<size_t> get_pages_offsets(const string &buffer, size_t catalog_pages_id, const map<size_t, size_t> &id2offset)
-{
-    size_t offset = id2offset.at(catalog_pages_id);
-    size_t count = get_number(buffer, offset, "/Count ");
-    if (count == 0) throw runtime_error(FUNC_STRING + "number of pages is zero");
-    size_t kids_offset = efind(buffer, "/Kids", offset);
-    kids_offset = efind_first(buffer, "0123456789", kids_offset);
-    vector<size_t> ret;
-    ret.reserve(count);
-    for (size_t i = 0, start_offset = kids_offset; i < count; ++i)
-    {
-        size_t end_offset = efind_first(buffer, " \r\n", start_offset);
-        ret.push_back(id2offset.at(strict_stoul(buffer.substr(start_offset, end_offset - start_offset))));
-        start_offset = efind(buffer, 'R', end_offset);
-        start_offset = efind_first(buffer, "0123456789", start_offset);
-    }
-
-    return ret;
-}
-
 size_t find_number(const string &buffer, size_t offset)
 {
     while (offset < buffer.length() && (strchr("0123456789", buffer[offset]) == NULL)) ++offset;
@@ -286,7 +266,7 @@ size_t find_number(const string &buffer, size_t offset)
 
 void append_array(const string &buffer, size_t start_offset, const map<size_t, size_t> &id2offset, vector<size_t> &result)
 {
-    size_t array_end_offset = efind(buffer, start_offset, ']');
+    size_t array_end_offset = efind(buffer, ']', start_offset);
     start_offset = find_number(buffer, start_offset);
     for (;start_offset < array_end_offset; start_offset = find_number(buffer, start_offset))
     {
@@ -296,8 +276,19 @@ void append_array(const string &buffer, size_t start_offset, const map<size_t, s
             throw runtime_error(FUNC_STRING + "Can`t find end delimiter for number");
         }
         result.push_back(id2offset.at(strict_stoul(buffer.substr(start_offset, end_offset - start_offset))));
-        start_offset = efind(buffer, 'R');
+        start_offset = efind(buffer, 'R', end_offset);
     }
+}
+
+vector<size_t> get_pages_offsets(const string &buffer, size_t catalog_pages_id, const map<size_t, size_t> &id2offset)
+{
+    size_t offset = id2offset.at(catalog_pages_id);
+    size_t kids_offset = efind(buffer, "/Kids", offset);
+    kids_offset = efind(buffer, '[', kids_offset);
+    vector<size_t> ret;
+    append_array(buffer, kids_offset, id2offset, ret);
+
+    return ret;
 }
 
 void append_content_offsets(const string &buffer,
@@ -339,7 +330,7 @@ string pdf2txt(const string &buffer)
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset);
     vector<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);
-    for (size_t off : content_offsets) cout << off << endl;
+//    for (size_t off : content_offsets) cout << off << endl;
 
     return string();
 }

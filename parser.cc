@@ -169,48 +169,6 @@ tuple<size_t, size_t, bool> get_object_info_data(const string &buffer, size_t of
     return make_tuple(elements_num, objects_offset, true);
 }
 
-map<size_t, size_t> get_id2offset(const string &buffer, const vector<size_t> &offsets)
-{
-    map<size_t, size_t> ret;
-    for (size_t offset : offsets)
-    {
-        size_t start_offset = buffer.find_first_of("0123456789", offset);
-        if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find start offset for object id");
-        size_t end_offset = efind(buffer, ' ', offset);
-        ret.insert(make_pair(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset));
-    }
-    return ret;
-}
-
-void validate_offsets(const string &buffer, const vector<size_t> &offsets)
-{
-    for (size_t offset : offsets)
-    {
-        if (offset >= buffer.size()) throw runtime_error(FUNC_STRING + "offset is greater than pdf buffer");
-    }
-}
-
-vector<size_t> get_pages_id(const string &buffer, size_t offset)
-{
-    size_t count = get_number(buffer, offset, "/Count ");
-    if (count == 0) throw runtime_error(FUNC_STRING + "number of pages is zero");
-    size_t kids_offset = efind(buffer, "/Kids", offset);
-    kids_offset = buffer.find_first_of("0123456789", kids_offset);
-    if (kids_offset == string::npos) throw runtime_error(FUNC_STRING + "no numbers for /Kids");
-    vector<size_t> ret;
-    ret.reserve(count);
-    for (size_t i = 0, start_offset = kids_offset; i < count; ++i)
-    {
-        size_t end_offset = efind(buffer, ' ', start_offset);
-        ret.push_back(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)));
-        start_offset = efind(buffer, 'R', end_offset);
-        start_offset = buffer.find_first_of("0123456789", start_offset);
-        if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find new page number");
-    }
-
-    return ret;
-}
-
 vector<size_t> get_trailer_offsets(const string &buffer, size_t cross_ref_offset)
 {
     vector<size_t> trailer_offsets = {cross_ref_offset};
@@ -247,6 +205,14 @@ void get_object_offsets(const string &buffer, size_t cross_ref_offset, vector<si
     }
 }
 
+void validate_offsets(const string &buffer, const vector<size_t> &offsets)
+{
+    for (size_t offset : offsets)
+    {
+        if (offset >= buffer.size()) throw runtime_error(FUNC_STRING + "offset is greater than pdf buffer");
+    }
+}
+
 vector<size_t> get_all_object_offsets(const string &buffer, size_t cross_ref_offset)
 {
     vector<size_t> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
@@ -260,18 +226,51 @@ vector<size_t> get_all_object_offsets(const string &buffer, size_t cross_ref_off
     return object_offsets;
 }
 
+map<size_t, size_t> get_id2offset(const string &buffer, size_t cross_ref_offset)
+{
+    vector<size_t> offsets = get_all_object_offsets(buffer, cross_ref_offset);
+    map<size_t, size_t> ret;
+    for (size_t offset : offsets)
+    {
+        size_t start_offset = buffer.find_first_of("0123456789", offset);
+        if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find start offset for object id");
+        size_t end_offset = efind(buffer, ' ', offset);
+        ret.insert(make_pair(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset));
+    }
+    return ret;
+}
+
+vector<size_t> get_pages_id(const string &buffer, size_t offset)
+{
+    size_t count = get_number(buffer, offset, "/Count ");
+    if (count == 0) throw runtime_error(FUNC_STRING + "number of pages is zero");
+    size_t kids_offset = efind(buffer, "/Kids", offset);
+    kids_offset = buffer.find_first_of("0123456789", kids_offset);
+    if (kids_offset == string::npos) throw runtime_error(FUNC_STRING + "no numbers for /Kids");
+    vector<size_t> ret;
+    ret.reserve(count);
+    for (size_t i = 0, start_offset = kids_offset; i < count; ++i)
+    {
+        size_t end_offset = efind(buffer, ' ', start_offset);
+        ret.push_back(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)));
+        start_offset = efind(buffer, 'R', end_offset);
+        start_offset = buffer.find_first_of("0123456789", start_offset);
+        if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find new page number");
+    }
+
+    return ret;
+}
+
 string pdf2txt(const string &buffer)
 {
     if (buffer.size() < SMALLEST_PDF_SIZE) throw runtime_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
-    vector<size_t> offsets = get_all_object_offsets(buffer, cross_ref_offset);
-    for (size_t offset : offsets) cout << offset << endl;
-
-    map<size_t, size_t> id2offset = get_id2offset(buffer, offsets);
+    map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset);
+    for (const pair<size_t, size_t> &p : id2offset) cout << p.first << ' ' << p.second << endl;
     size_t root_id = get_number(buffer, cross_ref_offset, "/Root ");
     size_t catalog_pages_id = get_number(buffer, id2offset.at(root_id), "/Pages ");
 
-//    for (const pair<size_t, size_t> &p : id2offset) cout << p.first << ' ' << p.second << endl;
+
     vector<size_t> pages_id = get_pages_id(buffer, id2offset.at(catalog_pages_id));
 //    for (size_t page_id : pages_id) cout << page_id << endl;
 

@@ -235,10 +235,28 @@ vector<size_t> get_pages_id(const string &buffer, size_t offset)
     return ret;
 }
 
+vector<size_t> get_trailer_offsets(const string &buffer, size_t cross_ref_offset)
+{
+    vector<size_t> trailer_offsets = {cross_ref_offset};
+    while (true)
+    {
+        size_t end_offset = efind(buffer, "startxref", cross_ref_offset);
+        size_t prev_offset = buffer.find("/Prev ", cross_ref_offset);
+        if (prev_offset == string::npos || prev_offset >= end_offset) break;
+        cross_ref_offset = get_number(buffer, prev_offset, "/Prev ");
+        trailer_offsets.push_back(cross_ref_offset);
+    }
+
+    return trailer_offsets;
+}
+
 string pdf2txt(const string &buffer)
 {
     if (buffer.size() < SMALLEST_PDF_SIZE) throw runtime_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
+    vector<size_t> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
+    for (size_t off : trailer_offsets) cout << off << endl;
+    return string();
     vector<size_t> offsets = get_objects_offsets(buffer, cross_ref_offset);
     validate_offsets(buffer, offsets);
     map<size_t, size_t> id2offset = get_id2offset(buffer, offsets);
@@ -247,7 +265,7 @@ string pdf2txt(const string &buffer)
 
 //    for (const pair<size_t, size_t> &p : id2offset) cout << p.first << ' ' << p.second << endl;
     vector<size_t> pages_id = get_pages_id(buffer, id2offset.at(catalog_pages_id));
-    for (size_t page_id : pages_id) cout << page_id << endl;
+//    for (size_t page_id : pages_id) cout << page_id << endl;
 
     return string();
 }

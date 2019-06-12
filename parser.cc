@@ -22,6 +22,27 @@ enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what
 };
 
 
+size_t efind_first(const string &src, const string& str, size_t pos = 0)
+{
+    size_t ret = src.find_first_of(str, pos);
+    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + str + " in pos " + to_string(pos) + " failed");
+    return ret;
+}
+
+size_t efind_first(const string &src, const char* s, size_t pos = 0)
+{
+    size_t ret = src.find_first_of(s, pos);
+    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
+    return ret;
+}
+
+size_t efind_first(const string &src, const char* s, size_t pos, size_t n)
+{
+    size_t ret = src.find_first_of(s, pos);
+    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
+    return ret;
+}
+
 size_t efind(const string &src, const string& str, size_t pos = 0)
 {
     size_t ret = src.find(str, pos);
@@ -89,8 +110,7 @@ size_t get_number(const string &buffer, size_t offset, const char *name)
     size_t start_offset = efind(buffer, name, offset);
     start_offset += strlen(name);
     if (start_offset >= buffer.length()) throw runtime_error(FUNC_STRING + "No data for " + name + " object");
-    size_t end_offset = buffer.find_first_of("  \r\n", start_offset);
-    if (end_offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find end offset");
+    size_t end_offset = efind_first(buffer, "  \r\n", start_offset);
 
     return strict_stoul(buffer.substr(start_offset, end_offset - start_offset));
 }
@@ -156,8 +176,7 @@ tuple<size_t, size_t, bool> get_object_info_data(const string &buffer, size_t of
 {
     if (prefix("trailer", buffer.data() + offset)) return make_tuple(0, 0, false);
     offset = get_start_offset(buffer, offset);
-    size_t end_offset = buffer.find_first_of("\r\n ", offset);
-    if (end_offset == string::npos) throw runtime_error(FUNC_STRING + "can`t find space symbol for elements size");
+    size_t end_offset = efind_first(buffer, "\r\n ", offset);
     size_t objects_offset = end_offset;
     if (buffer.at(objects_offset) == ' ') ++objects_offset;
     if (buffer.at(objects_offset) == '\r') ++objects_offset;
@@ -232,8 +251,7 @@ map<size_t, size_t> get_id2offset(const string &buffer, size_t cross_ref_offset)
     map<size_t, size_t> ret;
     for (size_t offset : offsets)
     {
-        size_t start_offset = buffer.find_first_of("0123456789", offset);
-        if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find start offset for object id");
+        size_t start_offset = efind_first(buffer, "0123456789", offset);
         size_t end_offset = efind(buffer, ' ', offset);
         ret.insert(make_pair(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset));
     }
@@ -246,18 +264,15 @@ vector<size_t> get_pages_offsets(const string &buffer, size_t catalog_pages_id, 
     size_t count = get_number(buffer, offset, "/Count ");
     if (count == 0) throw runtime_error(FUNC_STRING + "number of pages is zero");
     size_t kids_offset = efind(buffer, "/Kids", offset);
-    kids_offset = buffer.find_first_of("0123456789", kids_offset);
-    if (kids_offset == string::npos) throw runtime_error(FUNC_STRING + "no numbers for /Kids");
+    kids_offset = efind_first(buffer, "0123456789", kids_offset);
     vector<size_t> ret;
     ret.reserve(count);
     for (size_t i = 0, start_offset = kids_offset; i < count; ++i)
     {
-        size_t end_offset = buffer.find_first_of(" \r\n", start_offset);
-        if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find number end offset");
+        size_t end_offset = efind_first(buffer, " \r\n", start_offset);
         ret.push_back(id2offset.at(strict_stoul(buffer.substr(start_offset, end_offset - start_offset))));
         start_offset = efind(buffer, 'R', end_offset);
-        start_offset = buffer.find_first_of("0123456789", start_offset);
-        if (start_offset == string::npos) throw runtime_error(FUNC_STRING + "Can`t find new page number");
+        start_offset = efind_first(buffer, "0123456789", start_offset);
     }
 
     return ret;

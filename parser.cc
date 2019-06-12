@@ -1,10 +1,11 @@
 #include <stdexcept>
 #include <string>
 #include <cstring>
-#include <vector>
 #include <tuple>
 #include <map>
 #include <utility>
+#include <set>
+#include <vector>
 
 //for test
 #include <fstream>
@@ -105,14 +106,18 @@ size_t get_cross_ref_offset_start(const string &buffer, size_t end)
     return start;
 }
 
-size_t get_number(const string &buffer, size_t offset, const char *name)
+string get_string(const string &buffer, size_t offset, const char *name)
 {
     size_t start_offset = efind(buffer, name, offset);
     start_offset += strlen(name);
     if (start_offset >= buffer.length()) throw runtime_error(FUNC_STRING + "No data for " + name + " object");
     size_t end_offset = efind_first(buffer, "  \r\n", start_offset);
+    return buffer.substr(start_offset, end_offset - start_offset);
+}
 
-    return strict_stoul(buffer.substr(start_offset, end_offset - start_offset));
+size_t get_number(const string &buffer, size_t offset, const char *name)
+{
+    return strict_stoul(get_string(buffer, offset, name));
 }
 
 size_t get_cross_ref_offset_end(const string &buffer)
@@ -264,7 +269,7 @@ size_t find_number(const string &buffer, size_t offset)
     return offset;
 }
 
-void append_array(const string &buffer, size_t start_offset, const map<size_t, size_t> &id2offset, vector<size_t> &result)
+void append_set(const string &buffer, size_t start_offset, const map<size_t, size_t> &id2offset, set<size_t> &result)
 {
     size_t array_end_offset = efind(buffer, ']', start_offset);
     start_offset = find_number(buffer, start_offset);
@@ -275,26 +280,38 @@ void append_array(const string &buffer, size_t start_offset, const map<size_t, s
         {
             throw runtime_error(FUNC_STRING + "Can`t find end delimiter for number");
         }
-        result.push_back(id2offset.at(strict_stoul(buffer.substr(start_offset, end_offset - start_offset))));
+        result.insert(id2offset.at(strict_stoul(buffer.substr(start_offset, end_offset - start_offset))));
         start_offset = efind(buffer, 'R', end_offset);
     }
 }
 
-vector<size_t> get_pages_offsets(const string &buffer, size_t catalog_pages_id, const map<size_t, size_t> &id2offset)
+void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, size_t> &id2offset, set<size_t> &result)
 {
-    size_t offset = id2offset.at(catalog_pages_id);
-    size_t kids_offset = efind(buffer, "/Kids", offset);
+    if (get_string(buffer, off, "/Type ") != "/Pages") return;
+    size_t kids_offset = efind(buffer, "/Kids", off);
     kids_offset = efind(buffer, '[', kids_offset);
-    vector<size_t> ret;
-    append_array(buffer, kids_offset, id2offset, ret);
+    set<size_t> pages;
+    append_set(buffer, kids_offset, id2offset, pages);
+    for (size_t page : pages)
+    {
+        if(result.count(page) == 0) get_pages_offsets_int(buffer, page, id2offset, result);
+        result.insert(pages.begin(), pages.end());
+    }
+}
 
-    return ret;
+set<size_t> get_pages_offsets(const string &buffer, size_t offset, const map<size_t, size_t> &id2offset)
+{
+    if (get_string(buffer, offset, "/Type ") != "/Pages") throw runtime_error("Root catalog type must be 'Pages'");
+    set<size_t> result;
+    get_pages_offsets_int(buffer, offset, id2offset, result);
+
+    return result;
 }
 
 void append_content_offsets(const string &buffer,
                            size_t page_offset,
                            const map<size_t, size_t> &id2offset,
-                           vector<size_t> &content_offsets)
+                           set<size_t> &content_offsets)
 {
     size_t end_offset = efind(buffer, "endobj", page_offset);
     size_t start_offset = buffer.find("/Contents", page_offset);
@@ -304,21 +321,22 @@ void append_content_offsets(const string &buffer,
     while (strchr("\r\n ", buffer[start_offset]) != NULL) ++start_offset;
     if (buffer[start_offset] == '[')
     {
-        append_array(buffer, start_offset, id2offset, content_offsets);
+        append_set(buffer, start_offset, id2offset, content_offsets);
     }
     else
     {
         size_t space_pos = efind(buffer, ' ', start_offset);
-        content_offsets.push_back(id2offset.at(strict_stoul(buffer.substr(start_offset, space_pos - start_offset))));
+        content_offsets.insert(id2offset.at(strict_stoul(buffer.substr(start_offset, space_pos - start_offset))));
     }
 }
 
-vector<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset, const map<size_t, size_t> &id2offset)
+set<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset, const map<size_t, size_t> &id2offset)
 {
-    vector<size_t> result;
+    set<size_t> result;
     size_t root_id = get_number(buffer, cross_ref_offset, "/Root ");
     size_t catalog_pages_id = get_number(buffer, id2offset.at(root_id), "/Pages ");
-    vector<size_t> page_offsets = get_pages_offsets(buffer, catalog_pages_id, id2offset);
+    set<size_t> page_offsets = get_pages_offsets(buffer, id2offset.at(catalog_pages_id), id2offset);
+    for (size_t off : page_offsets) cout << off << endl;
     for (size_t page_offset : page_offsets) append_content_offsets(buffer, page_offset, id2offset, result);
 
     return result;
@@ -329,8 +347,7 @@ string pdf2txt(const string &buffer)
     if (buffer.size() < SMALLEST_PDF_SIZE) throw runtime_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset);
-    vector<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);
-//    for (size_t off : content_offsets) cout << off << endl;
+    set<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);
 
     return string();
 }

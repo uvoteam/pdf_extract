@@ -6,6 +6,8 @@
 #include <utility>
 #include <vector>
 #include <algorithm>
+#include <stack>
+#include <regex>
 
 //for test
 #include <fstream>
@@ -22,6 +24,7 @@ enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what
       GENERATION_NUMBER_LEN = 5 /* length for generation number */
 };
 
+enum pdf_object_t {DICTIONARY, ARRAY, STRING, VALUE, INDIRECT_OBJECT, NAME_OBJECT};
 
 size_t efind_first(const string &src, const string& str, size_t pos)
 {
@@ -39,7 +42,7 @@ size_t efind_first(const string &src, const char* s, size_t pos)
 
 size_t efind_first(const string &src, const char* s, size_t pos, size_t n)
 {
-    size_t ret = src.find_first_of(s, pos);
+    size_t ret = src.find_first_of(s, pos, n);
     if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
     return ret;
 }
@@ -54,13 +57,6 @@ size_t efind(const string &src, const string& str, size_t pos)
 size_t efind(const string &src, const char* s, size_t pos)
 {
     size_t ret = src.find(s, pos);
-    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
-    return ret;
-}
-
-size_t efind(const string &src, const char* s, size_t pos, size_t n)
-{
-    size_t ret = src.find(s, pos, n);
     if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
     return ret;
 }
@@ -310,6 +306,167 @@ void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, s
     }
 }
 
+bool is_blank(char c)
+{
+    if (c == '\r' || c == '\n' || c == ' ' || c == '\t') return true;
+    return false;
+}
+
+pdf_object_t get_object_type(const string &buffer, size_t &offset)
+{
+    while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
+    if (offset >= buffer.length()) throw runtime_error(FUNC_STRING + "no value for offset " + to_string(offset));
+    const string str = buffer.substr(offset, 2);
+    if (str == "<<") return DICTIONARY;
+    if (str[0] == '[') return ARRAY;
+    if (str[0] == '<' || str[0] == '(') return STRING;
+    if (str[0] == '/') return NAME_OBJECT;
+    if (regex_search(buffer.substr(offset), regex("^[0-9]+[\r\t\n ]+[0-9]+[\r\t\n ]+R"))) return INDIRECT_OBJECT;
+    return VALUE;
+}
+
+size_t find_value_end_delimiter(const string &buffer, size_t offset)
+{
+    size_t result = buffer.find_first_of("\r\t\n ", offset);
+    size_t dict_end_offset = buffer.find(">>", offset);
+    if (result == string::npos || dict_end_offset < result) result = dict_end_offset;
+    if (result == string::npos) throw runtime_error(FUNC_STRING + " can`t find end delimiter for value");
+    return result;
+}
+
+string get_value(const string &buffer, size_t &offset)
+{
+    size_t start_offset = offset;
+    offset = find_value_end_delimiter(buffer, offset);
+
+    return buffer.substr(start_offset, offset - start_offset);
+}
+
+string get_array(const string &buffer, size_t &offset)
+{
+    if (buffer[offset] != '[') throw runtime_error(FUNC_STRING + "offset should point to '['");
+    string result = "[";
+    ++offset;
+    stack<pdf_object_t> prevs;
+    while (true)
+    {
+        result.push_back(buffer.at(offset));
+        switch (buffer[offset])
+        {
+        case '[':
+            prevs.push(ARRAY);
+            break;
+        case ']':
+            if (prevs.empty())
+            {
+                ++offset;
+                return result;
+            }
+            prevs.pop();
+            break;
+        }
+        ++offset;
+    }
+    throw runtime_error(FUNC_STRING + " no array in " + to_string(offset));
+}
+
+string get_name_object(const string &buffer, size_t &offset)
+{
+    size_t start_offset = offset;
+    offset = find_value_end_delimiter(buffer, offset);
+
+    return buffer.substr(start_offset, offset - start_offset);
+}
+
+string get_indirect_object(const string &buffer, size_t &offset)
+{
+    size_t start_offset = offset;
+    offset = efind(buffer, 'R', offset) + 1;
+
+    return buffer.substr(start_offset, offset - start_offset);
+}
+
+string get_string(const string &buffer, size_t &offset)
+{
+    char delimiter = buffer.at(offset);
+    if (delimiter != '(' && delimiter != '<') throw runtime_error(FUNC_STRING + "string must start with '(' or '<'");
+    char end_delimiter = delimiter == '('? ')' : '>';
+    stack<pdf_object_t> prevs;
+    string result(1, delimiter);
+    ++offset;
+    while (true)
+    {
+        result.push_back(buffer.at(offset));
+        if (buffer[offset] == delimiter)
+        {
+            prevs.push(STRING);
+        }
+        if (buffer[offset] == end_delimiter)
+        {
+            if (prevs.empty())
+            {
+                ++offset;
+                return result;
+            }
+            prevs.pop();
+        }
+        ++offset;
+    }
+}
+
+string get_dictionary(const string &buffer, size_t &offset)
+{
+    if (buffer.substr(offset, 2) != "<<") throw runtime_error(FUNC_STRING + "dictionary must start with '<<'");
+    stack<pdf_object_t> prevs;
+    size_t end_offset = offset;
+    while (end_offset < buffer.length())
+    {
+        if (buffer.at(end_offset) == '<' && buffer.at(end_offset + 1) == '<')
+        {
+            prevs.push(DICTIONARY);
+        }
+        if (buffer.at(end_offset) == '>' && buffer.at(end_offset + 1) == '>')
+        {
+            if (prevs.empty())
+            {
+                end_offset += 2;
+                size_t start_offset = offset;
+                offset = end_offset;
+                return buffer.substr(start_offset, end_offset - start_offset);
+            }
+            prevs.pop();
+        }
+        ++end_offset;
+    }
+    if (end_offset >= buffer.length()) throw runtime_error(FUNC_STRING + "can`t find dictionary end delimiter");
+}
+
+map<string, string> get_dictionary_data(const string &buffer, size_t offset)
+{
+    const map<pdf_object_t, string (&)(const string&, size_t&)> type2func = {{DICTIONARY, get_dictionary},
+                                                                             {ARRAY, get_array},
+                                                                             {STRING, get_string},
+                                                                             {VALUE, get_value},
+                                                                             {INDIRECT_OBJECT, get_indirect_object},
+                                                                             {NAME_OBJECT, get_name_object}};
+
+    offset = efind(buffer, "<<", offset);
+    offset += LEN("<<");
+    map<string, string> result;
+    while (true)
+    {
+        while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
+        if (offset >= buffer.length()) throw runtime_error(FUNC_STRING + "can`t find dictionary end delimiter");
+        if (buffer.at(offset) == '>' && buffer.at(offset + 1) == '>') return result;
+        if (buffer.at(offset) != '/') throw runtime_error(FUNC_STRING + "malformed dictionary");
+        size_t end_offset = efind_first(buffer, "\r\t\n ", offset);
+        const string key = buffer.substr(offset, end_offset - offset);
+        offset = end_offset;
+        const string val = type2func.at(get_object_type(buffer, offset))(buffer, offset);
+        result.insert(make_pair(key, val));
+    }
+}
+
 vector<size_t> get_pages_offsets(const string &buffer, size_t offset, const map<size_t, size_t> &id2offset)
 {
     size_t end_offset = efind(buffer, "endobj", offset);
@@ -358,8 +515,8 @@ vector<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset
 
 string output_content(const string &buffer, size_t offset)
 {
-    size_t end_offset = efind(buffer, ">>", offset);
-    size_t len = get_number(buffer, offset, "/Length ", end_offset);
+    const map<string, string> props = get_dictionary_data(buffer, offset);
+    for (const pair<string, string> &p : props) cout << "key=" << p.first << " value=" << p.second << endl;
 
     return string();
 }

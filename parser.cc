@@ -4,8 +4,8 @@
 #include <tuple>
 #include <map>
 #include <utility>
-#include <set>
 #include <vector>
+#include <algorithm>
 
 //for test
 #include <fstream>
@@ -275,7 +275,7 @@ size_t find_number(const string &buffer, size_t offset)
     return offset;
 }
 
-void append_set(const string &buffer, size_t start_offset, const map<size_t, size_t> &id2offset, set<size_t> &result)
+void append_set(const string &buffer, size_t start_offset, const map<size_t, size_t> &id2offset, vector<size_t> &result)
 {
     size_t array_end_offset = efind(buffer, ']', start_offset);
     start_offset = find_number(buffer, start_offset);
@@ -286,34 +286,38 @@ void append_set(const string &buffer, size_t start_offset, const map<size_t, siz
         {
             throw runtime_error(FUNC_STRING + "Can`t find end delimiter for number");
         }
-        result.insert(id2offset.at(strict_stoul(buffer.substr(start_offset, end_offset - start_offset))));
+        result.push_back(id2offset.at(strict_stoul(buffer.substr(start_offset, end_offset - start_offset))));
         start_offset = efind(buffer, 'R', end_offset);
     }
 }
 
-void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, size_t> &id2offset, set<size_t> &result)
+void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, size_t> &id2offset, vector<size_t> &result)
 {
     size_t end_offset = efind(buffer, "endobj", off);
     if (get_string(buffer, off, "/Type ", end_offset) != "/Pages") return;
     size_t kids_offset = efind(buffer, "/Kids", off);
     kids_offset = efind(buffer, '[', kids_offset);
-    set<size_t> pages;
+    vector<size_t> pages;
     append_set(buffer, kids_offset, id2offset, pages);
     for (size_t page : pages)
     {
-        if(result.count(page) == 0) get_pages_offsets_int(buffer, page, id2offset, result);
-        result.insert(pages.begin(), pages.end());
+        //avoid infinite recursion for 'bad' pdf
+        if (find(result.begin(), result.end(), page) == result.end())
+        {
+            get_pages_offsets_int(buffer, page, id2offset, result);
+            result.insert(result.end(), pages.begin(), pages.end());
+        }
     }
 }
 
-set<size_t> get_pages_offsets(const string &buffer, size_t offset, const map<size_t, size_t> &id2offset)
+vector<size_t> get_pages_offsets(const string &buffer, size_t offset, const map<size_t, size_t> &id2offset)
 {
     size_t end_offset = efind(buffer, "endobj", offset);
     if (get_string(buffer, offset, "/Type ", end_offset) != "/Pages")
     {
         throw runtime_error("Root catalog type must be 'Pages'");
     }
-    set<size_t> result;
+    vector<size_t> result;
     get_pages_offsets_int(buffer, offset, id2offset, result);
 
     return result;
@@ -322,7 +326,7 @@ set<size_t> get_pages_offsets(const string &buffer, size_t offset, const map<siz
 void append_content_offsets(const string &buffer,
                            size_t page_offset,
                            const map<size_t, size_t> &id2offset,
-                           set<size_t> &content_offsets)
+                           vector<size_t> &content_offsets)
 {
     size_t end_offset = efind(buffer, "endobj", page_offset);
     size_t start_offset = buffer.find("/Contents", page_offset);
@@ -337,16 +341,16 @@ void append_content_offsets(const string &buffer,
     else
     {
         size_t space_pos = efind(buffer, ' ', start_offset);
-        content_offsets.insert(id2offset.at(strict_stoul(buffer.substr(start_offset, space_pos - start_offset))));
+        content_offsets.push_back(id2offset.at(strict_stoul(buffer.substr(start_offset, space_pos - start_offset))));
     }
 }
 
-set<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset, const map<size_t, size_t> &id2offset)
+vector<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset, const map<size_t, size_t> &id2offset)
 {
-    set<size_t> result;
+    vector<size_t> result;
     size_t root_id = get_number(buffer, cross_ref_offset, "/Root ");
     size_t catalog_pages_id = get_number(buffer, id2offset.at(root_id), "/Pages ");
-    set<size_t> page_offsets = get_pages_offsets(buffer, id2offset.at(catalog_pages_id), id2offset);
+    vector<size_t> page_offsets = get_pages_offsets(buffer, id2offset.at(catalog_pages_id), id2offset);
     for (size_t page_offset : page_offsets) append_content_offsets(buffer, page_offset, id2offset, result);
 
     return result;
@@ -365,7 +369,7 @@ string pdf2txt(const string &buffer)
     if (buffer.size() < SMALLEST_PDF_SIZE) throw runtime_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset);
-    set<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);
+    vector<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);
     string result;
     for (size_t offset : content_offsets) result += output_content(buffer, offset);
 

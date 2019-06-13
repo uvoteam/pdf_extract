@@ -441,7 +441,7 @@ string get_dictionary(const string &buffer, size_t &offset)
     if (end_offset >= buffer.length()) throw runtime_error(FUNC_STRING + "can`t find dictionary end delimiter");
 }
 
-map<string, string> get_dictionary_data(const string &buffer, size_t offset)
+map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer, size_t offset)
 {
     const map<pdf_object_t, string (&)(const string&, size_t&)> type2func = {{DICTIONARY, get_dictionary},
                                                                              {ARRAY, get_array},
@@ -452,7 +452,7 @@ map<string, string> get_dictionary_data(const string &buffer, size_t offset)
 
     offset = efind(buffer, "<<", offset);
     offset += LEN("<<");
-    map<string, string> result;
+    map<string, pair<string, pdf_object_t>> result;
     while (true)
     {
         while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
@@ -462,8 +462,9 @@ map<string, string> get_dictionary_data(const string &buffer, size_t offset)
         size_t end_offset = efind_first(buffer, "\r\t\n ", offset);
         const string key = buffer.substr(offset, end_offset - offset);
         offset = end_offset;
-        const string val = type2func.at(get_object_type(buffer, offset))(buffer, offset);
-        result.insert(make_pair(key, val));
+        pdf_object_t type = get_object_type(buffer, offset);
+        const string val = type2func.at(type)(buffer, offset);
+        result.insert(make_pair(key, make_pair(val, type)));
     }
 }
 
@@ -515,8 +516,8 @@ vector<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset
 
 string output_content(const string &buffer, size_t offset)
 {
-    const map<string, string> props = get_dictionary_data(buffer, offset);
-    for (const pair<string, string> &p : props) cout << "key=" << p.first << " value=" << p.second << endl;
+    const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(buffer, offset);
+    for (const pair<string, pair<string, pdf_object_t>> &p : props) cout << "key=" << p.first << " value=" << p.second.first << " type="<< p.second.second << endl;
 
     return string();
 }

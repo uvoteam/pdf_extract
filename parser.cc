@@ -514,11 +514,38 @@ vector<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset
     return result;
 }
 
-string output_content(const string &buffer, size_t offset)
+size_t get_content_len(const string &buffer,
+                       const map<size_t, size_t> &id2offset,
+                       const map<string, pair<string, pdf_object_t>> &props)
+{
+    const pair<string, pdf_object_t> &r = props.at("/Length");
+    if (r.second == VALUE)
+    {
+        return strict_stoul(r.first);
+    }
+    else if (r.second == INDIRECT_OBJECT)
+    {
+        size_t end_offset = efind(r.first, ' ', 0);
+        size_t id = strict_stoul(r.first.substr(0, end_offset));
+        size_t start_offset = efind(buffer, "obj", id2offset.at(id));
+        start_offset += LEN("obj");
+        while (is_blank(buffer.at(start_offset))) ++start_offset;
+        end_offset = efind_first(buffer, "\r\n\t ", start_offset);
+
+        return strict_stoul(buffer.substr(start_offset, end_offset - start_offset));
+    }
+    else
+    {
+        throw runtime_error(FUNC_STRING + " wrong type for /Length");
+    }
+}
+
+string output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset)
 {
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(buffer, offset);
-    for (const pair<string, pair<string, pdf_object_t>> &p : props) cout << "key=" << p.first << " value=" << p.second.first << " type="<< p.second.second << endl;
-
+    size_t len = get_content_len(buffer, id2offset, props);
+    cout << len << endl;
+    
     return string();
 }
 
@@ -529,7 +556,7 @@ string pdf2txt(const string &buffer)
     map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset);
     vector<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);
     string result;
-    for (size_t offset : content_offsets) result += output_content(buffer, offset);
+    for (size_t offset : content_offsets) result += output_content(buffer, id2offset, offset);
 
     return result;
 }

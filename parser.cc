@@ -1,4 +1,3 @@
-#include <stdexcept>
 #include <string>
 #include <cstring>
 #include <tuple>
@@ -12,6 +11,9 @@
 //for test
 #include <fstream>
 #include <iostream>
+
+
+#include "pdf_extractor.h"
 
 using namespace std;
 
@@ -29,50 +31,50 @@ enum pdf_object_t {DICTIONARY, ARRAY, STRING, VALUE, INDIRECT_OBJECT, NAME_OBJEC
 size_t efind_first(const string &src, const string& str, size_t pos)
 {
     size_t ret = src.find_first_of(str, pos);
-    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + str + " in pos " + to_string(pos) + " failed");
+    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + str + " in pos " + to_string(pos) + " failed");
     return ret;
 }
 
 size_t efind_first(const string &src, const char* s, size_t pos)
 {
     size_t ret = src.find_first_of(s, pos);
-    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
+    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
     return ret;
 }
 
 size_t efind_first(const string &src, const char* s, size_t pos, size_t n)
 {
     size_t ret = src.find_first_of(s, pos, n);
-    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
+    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
     return ret;
 }
 
 size_t efind(const string &src, const string& str, size_t pos)
 {
     size_t ret = src.find(str, pos);
-    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + str + " in pos " + to_string(pos) + " failed");
+    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + str + " in pos " + to_string(pos) + " failed");
     return ret;
 }
 
 size_t efind(const string &src, const char* s, size_t pos)
 {
     size_t ret = src.find(s, pos);
-    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
+    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
     return ret;
 }
 
 size_t efind(const string &src, char c, size_t pos)
 {
     size_t ret = src.find(c, pos);
-    if (ret == string::npos) throw runtime_error(FUNC_STRING + "for " + c + " in pos " + to_string(pos) + " failed");
+    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + c + " in pos " + to_string(pos) + " failed");
     return ret;
 }
 
 size_t strict_stoul(const string &str)
 {
-    if (str.empty()) throw runtime_error(FUNC_STRING + "string is empty");
+    if (str.empty()) throw pdf_error(FUNC_STRING + "string is empty");
     size_t pos;
-    if (str.find('-') != string::npos) throw runtime_error(FUNC_STRING + str + " is not unsigned number");
+    if (str.find('-') != string::npos) throw pdf_error(FUNC_STRING + str + " is not unsigned number");
     size_t val;
     try
     {
@@ -80,10 +82,10 @@ size_t strict_stoul(const string &str)
     }
     catch (const std::exception &e)
     {
-        throw runtime_error(FUNC_STRING + str + " is not unsigned number");
+        throw pdf_error(FUNC_STRING + str + " is not unsigned number");
     }
 
-    if (pos != str.size()) throw runtime_error(FUNC_STRING + str + " is not unsigned number");
+    if (pos != str.size()) throw pdf_error(FUNC_STRING + str + " is not unsigned number");
 
     return val;
 }
@@ -96,7 +98,7 @@ bool prefix(const char *pre, const char *str)
 size_t get_cross_ref_offset_start(const string &buffer, size_t end)
 {
     size_t start = buffer.find_last_of("\r\n", end);
-    if (start == string::npos) throw runtime_error(FUNC_STRING + "can`t find start offset");
+    if (start == string::npos) throw pdf_error(FUNC_STRING + "can`t find start offset");
     ++start;
     
     return start;
@@ -107,7 +109,7 @@ string get_string(const string &buffer, size_t offset, const char *name, size_t 
     if (end == string::npos) end = buffer.length();
     size_t start_offset = efind(buffer, name, offset);
     start_offset += strlen(name);
-    if (start_offset >= buffer.length()) throw runtime_error(FUNC_STRING + "No data for " + name + " object");
+    if (start_offset >= buffer.length()) throw pdf_error(FUNC_STRING + "No data for " + name + " object");
     size_t end_offset = efind_first(buffer, "  \r\n", start_offset);
     if (end_offset >= end) return string();
     return buffer.substr(start_offset, end_offset - start_offset);
@@ -117,7 +119,7 @@ size_t get_number(const string &buffer, size_t offset, const char *name, size_t 
 {
     if (end == string::npos) end = buffer.length();
     const string str = get_string(buffer, offset, name, end);
-    if (str.empty()) throw runtime_error(FUNC_STRING + "no number for " + name +
+    if (str.empty()) throw pdf_error(FUNC_STRING + "no number for " + name +
                                          " offset " + to_string(offset) + " end " + to_string(end)); 
     return strict_stoul(str);
 }
@@ -128,7 +130,7 @@ size_t get_cross_ref_offset_end(const string &buffer)
     if (buffer[end] == '\n') --end;
     if (buffer[end] == '\r') --end;
     end -= LEN("%%EOF");
-    if (!prefix("%%EOF", buffer.data() + end + 1)) throw runtime_error(FUNC_STRING + "can`t find %%EOF");
+    if (!prefix("%%EOF", buffer.data() + end + 1)) throw pdf_error(FUNC_STRING + "can`t find %%EOF");
     if (buffer[end] == '\n') --end;
     if (buffer[end] == '\r') --end;
 
@@ -143,7 +145,7 @@ size_t get_cross_ref_offset(const string &buffer)
     size_t r = strict_stoul(buffer.substr(offset_start, offset_end - offset_start + 1));
     if (r >= buffer.size())
     {
-        throw runtime_error(FUNC_STRING + to_string(r) + " is larger than buffer size " + to_string(buffer.size()));
+        throw pdf_error(FUNC_STRING + to_string(r) + " is larger than buffer size " + to_string(buffer.size()));
     }
 
     return r;
@@ -151,22 +153,22 @@ size_t get_cross_ref_offset(const string &buffer)
 
 void append_object(const string &buf, size_t offset, vector<size_t> &objects)
 {
-    if (offset + BYTE_OFFSET_LEN >= buf.length()) throw runtime_error(FUNC_STRING + "object info record is too small");
-    if (buf[offset + BYTE_OFFSET_LEN] != ' ') throw runtime_error(FUNC_STRING + "no space for object info");
+    if (offset + BYTE_OFFSET_LEN >= buf.length()) throw pdf_error(FUNC_STRING + "object info record is too small");
+    if (buf[offset + BYTE_OFFSET_LEN] != ' ') throw pdf_error(FUNC_STRING + "no space for object info");
     objects.push_back(strict_stoul(buf.substr(offset, BYTE_OFFSET_LEN)));
 }
 
 char get_object_status(const string &buffer, size_t offset)
 {
     size_t start_offset = offset + BYTE_OFFSET_LEN + GENERATION_NUMBER_LEN + 1;
-    if (start_offset + 2 >= buffer.length()) throw runtime_error(FUNC_STRING + "object info record is too small");
-    if (buffer[start_offset] != ' ') throw runtime_error(FUNC_STRING + "no space for object info record");
+    if (start_offset + 2 >= buffer.length()) throw pdf_error(FUNC_STRING + "object info record is too small");
+    if (buffer[start_offset] != ' ') throw pdf_error(FUNC_STRING + "no space for object info record");
     if (strchr("\r\n ", buffer[start_offset + 2]) == NULL)
     {
-        throw runtime_error(FUNC_STRING + "no newline for object info record");
+        throw pdf_error(FUNC_STRING + "no newline for object info record");
     }
     char ret = buffer[start_offset + 1];
-    if (ret != 'n' && ret != 'f') throw runtime_error(FUNC_STRING + "info object record status entry must be 'n' or 'f'");
+    if (ret != 'n' && ret != 'f') throw pdf_error(FUNC_STRING + "info object record status entry must be 'n' or 'f'");
 
     return ret;
 }
@@ -175,7 +177,7 @@ size_t get_start_offset(const string &buffer, size_t offset)
 {
     offset = efind(buffer, ' ', offset);
     ++offset;
-    if (offset >= buffer.size()) throw runtime_error(FUNC_STRING + "no data for elements size");
+    if (offset >= buffer.size()) throw pdf_error(FUNC_STRING + "no data for elements size");
     return offset;
 }
 
@@ -190,7 +192,7 @@ tuple<size_t, size_t, bool> get_object_info_data(const string &buffer, size_t of
     if (buffer.at(objects_offset) == '\n') ++objects_offset;
 
     size_t elements_num = strict_stoul(buffer.substr(offset, end_offset - offset));
-    if (elements_num == 0) throw runtime_error(FUNC_STRING + "number of elements in cross ref table can`t be zero.");
+    if (elements_num == 0) throw pdf_error(FUNC_STRING + "number of elements in cross ref table can`t be zero.");
     
     return make_tuple(elements_num, objects_offset, true);
 }
@@ -217,11 +219,11 @@ void get_object_offsets(const string &buffer, size_t cross_ref_offset, vector<si
     size_t elements_num, objects_offset;
     bool is_success;
     tie (elements_num, objects_offset, is_success) = get_object_info_data(buffer, offset);
-    if (!is_success) throw runtime_error(FUNC_STRING + "no size data for cross reference table");
+    if (!is_success) throw pdf_error(FUNC_STRING + "no size data for cross reference table");
     while (is_success)
     {
         size_t end_objects_offset = objects_offset + elements_num * CROSS_REFERENCE_LINE_SIZE;
-        if (end_objects_offset >= buffer.size()) throw runtime_error(FUNC_STRING + "pdf buffer has no data for objects");
+        if (end_objects_offset >= buffer.size()) throw pdf_error(FUNC_STRING + "pdf buffer has no data for objects");
         while (objects_offset < end_objects_offset)
         {
             if (get_object_status(buffer, objects_offset) == 'n') append_object(buffer, objects_offset, result);
@@ -235,7 +237,7 @@ void validate_offsets(const string &buffer, const vector<size_t> &offsets)
 {
     for (size_t offset : offsets)
     {
-        if (offset >= buffer.size()) throw runtime_error(FUNC_STRING + "offset is greater than pdf buffer");
+        if (offset >= buffer.size()) throw pdf_error(FUNC_STRING + "offset is greater than pdf buffer");
     }
 }
 
@@ -280,7 +282,7 @@ void append_set(const string &buffer, size_t start_offset, const map<size_t, siz
         size_t end_offset = buffer.find_first_of("  \r\n", start_offset);
         if (end_offset == string::npos || end_offset >= array_end_offset)
         {
-            throw runtime_error(FUNC_STRING + "Can`t find end delimiter for number");
+            throw pdf_error(FUNC_STRING + "Can`t find end delimiter for number");
         }
         result.push_back(id2offset.at(strict_stoul(buffer.substr(start_offset, end_offset - start_offset))));
         start_offset = efind(buffer, 'R', end_offset);
@@ -315,7 +317,7 @@ bool is_blank(char c)
 pdf_object_t get_object_type(const string &buffer, size_t &offset)
 {
     while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
-    if (offset >= buffer.length()) throw runtime_error(FUNC_STRING + "no value for offset " + to_string(offset));
+    if (offset >= buffer.length()) throw pdf_error(FUNC_STRING + "no value for offset " + to_string(offset));
     const string str = buffer.substr(offset, 2);
     if (str == "<<") return DICTIONARY;
     if (str[0] == '[') return ARRAY;
@@ -330,7 +332,7 @@ size_t find_value_end_delimiter(const string &buffer, size_t offset)
     size_t result = buffer.find_first_of("\r\t\n ", offset);
     size_t dict_end_offset = buffer.find(">>", offset);
     if (result == string::npos || dict_end_offset < result) result = dict_end_offset;
-    if (result == string::npos) throw runtime_error(FUNC_STRING + " can`t find end delimiter for value");
+    if (result == string::npos) throw pdf_error(FUNC_STRING + " can`t find end delimiter for value");
     return result;
 }
 
@@ -344,7 +346,7 @@ string get_value(const string &buffer, size_t &offset)
 
 string get_array(const string &buffer, size_t &offset)
 {
-    if (buffer[offset] != '[') throw runtime_error(FUNC_STRING + "offset should point to '['");
+    if (buffer[offset] != '[') throw pdf_error(FUNC_STRING + "offset should point to '['");
     string result = "[";
     ++offset;
     stack<pdf_object_t> prevs;
@@ -367,7 +369,7 @@ string get_array(const string &buffer, size_t &offset)
         }
         ++offset;
     }
-    throw runtime_error(FUNC_STRING + " no array in " + to_string(offset));
+    throw pdf_error(FUNC_STRING + " no array in " + to_string(offset));
 }
 
 string get_name_object(const string &buffer, size_t &offset)
@@ -389,7 +391,7 @@ string get_indirect_object(const string &buffer, size_t &offset)
 string get_string(const string &buffer, size_t &offset)
 {
     char delimiter = buffer.at(offset);
-    if (delimiter != '(' && delimiter != '<') throw runtime_error(FUNC_STRING + "string must start with '(' or '<'");
+    if (delimiter != '(' && delimiter != '<') throw pdf_error(FUNC_STRING + "string must start with '(' or '<'");
     char end_delimiter = delimiter == '('? ')' : '>';
     stack<pdf_object_t> prevs;
     string result(1, delimiter);
@@ -416,7 +418,7 @@ string get_string(const string &buffer, size_t &offset)
 
 string get_dictionary(const string &buffer, size_t &offset)
 {
-    if (buffer.substr(offset, 2) != "<<") throw runtime_error(FUNC_STRING + "dictionary must start with '<<'");
+    if (buffer.substr(offset, 2) != "<<") throw pdf_error(FUNC_STRING + "dictionary must start with '<<'");
     stack<pdf_object_t> prevs;
     size_t end_offset = offset;
     while (end_offset < buffer.length())
@@ -438,7 +440,7 @@ string get_dictionary(const string &buffer, size_t &offset)
         }
         ++end_offset;
     }
-    if (end_offset >= buffer.length()) throw runtime_error(FUNC_STRING + "can`t find dictionary end delimiter");
+    if (end_offset >= buffer.length()) throw pdf_error(FUNC_STRING + "can`t find dictionary end delimiter");
 }
 
 map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer, size_t offset)
@@ -456,9 +458,9 @@ map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer
     while (true)
     {
         while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
-        if (offset >= buffer.length()) throw runtime_error(FUNC_STRING + "can`t find dictionary end delimiter");
+        if (offset >= buffer.length()) throw pdf_error(FUNC_STRING + "can`t find dictionary end delimiter");
         if (buffer.at(offset) == '>' && buffer.at(offset + 1) == '>') return result;
-        if (buffer.at(offset) != '/') throw runtime_error(FUNC_STRING + "malformed dictionary");
+        if (buffer.at(offset) != '/') throw pdf_error(FUNC_STRING + "malformed dictionary");
         size_t end_offset = efind_first(buffer, "\r\t\n ", offset);
         const string key = buffer.substr(offset, end_offset - offset);
         offset = end_offset;
@@ -473,7 +475,7 @@ vector<size_t> get_pages_offsets(const string &buffer, size_t offset, const map<
     size_t end_offset = efind(buffer, "endobj", offset);
     if (get_string(buffer, offset, "/Type ", end_offset) != "/Pages")
     {
-        throw runtime_error("Root catalog type must be 'Pages'");
+        throw pdf_error("Root catalog type must be 'Pages'");
     }
     vector<size_t> result;
     get_pages_offsets_int(buffer, offset, id2offset, result);
@@ -536,7 +538,7 @@ size_t get_content_len(const string &buffer,
     }
     else
     {
-        throw runtime_error(FUNC_STRING + " wrong type for /Length");
+        throw pdf_error(FUNC_STRING + " wrong type for /Length");
     }
 }
 
@@ -551,7 +553,7 @@ string output_content(const string &buffer, const map<size_t, size_t> &id2offset
 
 string pdf2txt(const string &buffer)
 {
-    if (buffer.size() < SMALLEST_PDF_SIZE) throw runtime_error(FUNC_STRING + "pdf buffer is too small");
+    if (buffer.size() < SMALLEST_PDF_SIZE) throw pdf_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset);
     vector<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);

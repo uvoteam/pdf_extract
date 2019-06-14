@@ -542,17 +542,34 @@ size_t get_content_len(const string &buffer,
     }
 }
 
-string output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset)
+string get_content(const string &buffer,
+                   const map<size_t, size_t> &id2offset,
+                   size_t offset,
+                   const map<string, pair<string, pdf_object_t>> &props)
 {
-    const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(buffer, offset);
     size_t len = get_content_len(buffer, id2offset, props);
     offset = efind(buffer, "stream", offset);
     offset += LEN("stream");
     if (buffer[offset] == '\r') ++offset;
     if (buffer[offset] == '\n') ++offset;
-    cout << offset << ' ' << len << endl;
+
+    return buffer.substr(offset, len);
+}
+
+string output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset)
+{
+//    static const map<string, string(&)(const string&)> type2func = {{"/FlateDecode", flate_decode}};
+    const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(buffer, offset);
+
+    string content = get_content(buffer, id2offset, offset, props);
+/*    if (props.count("/Filter") == 1)
+    {
+        vector<string> filters = get_filters(props);
+        content = decode(content, filters);
+        }*/
     
-    return string();
+    
+    return content;
 }
 
 string pdf2txt(const string &buffer)
@@ -572,7 +589,7 @@ int main(int argc, char *argv[])
     std::ifstream t(argv[1]);
     std::string str((std::istreambuf_iterator<char>(t)),
                     std::istreambuf_iterator<char>());
-    pdf2txt(str);
+    cout << pdf2txt(str) << endl;
     
     return 0;
 }

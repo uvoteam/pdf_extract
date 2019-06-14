@@ -445,12 +445,12 @@ string get_dictionary(const string &buffer, size_t &offset)
 
 map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer, size_t offset)
 {
-    const map<pdf_object_t, string (&)(const string&, size_t&)> type2func = {{DICTIONARY, get_dictionary},
-                                                                             {ARRAY, get_array},
-                                                                             {STRING, get_string},
-                                                                             {VALUE, get_value},
-                                                                             {INDIRECT_OBJECT, get_indirect_object},
-                                                                             {NAME_OBJECT, get_name_object}};
+    static const map<pdf_object_t, string (&)(const string&, size_t&)> type2func = {{DICTIONARY, get_dictionary},
+                                                                                    {ARRAY, get_array},
+                                                                                    {STRING, get_string},
+                                                                                    {VALUE, get_value},
+                                                                                    {INDIRECT_OBJECT, get_indirect_object},
+                                                                                    {NAME_OBJECT, get_name_object}};
 
     offset = efind(buffer, "<<", offset);
     offset += LEN("<<");

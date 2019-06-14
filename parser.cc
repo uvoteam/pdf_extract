@@ -546,7 +546,11 @@ string output_content(const string &buffer, const map<size_t, size_t> &id2offset
 {
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(buffer, offset);
     size_t len = get_content_len(buffer, id2offset, props);
-    cout << len << endl;
+    offset = efind(buffer, "stream", offset);
+    offset += LEN("stream");
+    if (buffer[offset] == '\r') ++offset;
+    if (buffer[offset] == '\n') ++offset;
+    cout << offset << ' ' << len << endl;
     
     return string();
 }

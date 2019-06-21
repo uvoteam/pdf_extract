@@ -122,7 +122,6 @@ string get_string(const string &buffer, size_t offset, const char *name, size_t 
     size_t start_offset = efind(buffer, name, offset);
     start_offset += strlen(name);
     start_offset = skip_spaces(buffer, start_offset);
-    if (start_offset >= buffer.length()) throw pdf_error(FUNC_STRING + "No data for " + name + " object");
     size_t end_offset = efind_first(buffer, "  \r\n", start_offset);
     if (end_offset >= end) return string();
     return buffer.substr(start_offset, end_offset - start_offset);
@@ -311,8 +310,7 @@ void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, s
 
 pdf_object_t get_object_type(const string &buffer, size_t &offset)
 {
-    while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
-    if (offset >= buffer.length()) throw pdf_error(FUNC_STRING + "no value for offset " + to_string(offset));
+    offset = skip_spaces(buffer, offset);
     const string str = buffer.substr(offset, 2);
     if (str == "<<") return DICTIONARY;
     if (str[0] == '[') return ARRAY;
@@ -452,8 +450,7 @@ map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer
     map<string, pair<string, pdf_object_t>> result;
     while (true)
     {
-        while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
-        if (offset >= buffer.length()) throw pdf_error(FUNC_STRING + "can`t find dictionary end delimiter");
+        offset = skip_spaces(buffer, offset);
         if (buffer.at(offset) == '>' && buffer.at(offset + 1) == '>') return result;
         if (buffer.at(offset) != '/') throw pdf_error(FUNC_STRING + "malformed dictionary");
         size_t end_offset = efind_first(buffer, "\r\t\n ", offset);
@@ -488,7 +485,7 @@ void append_content_offsets(const string &buffer,
     // "/Contents" key can be absent for Page. In this case Page is empty
     if (start_offset == string::npos || start_offset >= end_offset) return;
     start_offset += LEN("/Contents");
-    while (strchr("\r\n ", buffer[start_offset]) != NULL) ++start_offset;
+    start_offset = skip_spaces(buffer, start_offset);
     if (buffer[start_offset] == '[')
     {
         append_set(buffer, start_offset, id2offset, content_offsets);
@@ -526,7 +523,7 @@ size_t get_content_len(const string &buffer,
         size_t id = strict_stoul(r.first.substr(0, end_offset));
         size_t start_offset = efind(buffer, "obj", id2offset.at(id));
         start_offset += LEN("obj");
-        while (is_blank(buffer.at(start_offset))) ++start_offset;
+        start_offset = skip_spaces(buffer, start_offset);
         end_offset = efind_first(buffer, "\r\n\t ", start_offset);
 
         return strict_stoul(buffer.substr(start_offset, end_offset - start_offset));
@@ -559,11 +556,11 @@ vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
     vector<string> result;
     const string &body = filters.first;
     if (body.at(0) != '[') throw pdf_error(FUNC_STRING + "filter body array must start with '['. Input: " + body);
+    cout << "BODY=" << body << endl;
     size_t offset = 1;
     while (true)
     {
-        while (offset < body.length() && is_blank(body[offset])) ++offset;
-        if (offset >= body.length()) throw pdf_error(FUNC_STRING + "no end delimiter in pdf filter array: " + body);
+        offset = skip_spaces(body, offset);
         if (body[offset] == ']') return result;
         size_t end_offset = efind_first(body, "\r\n\t ]", offset);
         result.push_back(body.substr(offset, end_offset));

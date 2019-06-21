@@ -556,14 +556,13 @@ vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
     vector<string> result;
     const string &body = filters.first;
     if (body.at(0) != '[') throw pdf_error(FUNC_STRING + "filter body array must start with '['. Input: " + body);
-    cout << "BODY=" << body << endl;
     size_t offset = 1;
     while (true)
     {
         offset = skip_spaces(body, offset);
         if (body[offset] == ']') return result;
         size_t end_offset = efind_first(body, "\r\n\t ]", offset);
-        result.push_back(body.substr(offset, end_offset));
+        result.push_back(body.substr(offset, end_offset - offset));
         offset = end_offset;
     }
 }

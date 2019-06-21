@@ -1,6 +1,5 @@
 #include <string>
 #include <cstring>
-#include <tuple>
 #include <map>
 #include <utility>
 #include <vector>
@@ -104,11 +103,25 @@ size_t get_cross_ref_offset_start(const string &buffer, size_t end)
     return start;
 }
 
+bool is_blank(char c)
+{
+    if (c == '\r' || c == '\n' || c == ' ' || c == '\t') return true;
+    return false;
+}
+
+size_t skip_spaces(const string &buffer, size_t offset)
+{
+    while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
+    if (offset >= buffer.length()) throw pdf_error(FUNC_STRING + "no data after space");
+    return offset;
+}
+
 string get_string(const string &buffer, size_t offset, const char *name, size_t end = string::npos)
 {
     if (end == string::npos) end = buffer.length();
     size_t start_offset = efind(buffer, name, offset);
     start_offset += strlen(name);
+    start_offset = skip_spaces(buffer, start_offset);
     if (start_offset >= buffer.length()) throw pdf_error(FUNC_STRING + "No data for " + name + " object");
     size_t end_offset = efind_first(buffer, "  \r\n", start_offset);
     if (end_offset >= end) return string();
@@ -181,20 +194,16 @@ size_t get_start_offset(const string &buffer, size_t offset)
     return offset;
 }
 
-tuple<size_t, size_t, bool> get_object_info_data(const string &buffer, size_t offset)
+size_t get_xref_number(const string &buffer, size_t &offset)
 {
-    if (prefix("trailer", buffer.data() + offset)) return make_tuple(0, 0, false);
-    offset = get_start_offset(buffer, offset);
-    size_t end_offset = efind_first(buffer, "\r\n ", offset);
-    size_t objects_offset = end_offset;
-    if (buffer.at(objects_offset) == ' ') ++objects_offset;
-    if (buffer.at(objects_offset) == '\r') ++objects_offset;
-    if (buffer.at(objects_offset) == '\n') ++objects_offset;
+    offset = skip_spaces(buffer, offset);
+    offset = efind_first(buffer, "\r\t\n ", offset);
+    offset = skip_spaces(buffer, offset);
+    size_t end_offset = efind_first(buffer, "\r\t\n ", offset);
+    size_t result = strict_stoul(buffer.substr(offset, end_offset - offset));
+    offset = skip_spaces(buffer, end_offset);
 
-    size_t elements_num = strict_stoul(buffer.substr(offset, end_offset - offset));
-    if (elements_num == 0) throw pdf_error(FUNC_STRING + "number of elements in cross ref table can`t be zero.");
-    
-    return make_tuple(elements_num, objects_offset, true);
+    return result;
 }
 
 vector<size_t> get_trailer_offsets(const string &buffer, size_t cross_ref_offset)
@@ -212,24 +221,16 @@ vector<size_t> get_trailer_offsets(const string &buffer, size_t cross_ref_offset
     return trailer_offsets;
 }
 
-void get_object_offsets(const string &buffer, size_t cross_ref_offset, vector<size_t> &result)
+void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &result)
 {
-    size_t offset = efind(buffer, "xref", cross_ref_offset);
+    offset = efind(buffer, "xref", offset);
     offset += LEN("xref");
-    size_t elements_num, objects_offset;
-    bool is_success;
-    tie (elements_num, objects_offset, is_success) = get_object_info_data(buffer, offset);
-    if (!is_success) throw pdf_error(FUNC_STRING + "no size data for cross reference table");
-    while (is_success)
+    size_t n = get_xref_number(buffer, offset);
+    size_t end_offset = offset + n * CROSS_REFERENCE_LINE_SIZE;
+    if (end_offset >= buffer.length()) throw pdf_error(FUNC_STRING + "pdf buffer has no data for indirect objects info");
+    for ( ; offset < end_offset; offset += CROSS_REFERENCE_LINE_SIZE)
     {
-        size_t end_objects_offset = objects_offset + elements_num * CROSS_REFERENCE_LINE_SIZE;
-        if (end_objects_offset >= buffer.size()) throw pdf_error(FUNC_STRING + "pdf buffer has no data for objects");
-        while (objects_offset < end_objects_offset)
-        {
-            if (get_object_status(buffer, objects_offset) == 'n') append_object(buffer, objects_offset, result);
-            objects_offset += CROSS_REFERENCE_LINE_SIZE;
-        }
-        tie (elements_num, objects_offset, is_success) = get_object_info_data(buffer, objects_offset);
+        if (get_object_status(buffer, offset) == 'n') append_object(buffer, offset, result);
     }
 }
 
@@ -306,12 +307,6 @@ void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, s
             result.insert(result.end(), pages.begin(), pages.end());
         }
     }
-}
-
-bool is_blank(char c)
-{
-    if (c == '\r' || c == '\n' || c == ' ' || c == '\t') return true;
-    return false;
 }
 
 pdf_object_t get_object_type(const string &buffer, size_t &offset)
@@ -556,17 +551,40 @@ string get_content(const string &buffer,
     return buffer.substr(offset, len);
 }
 
+vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
+{
+    const pair<string, pdf_object_t> filters = props.at("/Filter");
+    if (filters.second == NAME_OBJECT) return vector<string>{filters.first};
+    if (filters.second != ARRAY) throw pdf_error(FUNC_STRING + "wrong filter type: " + to_string(filters.second));
+    vector<string> result;
+    const string &body = filters.first;
+    if (body.at(0) != '[') throw pdf_error(FUNC_STRING + "filter body array must start with '['. Input: " + body);
+    size_t offset = 1;
+    while (true)
+    {
+        while (offset < body.length() && is_blank(body[offset])) ++offset;
+        if (offset >= body.length()) throw pdf_error(FUNC_STRING + "no end delimiter in pdf filter array: " + body);
+        if (body[offset] == ']') return result;
+        size_t end_offset = efind_first(body, "\r\n\t ]", offset);
+        result.push_back(body.substr(offset, end_offset));
+        offset = end_offset;
+    }
+}
+
 string output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset)
 {
 //    static const map<string, string(&)(const string&)> type2func = {{"/FlateDecode", flate_decode}};
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(buffer, offset);
 
     string content = get_content(buffer, id2offset, offset, props);
-/*    if (props.count("/Filter") == 1)
+    if (props.count("/Filter") == 1)
     {
         vector<string> filters = get_filters(props);
-        content = decode(content, filters);
-        }*/
+        cout << "filters" << endl;
+        for (const string &name : filters) cout << name << ' ';
+        cout << endl;
+//        content = decode(content, filters);
+    }
     
     
     return content;
@@ -589,7 +607,7 @@ int main(int argc, char *argv[])
     std::ifstream t(argv[1]);
     std::string str((std::istreambuf_iterator<char>(t)),
                     std::istreambuf_iterator<char>());
-    cout << pdf2txt(str) << endl;
+    pdf2txt(str);
     
     return 0;
 }

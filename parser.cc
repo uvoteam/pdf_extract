@@ -13,11 +13,13 @@
 
 
 #include "pdf_extractor.h"
+#include "pdf_internal.h"
 
 using namespace std;
 
 #define LEN(S) (sizeof(S) - 1)
-#define FUNC_STRING (string(__func__) + ": ")
+
+extern string flate_decode(const string&);
 
 enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what-is-the-smallest-possible-valid-pdf*/,
       CROSS_REFERENCE_LINE_SIZE = 20,
@@ -504,7 +506,6 @@ vector<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset
     size_t catalog_pages_id = get_number(buffer, id2offset.at(root_id), "/Pages ");
     vector<size_t> page_offsets = get_pages_offsets(buffer, id2offset.at(catalog_pages_id), id2offset);
     for (size_t page_offset : page_offsets) append_content_offsets(buffer, page_offset, id2offset, result);
-
     return result;
 }
 
@@ -544,7 +545,6 @@ string get_content(const string &buffer,
     offset += LEN("stream");
     if (buffer[offset] == '\r') ++offset;
     if (buffer[offset] == '\n') ++offset;
-
     return buffer.substr(offset, len);
 }
 
@@ -567,19 +567,22 @@ vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
     }
 }
 
+void decode(string &content, const vector<string> &filters)
+{
+    static const map<string, string (&)(const string&)> filter2func = {{"/FlateDecode", flate_decode}};
+    for (const string& filter : filters) content = filter2func.at(filter)(content);
+    cout << content;
+}
+
 string output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset)
 {
-//    static const map<string, string(&)(const string&)> type2func = {{"/FlateDecode", flate_decode}};
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(buffer, offset);
 
     string content = get_content(buffer, id2offset, offset, props);
     if (props.count("/Filter") == 1)
     {
         vector<string> filters = get_filters(props);
-        cout << "filters" << endl;
-        for (const string &name : filters) cout << name << ' ';
-        cout << endl;
-//        content = decode(content, filters);
+        decode(content, filters);
     }
     
     

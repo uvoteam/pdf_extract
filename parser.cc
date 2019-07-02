@@ -20,6 +20,7 @@ using namespace std;
 #define LEN(S) (sizeof(S) - 1)
 
 extern string flate_decode(const string&);
+extern string lzw_decode(const string&);
 
 enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what-is-the-smallest-possible-valid-pdf*/,
       CROSS_REFERENCE_LINE_SIZE = 20,
@@ -569,7 +570,8 @@ vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
 
 void decode(string &content, const vector<string> &filters)
 {
-    static const map<string, string (&)(const string&)> filter2func = {{"/FlateDecode", flate_decode}};
+    static const map<string, string (&)(const string&)> filter2func = {{"/FlateDecode", flate_decode},
+                                                                       {"/LZWDecode", lzw_decode}};
     for (const string& filter : filters) content = filter2func.at(filter)(content);
     cout << content;
 }

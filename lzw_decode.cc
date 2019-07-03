@@ -39,9 +39,9 @@ namespace
 
 string lzw_decode(const string& buf)
 {
-    unsigned int  m_mask = 0;
-    unsigned int  m_code_len = 9;
-    unsigned char m_character = 0;
+    unsigned int  mask = 0;
+    unsigned int  code_len = 9;
+    unsigned char character = 0;
 
     lzw_table_t table = init_table();
     unsigned int       buffer_size = 0;
@@ -57,7 +57,8 @@ string lzw_decode(const string& buf)
     string result;
     size_t len = buf.length();
     const char *pBuffer = buf.data();
-    m_character = *pBuffer;
+    character = *pBuffer;
+
     while (len)
     {
         // Fill the buffer
@@ -71,15 +72,15 @@ string lzw_decode(const string& buf)
             len--;
         }
         // read from the buffer
-        while( buffer_size >= m_code_len )
+        while( buffer_size >= code_len )
         {
-            code         = (buffer >> (buffer_size - m_code_len)) & masks[m_mask];
-            buffer_size -= m_code_len;
+            code         = (buffer >> (buffer_size - code_len)) & masks[mask];
+            buffer_size -= code_len;
 
             if( code == clear )
             {
-                m_mask     = 0;
-                m_code_len = 9;
+                mask     = 0;
+                code_len = 9;
 
                 table = init_table();
             }
@@ -97,18 +98,18 @@ string lzw_decode(const string& buf)
                         throw pdf_error(FUNC_STRING + "value out of range");
                     }
                     data = table[old].value;
-                    data.push_back( m_character );
+                    data.push_back(character);
                 }
                 else
                     data = table[code].value;
                 result.append(reinterpret_cast<char*>(data.data()), data.size());
-                m_character = data[0];
+                character = data[0];
                 if( old < table.size() ) // fix the first loop
                     data = table[old].value;
-                data.push_back( m_character );
+                data.push_back(character);
 
                 item.value = data;
-                table.push_back( item );
+                table.push_back(item);
 
                 old = code;
 
@@ -117,8 +118,8 @@ string lzw_decode(const string& buf)
                 case 511:
                 case 1023:
                 case 2047:
-                    ++m_code_len;
-                    ++m_mask;
+                    ++code_len;
+                    ++mask;
                 default:
                     break;
                 }

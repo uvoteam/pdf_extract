@@ -21,19 +21,19 @@ namespace
 
     lzw_table_t init_table()
     {
-        lzw_table_t m_table;
-        m_table.reserve(LZW_TABLE_SIZE);
+        lzw_table_t table;
+        table.reserve(LZW_TABLE_SIZE);
         for(int i = 0; i <= 255; i++)
         {
             lzw_item_t item;
             item.value.push_back(static_cast<unsigned char>(i));
-            m_table.push_back(item);
+            table.push_back(item);
         }
         // Add dummy entry, which is never used by decoder
         lzw_item_t item;
-        m_table.push_back(item);
+        table.push_back(item);
 
-        return m_table;
+        return table;
     }
 }
 
@@ -43,7 +43,7 @@ string lzw_decode(const string& buf)
     unsigned int  m_code_len = 9;
     unsigned char m_character = 0;
 
-    lzw_table_t m_table = init_table();
+    lzw_table_t table = init_table();
     unsigned int       buffer_size = 0;
     const unsigned int buffer_max  = 24;
 
@@ -81,7 +81,7 @@ string lzw_decode(const string& buf)
                 m_mask     = 0;
                 m_code_len = 9;
 
-                m_table = init_table();
+                table = init_table();
             }
             else if( code == eod )
             {
@@ -90,29 +90,29 @@ string lzw_decode(const string& buf)
             }
             else
             {
-                if( code >= m_table.size() )
+                if( code >= table.size() )
                 {
-                    if (old >= m_table.size())
+                    if (old >= table.size())
                     {
                         throw pdf_error(FUNC_STRING + "value out of range");
                     }
-                    data = m_table[old].value;
+                    data = table[old].value;
                     data.push_back( m_character );
                 }
                 else
-                    data = m_table[code].value;
+                    data = table[code].value;
                 result.append(reinterpret_cast<char*>(data.data()), data.size());
                 m_character = data[0];
-                if( old < m_table.size() ) // fix the first loop
-                    data = m_table[old].value;
+                if( old < table.size() ) // fix the first loop
+                    data = table[old].value;
                 data.push_back( m_character );
 
                 item.value = data;
-                m_table.push_back( item );
+                table.push_back( item );
 
                 old = code;
 
-                switch( m_table.size() )
+                switch(table.size())
                 {
                 case 511:
                 case 1023:

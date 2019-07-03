@@ -7,29 +7,29 @@
 
 using namespace std;
 
-struct TLzwItem {
+struct lzw_item_t {
     vector<unsigned char> value;
 };
 
-typedef vector<TLzwItem>     TLzwTable;
+typedef vector<lzw_item_t>     lzw_table_t;
 enum { LZW_TABLE_SIZE = 4096 };
 const unsigned short s_masks[4] = { 0x01FF, 0x03FF, 0x07FF, 0x0FFF };
 const unsigned short s_clear = 0x0100;
 const unsigned short s_eod = 0x0101;
 
 
-TLzwTable init_table()
+lzw_table_t init_table()
 {
-    TLzwTable m_table;
+    lzw_table_t m_table;
     m_table.reserve(LZW_TABLE_SIZE);
     for(int i = 0; i <= 255; i++)
     {
-        TLzwItem item;
+        lzw_item_t item;
         item.value.push_back(static_cast<unsigned char>(i));
         m_table.push_back(item);
     }
     // Add dummy entry, which is never used by decoder
-    TLzwItem item;
+    lzw_item_t item;
     m_table.push_back(item);
 
     return m_table;
@@ -41,7 +41,7 @@ string lzw_decode(const string& buf)
     unsigned int  m_code_len = 9;
     unsigned char m_character = 0;
 
-    TLzwTable m_table = init_table();
+    lzw_table_t m_table = init_table();
     unsigned int       buffer_size = 0;
     const unsigned int buffer_max  = 24;
 
@@ -49,7 +49,7 @@ string lzw_decode(const string& buf)
     uint32_t         code        = 0;
     uint32_t         buffer      = 0;
 
-    TLzwItem           item;
+    lzw_item_t           item;
 
     vector<unsigned char> data;
     string result;

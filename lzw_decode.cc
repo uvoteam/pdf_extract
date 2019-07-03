@@ -2,7 +2,8 @@
 #include <vector>
 #include <cstdint>
 
-#include <stdexcept>//temp
+#include "pdf_internal.h"
+#include "pdf_extractor.h"
 
 using namespace std;
 
@@ -91,7 +92,7 @@ string lzw_decode(const string& buf)
                 {
                     if (old >= m_table.size())
                     {
-                        throw runtime_error("value out of range");
+                        throw pdf_error(FUNC_STRING + "value out of range");
                     }
                     data = m_table[old].value;
                     data.push_back( m_character );

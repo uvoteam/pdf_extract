@@ -72,26 +72,26 @@ string lzw_decode(const string& buf)
             len--;
         }
         // read from the buffer
-        while( buffer_size >= code_len )
+        while (buffer_size >= code_len)
         {
             code         = (buffer >> (buffer_size - code_len)) & masks[mask];
             buffer_size -= code_len;
 
-            if( code == clear )
+            if (code == clear)
             {
                 mask     = 0;
                 code_len = 9;
 
                 table = init_table();
             }
-            else if( code == eod )
+            else if (code == eod)
             {
                 len = 0;
                 break;
             }
             else
             {
-                if( code >= table.size() )
+                if (code >= table.size())
                 {
                     if (old >= table.size())
                     {

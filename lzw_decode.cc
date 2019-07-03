@@ -1,151 +1,128 @@
 #include <string>
 #include <vector>
-#include <cstdlib>
+#include <cstdint>
 
-
+#include <stdexcept>//temp
+#include <iostream> //temp
 using namespace std;
 
-struct DecompressData
-{
-    wstring str;
-    int val, pos, indx;
-    DecompressData(): str(L""), val(0), pos(0), indx(0)
-    {
-    }
-    DecompressData(wstring &s_, int v_, int p_, int i_): str(s_), val(v_), pos(p_), indx(i_)
-    {
-    }
+struct TLzwItem {
+    vector<unsigned char> value;
 };
 
-int read_bit(DecompressData &data)
+typedef vector<TLzwItem>     TLzwTable;
+enum { LZW_TABLE_SIZE = 4096 };
+const unsigned short s_masks[4] = { 0x01FF, 0x03FF, 0x07FF, 0x0FFF };
+const unsigned short s_clear = 0x0100;
+const unsigned short s_eod = 0x0101;
+
+
+TLzwTable init_table()
 {
-    int rst = data.val & data.pos;
-    if ((data.pos >>= 1) == 0)
+    TLzwTable m_table;
+    m_table.reserve(LZW_TABLE_SIZE);
+    for(int i = 0; i <= 255; i++)
     {
-        data.pos = 32768;
-        if (data.indx < static_cast<int>(data.str.length())) data.val = data.str[data.indx++];
+        TLzwItem item;
+        item.value.push_back(static_cast<unsigned char>(i));
+        m_table.push_back(item);
     }
-    return rst > 0 ? 1:0;
+    // Add dummy entry, which is never used by decoder
+    TLzwItem item;
+    m_table.push_back(item);
+
+    return m_table;
 }
 
-long ipow(double x, int n)
+string lzw_decode(const string& buf)
 {
-    if (!n) return 1;
-    if (n < 0)
+    unsigned int  m_mask = 0;
+    unsigned int  m_code_len = 9;
+    unsigned char m_character = 0;
+
+    TLzwTable m_table = init_table();
+    unsigned int       buffer_size = 0;
+    const unsigned int buffer_max  = 24;
+
+    uint32_t         old         = 0;
+    uint32_t         code        = 0;
+    uint32_t         buffer      = 0;
+
+    TLzwItem           item;
+
+    vector<unsigned char> data;
+    string result;
+    size_t lLen = buf.length();
+    const char *pBuffer = buf.data();
+    m_character = *pBuffer;
+    while( lLen )
     {
-        n = -n;
-        x = 1.0/x;
-    }
-    long r = ipow(x, n/2);
-
-    return (long)(n & 1 ? r*r*x : r*r);
-}
-
-int read_bits(int numbits, DecompressData &data)
-{
-    int rst = 0, maxp = ipow(2, numbits), p = 1;
-    while (p != maxp) {
-        rst |= read_bit(data)*p; p <<= 1;
-    }
-    return rst;
-}
-
-wstring tostr(int val)
-{
-    wstring str;
-    str = wchar_t(val);
-
-    return str;
-}
-
-wstring Decompress(wstring &compressed)
-{
-    if (compressed.empty()) return L"";
-
-    DecompressData data(compressed, compressed[0], 32768, 1);
-    vector<wstring> dictionary; dictionary.reserve(compressed.size());
-    wstring entry, w, sc, rst;
-    int next = 0, enlarge_in = 4, numbits = 3, c = 0, err_cnt = 0;
-    for (int i = 0; i < 3; ++i) dictionary.push_back(tostr(i));
-    next = read_bits(2, data);
-    switch(next) {
-    case 0: sc = wchar_t(read_bits(8, data)); break;
-    case 1: sc = wchar_t(read_bits(16, data)); break;
-    case 2: return L"";
-    }
-    dictionary.push_back(sc);
-    w = sc, rst += sc;
-
-    while (true) {
-        c = read_bits(numbits, data);
-        int cc = c;
-        switch(cc) {
-        case 0:
-        case 1:
-            if (!cc && ++err_cnt > 10000) return L""; /*! too many errors */
-            sc = wchar_t(read_bits(1<<(cc+3), data));
-            dictionary.push_back(sc);
-            c = dictionary.size()-1; --enlarge_in;
-            break;
-        case 2: return rst;
-        }
-
-        if (!enlarge_in) enlarge_in = ipow(2, numbits++);
-        if ((int)dictionary.size() > c && !dictionary[c].empty())
+        // Fill the buffer
+        while( buffer_size <= (buffer_max-8) && lLen )
         {
-            entry = dictionary[c];
+            buffer <<= 8;
+            buffer |= static_cast<uint32_t>(static_cast<unsigned char>(*pBuffer));
+            buffer_size += 8;
+
+            ++pBuffer;
+            lLen--;
         }
-        else
+        // read from the buffer
+        while( buffer_size >= m_code_len )
         {
-            if (c == dictionary.size()) entry = w + wchar_t(w[0]);
-            else return L"";
+            code         = (buffer >> (buffer_size - m_code_len)) & s_masks[m_mask];
+            buffer_size -= m_code_len;
+
+            if( code == s_clear )
+            {
+                m_mask     = 0;
+                m_code_len = 9;
+
+                m_table = init_table();
+            }
+            else if( code == s_eod )
+            {
+                lLen = 0;
+                break;
+            }
+            else
+            {
+                if( code >= m_table.size() )
+                {
+                    if (old >= m_table.size())
+                    {
+                        throw runtime_error("value out of range");
+                    }
+                    data = m_table[old].value;
+                    data.push_back( m_character );
+                }
+                else
+                    data = m_table[code].value;
+                result.append(reinterpret_cast<char*>(data.data()), data.size());
+                m_character = data[0];
+                if( old < m_table.size() ) // fix the first loop
+                    data = m_table[old].value;
+                data.push_back( m_character );
+
+                item.value = data;
+                m_table.push_back( item );
+
+                old = code;
+
+                switch( m_table.size() )
+                {
+                case 511:
+                case 1023:
+                case 2047:
+                    ++m_code_len;
+                    ++m_mask;
+                default:
+                    break;
+                }
+            }
         }
-
-        rst += entry;
-        dictionary.push_back(w + wchar_t(entry[0]));
-        w = entry;
-        if (!--enlarge_in) enlarge_in = ipow(2, numbits++);
     }
+    cout << result;
+    return result;
 }
 
-string ToStr(const wstring& wstr)
-{
-    if (wstr.empty()) return "";
-    try {
-        //setlocale(LC_ALL,".ACP");
-        const wchar_t *wptr = wstr.c_str();
-        size_t msize = (wstr.size()+1)*sizeof(wchar_t)/sizeof(char);
-        char *ptr = new char[msize];
-        int asize = wcstombs(ptr, wstr.c_str(), msize);
-        string str(ptr);
-        delete[] ptr;
-        return str;
-        //string str(wstr.size(), 0);
-        //copy(wstr.begin(), wstr.end(), str.begin());
-        //return str;
-    } catch(...) {
-        return "";
-    }
-}
-
-wstring ToWStr(const std::string& str)
-{
-    if (str.empty()) return L"";
-    try {
-        wchar_t *wptr = new wchar_t[str.size()+1];
-        size_t asize = mbstowcs(wptr, str.c_str(), (str.size()+1)*sizeof(wchar_t));
-        wstring wstr(wptr);
-        delete [] wptr; wptr = nullptr;
-        return wstr;
-    }
-    catch(...)
-    {
-        return L"";
-    }
-}
-
-string lzw_decode(const string &compressed)
-{
-    wstring wstr = ToWStr(compressed);
-    return ToStr(Decompress(wstr));
-}

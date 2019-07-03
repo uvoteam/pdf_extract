@@ -6,7 +6,6 @@
 #include "pdf_extractor.h"
 
 
-#include <iostream> //temp
 using namespace std;
 
 enum {BLOCK_SIZE = 4096};
@@ -56,7 +55,6 @@ string flate_decode(const string &data)
 
     if (inflateInit(&strm) != Z_OK) throw pdf_error(FUNC_STRING + "inflateInit2 is not Z_OK");
     string result = decompress_block(&strm, data);
-    cout << result;
     inflateEnd(&strm);
 
     return result;

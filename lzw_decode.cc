@@ -3,7 +3,7 @@
 #include <cstdint>
 
 #include <stdexcept>//temp
-#include <iostream> //temp
+
 using namespace std;
 
 struct TLzwItem {
@@ -122,7 +122,6 @@ string lzw_decode(const string& buf)
             }
         }
     }
-    cout << result;
     return result;
 }
 

@@ -6,33 +6,35 @@
 #include "pdf_extractor.h"
 
 using namespace std;
-
-struct lzw_item_t {
-    vector<unsigned char> value;
-};
-
-typedef vector<lzw_item_t>     lzw_table_t;
-enum { LZW_TABLE_SIZE = 4096 };
-const unsigned short s_masks[4] = { 0x01FF, 0x03FF, 0x07FF, 0x0FFF };
-const unsigned short s_clear = 0x0100;
-const unsigned short s_eod = 0x0101;
-
-
-lzw_table_t init_table()
+namespace
 {
-    lzw_table_t m_table;
-    m_table.reserve(LZW_TABLE_SIZE);
-    for(int i = 0; i <= 255; i++)
+    struct lzw_item_t
     {
-        lzw_item_t item;
-        item.value.push_back(static_cast<unsigned char>(i));
-        m_table.push_back(item);
-    }
-    // Add dummy entry, which is never used by decoder
-    lzw_item_t item;
-    m_table.push_back(item);
+        vector<unsigned char> value;
+    };
 
-    return m_table;
+    typedef vector<lzw_item_t> lzw_table_t;
+    enum { LZW_TABLE_SIZE = 4096 };
+    const unsigned short s_masks[4] = { 0x01FF, 0x03FF, 0x07FF, 0x0FFF };
+    const unsigned short s_clear = 0x0100;
+    const unsigned short s_eod = 0x0101;
+
+    lzw_table_t init_table()
+    {
+        lzw_table_t m_table;
+        m_table.reserve(LZW_TABLE_SIZE);
+        for(int i = 0; i <= 255; i++)
+        {
+            lzw_item_t item;
+            item.value.push_back(static_cast<unsigned char>(i));
+            m_table.push_back(item);
+        }
+        // Add dummy entry, which is never used by decoder
+        lzw_item_t item;
+        m_table.push_back(item);
+
+        return m_table;
+    }
 }
 
 string lzw_decode(const string& buf)
@@ -125,4 +127,3 @@ string lzw_decode(const string& buf)
     }
     return result;
 }
-

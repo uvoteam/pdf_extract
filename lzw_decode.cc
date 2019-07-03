@@ -55,20 +55,20 @@ string lzw_decode(const string& buf)
 
     vector<unsigned char> data;
     string result;
-    size_t lLen = buf.length();
+    size_t len = buf.length();
     const char *pBuffer = buf.data();
     m_character = *pBuffer;
-    while( lLen )
+    while (len)
     {
         // Fill the buffer
-        while( buffer_size <= (buffer_max-8) && lLen )
+        while (buffer_size <= (buffer_max-8) && len)
         {
             buffer <<= 8;
             buffer |= static_cast<uint32_t>(static_cast<unsigned char>(*pBuffer));
             buffer_size += 8;
 
             ++pBuffer;
-            lLen--;
+            len--;
         }
         // read from the buffer
         while( buffer_size >= m_code_len )
@@ -85,7 +85,7 @@ string lzw_decode(const string& buf)
             }
             else if( code == eod )
             {
-                lLen = 0;
+                len = 0;
                 break;
             }
             else

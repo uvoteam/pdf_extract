@@ -15,9 +15,9 @@ namespace
 
     typedef vector<lzw_item_t> lzw_table_t;
     enum { LZW_TABLE_SIZE = 4096 };
-    const unsigned short s_masks[4] = { 0x01FF, 0x03FF, 0x07FF, 0x0FFF };
-    const unsigned short s_clear = 0x0100;
-    const unsigned short s_eod = 0x0101;
+    const unsigned short masks[4] = { 0x01FF, 0x03FF, 0x07FF, 0x0FFF };
+    const unsigned short clear = 0x0100;
+    const unsigned short eod = 0x0101;
 
     lzw_table_t init_table()
     {
@@ -73,17 +73,17 @@ string lzw_decode(const string& buf)
         // read from the buffer
         while( buffer_size >= m_code_len )
         {
-            code         = (buffer >> (buffer_size - m_code_len)) & s_masks[m_mask];
+            code         = (buffer >> (buffer_size - m_code_len)) & masks[m_mask];
             buffer_size -= m_code_len;
 
-            if( code == s_clear )
+            if( code == clear )
             {
                 m_mask     = 0;
                 m_code_len = 9;
 
                 m_table = init_table();
             }
-            else if( code == s_eod )
+            else if( code == eod )
             {
                 lLen = 0;
                 break;

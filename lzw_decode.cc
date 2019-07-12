@@ -62,7 +62,7 @@ string lzw_decode(const string& buf)
     while (len)
     {
         // Fill the buffer
-        while (buffer_size <= (buffer_max-8) && len)
+        while (buffer_size <= (buffer_max - 8) && len)
         {
             buffer <<= 8;
             buffer |= static_cast<uint32_t>(static_cast<unsigned char>(*pBuffer));

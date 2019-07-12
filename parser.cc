@@ -125,7 +125,7 @@ string get_string(const string &buffer, size_t offset, const char *name, size_t 
     size_t start_offset = efind(buffer, name, offset);
     start_offset += strlen(name);
     start_offset = skip_spaces(buffer, start_offset);
-    size_t end_offset = efind_first(buffer, "  \r\n", start_offset);
+    size_t end_offset = efind_first(buffer, "  \r\n>", start_offset);
     if (end_offset >= end) return string();
     return buffer.substr(start_offset, end_offset - start_offset);
 }

@@ -21,6 +21,7 @@ using namespace std;
 
 extern string flate_decode(const string&);
 extern string lzw_decode(const string&);
+extern string ascii85_decode(const string&);
 
 enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what-is-the-smallest-possible-valid-pdf*/,
       CROSS_REFERENCE_LINE_SIZE = 20,
@@ -125,7 +126,7 @@ string get_string(const string &buffer, size_t offset, const char *name, size_t 
     size_t start_offset = efind(buffer, name, offset);
     start_offset += strlen(name);
     start_offset = skip_spaces(buffer, start_offset);
-    size_t end_offset = efind_first(buffer, "  \r\n>", start_offset);
+    size_t end_offset = efind_first(buffer, "  \r\n", start_offset);
     if (end_offset >= end) return string();
     return buffer.substr(start_offset, end_offset - start_offset);
 }
@@ -264,7 +265,7 @@ map<size_t, size_t> get_id2offset(const string &buffer, size_t cross_ref_offset)
     for (size_t offset : offsets)
     {
         size_t start_offset = efind_first(buffer, "0123456789", offset);
-        size_t end_offset = efind(buffer, ' ', offset);
+        size_t end_offset = efind(buffer, ' ', start_offset);
         ret.insert(make_pair(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset));
     }
     return ret;
@@ -546,7 +547,7 @@ string get_content(const string &buffer,
     offset += LEN("stream");
     if (buffer[offset] == '\r') ++offset;
     if (buffer[offset] == '\n') ++offset;
-    return buffer.substr(offset, len);
+    return string(buffer.substr(offset, len).data(), len);
 }
 
 vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
@@ -571,7 +572,8 @@ vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
 void decode(string &content, const vector<string> &filters)
 {
     static const map<string, string (&)(const string&)> filter2func = {{"/FlateDecode", flate_decode},
-                                                                       {"/LZWDecode", lzw_decode}};
+                                                                       {"/LZWDecode", lzw_decode},
+                                                                       {"/ASCII85Decode", ascii85_decode}};
     for (const string& filter : filters) content = filter2func.at(filter)(content);
     cout << content;
 }

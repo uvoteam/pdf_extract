@@ -30,14 +30,9 @@ namespace
                 ret == Z_NEED_DICT ||
                 ret == Z_MEM_ERROR ||
                 ret == Z_DATA_ERROR ||
-                ret == Z_BUF_ERROR)
-            {
-                throw pdf_error(FUNC_STRING + "inflate error");
-            }
-            if (strm->avail_out < 0)
-            {
-                throw pdf_error(FUNC_STRING + "decompressing error: avail_out <=0");
-            }
+                ret == Z_BUF_ERROR) throw pdf_error(FUNC_STRING + "inflate error");
+
+            if (strm->avail_out < 0) throw pdf_error(FUNC_STRING + "decompressing error: avail_out <=0");
             result.append(reinterpret_cast<const char*>(buffer), BLOCK_SIZE - strm->avail_out);
         }
         while (strm->avail_out == 0);

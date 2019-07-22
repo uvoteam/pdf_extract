@@ -29,7 +29,7 @@ enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what
       GENERATION_NUMBER_LEN = 5 /* length for generation number */
 };
 
-enum pdf_object_t {DICTIONARY, ARRAY, STRING, VALUE, INDIRECT_OBJECT, NAME_OBJECT};
+enum pdf_object_t {DICTIONARY = 1, ARRAY = 2, STRING = 3, VALUE = 4, INDIRECT_OBJECT = 5, NAME_OBJECT = 6};
 
 size_t efind_first(const string &src, const string& str, size_t pos)
 {
@@ -605,13 +605,45 @@ string output_content(const string &buffer, const map<size_t, size_t> &id2offset
     return content;
 }
 
+map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
+                                                         size_t start,
+                                                         size_t end,
+                                                         const map<size_t, size_t> &id2offset)
+{
+    size_t off = buffer.find("/Encrypt", start);
+    if (off == string::npos || off >= end) return map<string, pair<string, pdf_object_t>>();
+    off += LEN("/Encrypt");
+    pdf_object_t type = get_object_type(buffer, off);
+
+    switch (type)
+    {
+    case DICTIONARY:
+        return get_dictionary_data(buffer, off);
+        break;
+    case INDIRECT_OBJECT:
+        off = id2offset.at(strict_stoul(buffer.substr(off, efind_first(buffer, "\r\t\n ", off) - off)));
+        off = efind(buffer, "obj", off);
+        off += LEN("obj");
+        off = skip_spaces(buffer, off);
+        return get_dictionary_data(buffer, off);
+        break;
+    default:
+        throw pdf_error(FUNC_STRING + "wrong /Encrypt value: " + to_string(type));
+        break;
+    }
+}
+
 string pdf2txt(const string &buffer)
 {
     if (buffer.size() < SMALLEST_PDF_SIZE) throw pdf_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     vector<pair<size_t, size_t>> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
-    for (const pair<size_t, size_t> &p : trailer_offsets) cout << p.first << endl;
     map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset, trailer_offsets);
+    map<string, pair<string, pdf_object_t>> encrypt_data = get_encrypt_data(buffer,
+                                                                            trailer_offsets.at(0).first,
+                                                                            trailer_offsets.at(0).second,
+                                                                            id2offset);
+    for (const pair<string, pair<string, pdf_object_t>> &p : encrypt_data) cout << p.first << ' ' << p.second.first << endl;
     vector<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);
     string result;
     for (size_t offset : content_offsets) result += output_content(buffer, id2offset, offset);

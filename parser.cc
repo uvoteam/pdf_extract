@@ -245,9 +245,8 @@ void validate_offsets(const string &buffer, const vector<size_t> &offsets)
     }
 }
 
-vector<size_t> get_all_object_offsets(const string &buffer, size_t cross_ref_offset)
+vector<size_t> get_all_object_offsets(const string &buffer, size_t cross_ref_offset, const vector<size_t> &trailer_offsets)
 {
-    vector<size_t> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
     vector<size_t> object_offsets;
     for (size_t off : trailer_offsets)
     {
@@ -258,9 +257,9 @@ vector<size_t> get_all_object_offsets(const string &buffer, size_t cross_ref_off
     return object_offsets;
 }
 
-map<size_t, size_t> get_id2offset(const string &buffer, size_t cross_ref_offset)
+map<size_t, size_t> get_id2offset(const string &buffer, size_t cross_ref_offset, const vector<size_t> &trailer_offsets)
 {
-    vector<size_t> offsets = get_all_object_offsets(buffer, cross_ref_offset);
+    vector<size_t> offsets = get_all_object_offsets(buffer, cross_ref_offset, trailer_offsets);
     map<size_t, size_t> ret;
     for (size_t offset : offsets)
     {
@@ -597,7 +596,8 @@ string pdf2txt(const string &buffer)
 {
     if (buffer.size() < SMALLEST_PDF_SIZE) throw pdf_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
-    map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset);
+    vector<size_t> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
+    map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset, trailer_offsets);
     vector<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);
     string result;
     for (size_t offset : content_offsets) result += output_content(buffer, id2offset, offset);

@@ -135,8 +135,10 @@ size_t get_number(const string &buffer, size_t offset, const char *name, size_t 
 {
     if (end == string::npos) end = buffer.length();
     const string str = get_string(buffer, offset, name, end);
-    if (str.empty()) throw pdf_error(FUNC_STRING + "no number for " + name +
-                                         " offset " + to_string(offset) + " end " + to_string(end)); 
+    if (str.empty())
+    {
+        throw pdf_error(FUNC_STRING + "no number for " + name + " offset " + to_string(offset) + " end " + to_string(end));
+    }
     return strict_stoul(str);
 }
 
@@ -214,7 +216,13 @@ vector<size_t> get_trailer_offsets(const string &buffer, size_t cross_ref_offset
     vector<size_t> trailer_offsets = {cross_ref_offset};
     while (true)
     {
-        size_t end_offset = efind(buffer, "startxref", cross_ref_offset);
+        size_t end_offset;
+        if ((end_offset = buffer.find("\r\nstartxref\r\n", cross_ref_offset)) == string::npos &&
+            (end_offset = buffer.find("\nstartxref\n", cross_ref_offset)) == string::npos &&
+            (end_offset = buffer.find("\rstartxref\r", cross_ref_offset)) == string::npos)
+        {
+            throw pdf_error(FUNC_STRING + "Can`t find startxref in pos: " + to_string(cross_ref_offset));
+        }
         size_t prev_offset = buffer.find("/Prev ", cross_ref_offset);
         if (prev_offset == string::npos || prev_offset >= end_offset) break;
         cross_ref_offset = get_number(buffer, prev_offset, "/Prev ");
@@ -507,6 +515,7 @@ vector<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset
     size_t catalog_pages_id = get_number(buffer, id2offset.at(root_id), "/Pages ");
     vector<size_t> page_offsets = get_pages_offsets(buffer, id2offset.at(catalog_pages_id), id2offset);
     for (size_t page_offset : page_offsets) append_content_offsets(buffer, page_offset, id2offset, result);
+
     return result;
 }
 
@@ -574,7 +583,7 @@ void decode(string &content, const vector<string> &filters)
                                                                        {"/LZWDecode", lzw_decode},
                                                                        {"/ASCII85Decode", ascii85_decode}};
     for (const string& filter : filters) content = filter2func.at(filter)(content);
-    cout << content;
+//    cout << content;
 }
 
 string output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset)
@@ -597,6 +606,7 @@ string pdf2txt(const string &buffer)
     if (buffer.size() < SMALLEST_PDF_SIZE) throw pdf_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     vector<size_t> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
+    for (size_t size : trailer_offsets) cout << size << endl;
     map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset, trailer_offsets);
     vector<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);
     string result;

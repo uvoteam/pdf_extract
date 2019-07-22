@@ -211,9 +211,9 @@ size_t get_xref_number(const string &buffer, size_t &offset)
     return result;
 }
 
-vector<size_t> get_trailer_offsets(const string &buffer, size_t cross_ref_offset)
+vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset)
 {
-    vector<size_t> trailer_offsets = {cross_ref_offset};
+    vector<pair<size_t, size_t>> trailer_offsets;
     while (true)
     {
         size_t end_offset;
@@ -223,10 +223,10 @@ vector<size_t> get_trailer_offsets(const string &buffer, size_t cross_ref_offset
         {
             throw pdf_error(FUNC_STRING + "Can`t find startxref in pos: " + to_string(cross_ref_offset));
         }
+        trailer_offsets.push_back(make_pair(cross_ref_offset, end_offset));
         size_t prev_offset = buffer.find("/Prev ", cross_ref_offset);
         if (prev_offset == string::npos || prev_offset >= end_offset) break;
         cross_ref_offset = get_number(buffer, prev_offset, "/Prev ");
-        trailer_offsets.push_back(cross_ref_offset);
     }
 
     return trailer_offsets;
@@ -253,19 +253,23 @@ void validate_offsets(const string &buffer, const vector<size_t> &offsets)
     }
 }
 
-vector<size_t> get_all_object_offsets(const string &buffer, size_t cross_ref_offset, const vector<size_t> &trailer_offsets)
+vector<size_t> get_all_object_offsets(const string &buffer,
+                                      size_t cross_ref_offset,
+                                      const vector<pair<size_t, size_t>> &trailer_offsets)
 {
     vector<size_t> object_offsets;
-    for (size_t off : trailer_offsets)
+    for (const pair<size_t, size_t> &p : trailer_offsets)
     {
-        get_object_offsets(buffer, off, object_offsets);
+        get_object_offsets(buffer, p.first, object_offsets);
     }
     validate_offsets(buffer, object_offsets);
 
     return object_offsets;
 }
 
-map<size_t, size_t> get_id2offset(const string &buffer, size_t cross_ref_offset, const vector<size_t> &trailer_offsets)
+map<size_t, size_t> get_id2offset(const string &buffer,
+                                  size_t cross_ref_offset,
+                                  const vector<pair<size_t, size_t>> &trailer_offsets)
 {
     vector<size_t> offsets = get_all_object_offsets(buffer, cross_ref_offset, trailer_offsets);
     map<size_t, size_t> ret;
@@ -605,8 +609,8 @@ string pdf2txt(const string &buffer)
 {
     if (buffer.size() < SMALLEST_PDF_SIZE) throw pdf_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
-    vector<size_t> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
-    for (size_t size : trailer_offsets) cout << size << endl;
+    vector<pair<size_t, size_t>> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
+    for (const pair<size_t, size_t> &p : trailer_offsets) cout << p.first << endl;
     map<size_t, size_t> id2offset = get_id2offset(buffer, cross_ref_offset, trailer_offsets);
     vector<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);
     string result;

@@ -31,6 +31,71 @@ enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what
 
 enum pdf_object_t {DICTIONARY = 1, ARRAY = 2, STRING = 3, VALUE = 4, INDIRECT_OBJECT = 5, NAME_OBJECT = 6};
 
+size_t efind_first(const string &src, const string& str, size_t pos);
+size_t efind_first(const string &src, const char* s, size_t pos);
+size_t efind_first(const string &src, const char* s, size_t pos, size_t n);
+size_t efind(const string &src, const string& str, size_t pos);
+size_t efind(const string &src, const char* s, size_t pos);
+size_t efind(const string &src, char c, size_t pos);
+size_t strict_stoul(const string &str);
+bool prefix(const char *pre, const char *str);
+size_t get_cross_ref_offset_start(const string &buffer, size_t end);
+bool is_blank(char c);
+size_t skip_spaces(const string &buffer, size_t offset);
+string get_string(const string &buffer, size_t offset, const char *name, size_t end = string::npos);
+size_t get_number(const string &buffer, size_t offset, const char *name, size_t end = string::npos);
+size_t get_cross_ref_offset_end(const string &buffer);
+size_t get_cross_ref_offset(const string &buffer);
+void append_object(const string &buf, size_t offset, vector<size_t> &objects);
+char get_object_status(const string &buffer, size_t offset);
+size_t get_start_offset(const string &buffer, size_t offset);
+size_t get_xref_number(const string &buffer, size_t &offset);
+vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset);
+void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &result);
+void validate_offsets(const string &buffer, const vector<size_t> &offsets);
+vector<size_t> get_all_object_offsets(const string &buffer,
+                                      size_t cross_ref_offset,
+                                      const vector<pair<size_t, size_t>> &trailer_offsets);
+map<size_t, size_t> get_id2offset(const string &buffer,
+                                  size_t cross_ref_offset,
+                                  const vector<pair<size_t, size_t>> &trailer_offsets);
+size_t find_number(const string &buffer, size_t offset);
+void append_set(const string &buffer, size_t start_offset, const map<size_t, size_t> &id2offset, vector<size_t> &result);
+void append_set_true(const string &array, const map<size_t, size_t> &id2offset, vector<size_t> &result);
+size_t find_value_end_delimiter(const string &buffer, size_t offset);
+string get_value(const string &buffer, size_t &offset);
+string get_array(const string &buffer, size_t &offset);
+string get_name_object(const string &buffer, size_t &offset);
+string get_indirect_object(const string &buffer, size_t &offset);
+string get_string(const string &buffer, size_t &offset);
+string get_dictionary(const string &buffer, size_t &offset);
+pdf_object_t get_object_type(const string &buffer, size_t &offset);
+void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, size_t> &id2offset, vector<size_t> &result);
+vector<size_t> get_pages_offsets(const string &buffer, size_t offset, const map<size_t, size_t> &id2offset);
+void append_content_offsets(const string &buffer,
+                            size_t page_offset,
+                            const map<size_t, size_t> &id2offset,
+                            vector<size_t> &content_offsets);
+vector<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset, const map<size_t, size_t> &id2offset);
+size_t get_content_len(const string &buffer,
+                       const map<size_t, size_t> &id2offset,
+                       const map<string, pair<string, pdf_object_t>> &props);
+string get_content(const string &buffer,
+                   const map<size_t, size_t> &id2offset,
+                   size_t offset,
+                   const map<string, pair<string, pdf_object_t>> &props);
+vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props);
+void decode(string &content, const vector<string> &filters);
+string output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset);
+map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
+                                                         size_t start,
+                                                         size_t end,
+                                                         const map<size_t, size_t> &id2offset);
+map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer, size_t offset);
+
+
+
+
 size_t efind_first(const string &src, const string& str, size_t pos)
 {
     size_t ret = src.find_first_of(str, pos);
@@ -120,7 +185,7 @@ size_t skip_spaces(const string &buffer, size_t offset)
     return offset;
 }
 
-string get_string(const string &buffer, size_t offset, const char *name, size_t end = string::npos)
+string get_string(const string &buffer, size_t offset, const char *name, size_t end /*= string::npos*/)
 {
     if (end == string::npos) end = buffer.length();
     size_t start_offset = efind(buffer, name, offset);
@@ -131,7 +196,7 @@ string get_string(const string &buffer, size_t offset, const char *name, size_t 
     return buffer.substr(start_offset, end_offset - start_offset);
 }
 
-size_t get_number(const string &buffer, size_t offset, const char *name, size_t end = string::npos)
+size_t get_number(const string &buffer, size_t offset, const char *name, size_t end /*= string::npos*/)
 {
     if (end == string::npos) end = buffer.length();
     const string str = get_string(buffer, offset, name, end);
@@ -224,13 +289,43 @@ vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cr
             throw pdf_error(FUNC_STRING + "Can`t find startxref in pos: " + to_string(cross_ref_offset));
         }
         trailer_offsets.push_back(make_pair(cross_ref_offset, end_offset));
-        size_t prev_offset = buffer.find("/Prev ", cross_ref_offset);
-        if (prev_offset == string::npos || prev_offset >= end_offset) break;
-        cross_ref_offset = get_number(buffer, prev_offset, "/Prev ");
+        size_t trailer_offset = efind(buffer, "trailer", cross_ref_offset);
+        trailer_offset += LEN("trailer");
+        map<string, pair<string, pdf_object_t>> data = get_dictionary_data(buffer, trailer_offset);
+        auto it = data.find("/Prev");
+        if (it == data.end()) break;
+        if (it->second.second != VALUE) throw pdf_error(FUNC_STRING + "/Prev value is not PDF VALUE type");
+        cross_ref_offset = strict_stoul(it->second.first);
     }
 
     return trailer_offsets;
 }
+
+map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer, size_t offset)
+{
+    static const map<pdf_object_t, string (&)(const string&, size_t&)> type2func = {{DICTIONARY, get_dictionary},
+                                                                                    {ARRAY, get_array},
+                                                                                    {STRING, get_string},
+                                                                                    {VALUE, get_value},
+                                                                                    {INDIRECT_OBJECT, get_indirect_object},
+                                                                                    {NAME_OBJECT, get_name_object}};
+    offset = efind(buffer, "<<", offset);
+    offset += LEN("<<");
+    map<string, pair<string, pdf_object_t>> result;
+    while (true)
+    {
+        offset = skip_spaces(buffer, offset);
+        if (buffer.at(offset) == '>' && buffer.at(offset + 1) == '>') return result;
+        if (buffer[offset] != '/') throw pdf_error(FUNC_STRING + "Can`t find name key");
+        size_t end_offset = efind_first(buffer, "\r\t\n /<[", offset + 1);
+        const string key = buffer.substr(offset, end_offset - offset);
+        offset = end_offset;
+        pdf_object_t type = get_object_type(buffer, offset);
+        const string val = type2func.at(type)(buffer, offset);
+        result.insert(make_pair(key, make_pair(val, type)));
+    }
+}
+
 
 void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &result)
 {
@@ -445,32 +540,6 @@ pdf_object_t get_object_type(const string &buffer, size_t &offset)
     if (str[0] == '/') return NAME_OBJECT;
     if (regex_search(buffer.substr(offset), regex("^[0-9]+[\r\t\n ]+[0-9]+[\r\t\n ]+R"))) return INDIRECT_OBJECT;
     return VALUE;
-}
-
-map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer, size_t offset)
-{
-    static const map<pdf_object_t, string (&)(const string&, size_t&)> type2func = {{DICTIONARY, get_dictionary},
-                                                                                    {ARRAY, get_array},
-                                                                                    {STRING, get_string},
-                                                                                    {VALUE, get_value},
-                                                                                    {INDIRECT_OBJECT, get_indirect_object},
-                                                                                    {NAME_OBJECT, get_name_object}};
-
-    offset = efind(buffer, "<<", offset);
-    offset += LEN("<<");
-    map<string, pair<string, pdf_object_t>> result;
-    while (true)
-    {
-        offset = skip_spaces(buffer, offset);
-        if (buffer.at(offset) == '>' && buffer.at(offset + 1) == '>') return result;
-        if (buffer[offset] != '/') throw pdf_error(FUNC_STRING + "Can`t find name key");
-        size_t end_offset = efind_first(buffer, "\r\t\n /<[", offset + 1);
-        const string key = buffer.substr(offset, end_offset - offset);
-        offset = end_offset;
-        pdf_object_t type = get_object_type(buffer, offset);
-        const string val = type2func.at(type)(buffer, offset);
-        result.insert(make_pair(key, make_pair(val, type)));
-    }
 }
 
 void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, size_t> &id2offset, vector<size_t> &result)

@@ -304,35 +304,18 @@ void append_set(const string &buffer, size_t start_offset, const map<size_t, siz
     }
 }
 
-void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, size_t> &id2offset, vector<size_t> &result)
+void append_set_true(const string &array, const map<size_t, size_t> &id2offset, vector<size_t> &result)
 {
-    size_t end_offset = efind(buffer, "endobj", off);
-    if (get_string(buffer, off, "/Type ", end_offset) != "/Pages") return;
-    size_t kids_offset = efind(buffer, "/Kids", off);
-    kids_offset = efind(buffer, '[', kids_offset);
-    vector<size_t> pages;
-    append_set(buffer, kids_offset, id2offset, pages);
-    for (size_t page : pages)
+    for (size_t offset = find_number(array, 0); offset < array.length(); offset = find_number(array, offset))
     {
-        //avoid infinite recursion for 'bad' pdf
-        if (find(result.begin(), result.end(), page) == result.end())
+        size_t end_offset = array.find_first_of("  \r\n", offset);
+        if (end_offset == string::npos || end_offset >= array.length())
         {
-            get_pages_offsets_int(buffer, page, id2offset, result);
-            result.insert(result.end(), pages.begin(), pages.end());
+            throw pdf_error(FUNC_STRING + "Can`t find end delimiter for number");
         }
+        result.push_back(id2offset.at(strict_stoul(array.substr(offset, end_offset - offset))));
+        offset = efind(array, 'R', end_offset);
     }
-}
-
-pdf_object_t get_object_type(const string &buffer, size_t &offset)
-{
-    offset = skip_spaces(buffer, offset);
-    const string str = buffer.substr(offset, 2);
-    if (str == "<<") return DICTIONARY;
-    if (str[0] == '[') return ARRAY;
-    if (str[0] == '<' || str[0] == '(') return STRING;
-    if (str[0] == '/') return NAME_OBJECT;
-    if (regex_search(buffer.substr(offset), regex("^[0-9]+[\r\t\n ]+[0-9]+[\r\t\n ]+R"))) return INDIRECT_OBJECT;
-    return VALUE;
 }
 
 size_t find_value_end_delimiter(const string &buffer, size_t offset)
@@ -451,6 +434,19 @@ string get_dictionary(const string &buffer, size_t &offset)
     if (end_offset >= buffer.length()) throw pdf_error(FUNC_STRING + "can`t find dictionary end delimiter");
 }
 
+
+pdf_object_t get_object_type(const string &buffer, size_t &offset)
+{
+    offset = skip_spaces(buffer, offset);
+    const string str = buffer.substr(offset, 2);
+    if (str == "<<") return DICTIONARY;
+    if (str[0] == '[') return ARRAY;
+    if (str[0] == '<' || str[0] == '(') return STRING;
+    if (str[0] == '/') return NAME_OBJECT;
+    if (regex_search(buffer.substr(offset), regex("^[0-9]+[\r\t\n ]+[0-9]+[\r\t\n ]+R"))) return INDIRECT_OBJECT;
+    return VALUE;
+}
+
 map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer, size_t offset)
 {
     static const map<pdf_object_t, string (&)(const string&, size_t&)> type2func = {{DICTIONARY, get_dictionary},
@@ -477,12 +473,35 @@ map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer
     }
 }
 
+void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, size_t> &id2offset, vector<size_t> &result)
+{
+    map<string, pair<string, pdf_object_t>> data = get_dictionary_data(buffer, off);
+    auto it = data.find("/Type");
+    if (it == data.end() || it->second.first != "/Pages") return;
+    size_t kids_offset = efind(buffer, "/Kids", off);
+    pair<string, pdf_object_t> p = data.at("/Kids");
+    if (p.second != ARRAY) throw pdf_error(FUNC_STRING + "/Kids is not array");
+    string kids_string = p.first;
+    vector<size_t> pages;
+    append_set_true(kids_string, id2offset, pages);
+    for (size_t page : pages)
+    {
+        //avoid infinite recursion for 'bad' pdf
+        if (find(result.begin(), result.end(), page) == result.end())
+        {
+            get_pages_offsets_int(buffer, page, id2offset, result);
+            result.insert(result.end(), pages.begin(), pages.end());
+        }
+    }
+}
+
 vector<size_t> get_pages_offsets(const string &buffer, size_t offset, const map<size_t, size_t> &id2offset)
 {
-    size_t end_offset = efind(buffer, "endobj", offset);
-    if (get_string(buffer, offset, "/Type ", end_offset) != "/Pages")
+    map<string, pair<string, pdf_object_t>> data = get_dictionary_data(buffer, offset);
+    auto it = data.find("/Type");
+    if (it == data.end() || it->second.first != "/Pages")
     {
-        throw pdf_error("Root catalog type must be 'Pages'");
+        throw pdf_error("In root catalog type must be '/Type /Pages'");
     }
     vector<size_t> result;
     get_pages_offsets_int(buffer, offset, id2offset, result);

@@ -60,8 +60,7 @@ map<size_t, size_t> get_id2offset(const string &buffer,
                                   size_t cross_ref_offset,
                                   const vector<pair<size_t, size_t>> &trailer_offsets);
 size_t find_number(const string &buffer, size_t offset);
-void append_set(const string &buffer, size_t start_offset, const map<size_t, size_t> &id2offset, vector<size_t> &result);
-void append_set_true(const string &array, const map<size_t, size_t> &id2offset, vector<size_t> &result);
+void append_set(const string &array, const map<size_t, size_t> &id2offset, vector<size_t> &result);
 size_t find_value_end_delimiter(const string &buffer, size_t offset);
 string get_value(const string &buffer, size_t &offset);
 string get_array(const string &buffer, size_t &offset);
@@ -383,23 +382,7 @@ size_t find_number(const string &buffer, size_t offset)
     return offset;
 }
 
-void append_set(const string &buffer, size_t start_offset, const map<size_t, size_t> &id2offset, vector<size_t> &result)
-{
-    size_t array_end_offset = efind(buffer, ']', start_offset);
-    start_offset = find_number(buffer, start_offset);
-    for (;start_offset < array_end_offset; start_offset = find_number(buffer, start_offset))
-    {
-        size_t end_offset = buffer.find_first_of("  \r\n", start_offset);
-        if (end_offset == string::npos || end_offset >= array_end_offset)
-        {
-            throw pdf_error(FUNC_STRING + "Can`t find end delimiter for number");
-        }
-        result.push_back(id2offset.at(strict_stoul(buffer.substr(start_offset, end_offset - start_offset))));
-        start_offset = efind(buffer, 'R', end_offset);
-    }
-}
-
-void append_set_true(const string &array, const map<size_t, size_t> &id2offset, vector<size_t> &result)
+void append_set(const string &array, const map<size_t, size_t> &id2offset, vector<size_t> &result)
 {
     for (size_t offset = find_number(array, 0); offset < array.length(); offset = find_number(array, offset))
     {
@@ -552,7 +535,7 @@ void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, s
     if (p.second != ARRAY) throw pdf_error(FUNC_STRING + "/Kids is not array");
     string kids_string = p.first;
     vector<size_t> pages;
-    append_set_true(kids_string, id2offset, pages);
+    append_set(kids_string, id2offset, pages);
     for (size_t page : pages)
     {
         //avoid infinite recursion for 'bad' pdf
@@ -583,20 +566,22 @@ void append_content_offsets(const string &buffer,
                            const map<size_t, size_t> &id2offset,
                            vector<size_t> &content_offsets)
 {
-    size_t end_offset = efind(buffer, "endobj", page_offset);
-    size_t start_offset = buffer.find("/Contents", page_offset);
+    const map<string, pair<string, pdf_object_t>> data = get_dictionary_data(buffer, page_offset);
+    auto it = data.find("/Contents");
     // "/Contents" key can be absent for Page. In this case Page is empty
-    if (start_offset == string::npos || start_offset >= end_offset) return;
-    start_offset += LEN("/Contents");
-    start_offset = skip_spaces(buffer, start_offset);
-    if (buffer[start_offset] == '[')
+    if (it == data.end()) return;
+    const string &contents_data = it->second.first;
+    switch (it->second.second)
     {
-        append_set(buffer, start_offset, id2offset, content_offsets);
-    }
-    else
-    {
-        size_t space_pos = efind(buffer, ' ', start_offset);
-        content_offsets.push_back(id2offset.at(strict_stoul(buffer.substr(start_offset, space_pos - start_offset))));
+    case ARRAY:
+        append_set(contents_data, id2offset, content_offsets);
+        break;
+    case INDIRECT_OBJECT:
+        content_offsets.push_back(id2offset.at(strict_stoul(contents_data.substr(0, efind(it->second.first, ' ', 0)))));
+        break;
+    default:
+        throw pdf_error(FUNC_STRING + "/Contents type must be ARRAY or INDIRECT_OBJECT");
+        break;
     }
 }
 

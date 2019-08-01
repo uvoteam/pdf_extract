@@ -31,7 +31,6 @@ enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what
 
 enum pdf_object_t {DICTIONARY = 1, ARRAY = 2, STRING = 3, VALUE = 4, INDIRECT_OBJECT = 5, NAME_OBJECT = 6};
 
-size_t get_indirect_object_offset(const map<size_t, size_t> &id2offset, const string &indirect_object);
 size_t efind_first(const string &src, const string& str, size_t pos);
 size_t efind_first(const string &src, const char* s, size_t pos);
 size_t efind_first(const string &src, const char* s, size_t pos, size_t n);
@@ -39,6 +38,7 @@ size_t efind(const string &src, const string& str, size_t pos);
 size_t efind(const string &src, const char* s, size_t pos);
 size_t efind(const string &src, char c, size_t pos);
 bool prefix(const char *pre, const char *str);
+pair<unsigned int, unsigned int> get_id_gen(const string &data);
 size_t get_cross_ref_offset_start(const string &buffer, size_t end);
 bool is_blank(char c);
 size_t skip_spaces(const string &buffer, size_t offset);
@@ -57,7 +57,8 @@ map<size_t, size_t> get_id2offset(const string &buffer,
                                   size_t cross_ref_offset,
                                   const vector<pair<size_t, size_t>> &trailer_offsets);
 size_t find_number(const string &buffer, size_t offset);
-void append_set(const string &array, const map<size_t, size_t> &id2offset, vector<size_t> &result);
+size_t find_number_exc(const string &buffer, size_t offset);
+void append_set(const string &array, vector<pair<unsigned int, unsigned int>> &result);
 size_t find_value_end_delimiter(const string &buffer, size_t offset);
 string get_value(const string &buffer, size_t &offset);
 string get_array(const string &buffer, size_t &offset);
@@ -66,12 +67,14 @@ string get_indirect_object(const string &buffer, size_t &offset);
 string get_string(const string &buffer, size_t &offset);
 string get_dictionary(const string &buffer, size_t &offset);
 pdf_object_t get_object_type(const string &buffer, size_t &offset);
-void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, size_t> &id2offset, vector<size_t> &result);
-vector<size_t> get_pages_offsets(const string &buffer, size_t offset, const map<size_t, size_t> &id2offset);
-void append_content_offsets(const string &buffer,
-                            size_t page_offset,
-                            const map<size_t, size_t> &id2offset,
-                            vector<size_t> &content_offsets);
+void get_pages_id_gen_int(const string &buffer,
+                          const pair<unsigned int, unsigned int> &page,
+                          const map<size_t, size_t> &id2offset,
+                          vector<pair<unsigned int, unsigned int>> &result);
+vector<pair<unsigned int, unsigned int>> get_pages_id_gen(const string &buffer,
+                                                          size_t offset,
+                                                          map<size_t, size_t> &id2offset);
+void append_content_offsets(const string &buffer, size_t page_offset, vector<size_t> &content_offsets);
 vector<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset, const map<size_t, size_t> &id2offset);
 size_t get_content_len(const string &buffer,
                        const map<size_t, size_t> &id2offset,
@@ -272,13 +275,6 @@ map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer
     }
 }
 
-size_t get_indirect_object_offset(const map<size_t, size_t> &id2offset, const string &indirect_object)
-{
-    size_t end_offset = efind(indirect_object, ' ', 0);
-
-    return id2offset.at(strict_stoul(indirect_object.substr(0, end_offset)));
-}
-
 void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &result)
 {
     offset = efind(buffer, "xref", offset);
@@ -329,22 +325,29 @@ map<size_t, size_t> get_id2offset(const string &buffer,
     return ret;
 }
 
+size_t find_number_exc(const string &buffer, size_t offset)
+{
+    size_t result = find_number(buffer, offset);
+    if (result >= buffer.length()) throw pdf_error(FUNC_STRING + "can`t find number");
+    return result;
+}
+
 size_t find_number(const string &buffer, size_t offset)
 {
     while (offset < buffer.length() && (strchr("0123456789", buffer[offset]) == NULL)) ++offset;
     return offset;
 }
 
-void append_set(const string &array, const map<size_t, size_t> &id2offset, vector<size_t> &result)
+void append_set(const string &array, vector<pair<unsigned int, unsigned int>> &result)
 {
     for (size_t offset = find_number(array, 0); offset < array.length(); offset = find_number(array, offset))
     {
-        size_t end_offset = array.find_first_of("  \r\n", offset);
-        if (end_offset == string::npos || end_offset >= array.length())
-        {
-            throw pdf_error(FUNC_STRING + "Can`t find end delimiter for number");
-        }
-        result.push_back(id2offset.at(strict_stoul(array.substr(offset, end_offset - offset))));
+        size_t end_offset = efind_first(array, "  \r\n", offset);
+        unsigned int id = strict_stoul(array.substr(offset, end_offset - offset));
+        offset = find_number_exc(array, end_offset);
+        end_offset = efind_first(array, "  \r\n", offset);
+        unsigned int gen = strict_stoul(array.substr(offset, end_offset - offset));
+        result.push_back(make_pair(id, gen));
         offset = efind(array, 'R', end_offset);
     }
 }
@@ -478,8 +481,12 @@ pdf_object_t get_object_type(const string &buffer, size_t &offset)
     return VALUE;
 }
 
-void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, size_t> &id2offset, vector<size_t> &result)
+void get_pages_id_gen_int(const string &buffer,
+                          const pair<unsigned int, unsigned int> &parent_page,
+                          const map<size_t, size_t> &id2offset,
+                          vector<pair<unsigned int, unsigned int>> &result)
 {
+    size_t off = id2offset.at(parent_page.first);
     map<string, pair<string, pdf_object_t>> data = get_dictionary_data(buffer, off);
     auto it = data.find("/Type");
     if (it == data.end() || it->second.first != "/Pages") return;
@@ -487,37 +494,49 @@ void get_pages_offsets_int(const string &buffer, size_t off, const map<size_t, s
     pair<string, pdf_object_t> p = data.at("/Kids");
     if (p.second != ARRAY) throw pdf_error(FUNC_STRING + "/Kids is not array");
     string kids_string = p.first;
-    vector<size_t> pages;
-    append_set(kids_string, id2offset, pages);
-    for (size_t page : pages)
+    vector<pair<unsigned int, unsigned int>> pages;
+    append_set(kids_string, pages);
+    for (const pair<unsigned int, unsigned int> &page : pages)
     {
         //avoid infinite recursion for 'bad' pdf
         if (find(result.begin(), result.end(), page) == result.end())
         {
-            get_pages_offsets_int(buffer, page, id2offset, result);
+            get_pages_id_gen_int(buffer, page, id2offset, result);
             result.insert(result.end(), pages.begin(), pages.end());
         }
     }
 }
 
-vector<size_t> get_pages_offsets(const string &buffer, size_t offset, const map<size_t, size_t> &id2offset)
+vector<pair<unsigned int, unsigned int>> get_pages_id_gen(const string &buffer,
+                                                          const pair<unsigned int, unsigned int> &catalog_pages_id_gen,
+                                                          const map<size_t, size_t> &id2offset)
 {
-    map<string, pair<string, pdf_object_t>> data = get_dictionary_data(buffer, offset);
+    map<string, pair<string, pdf_object_t>> data = get_dictionary_data(buffer, id2offset.at(catalog_pages_id_gen.first));
     auto it = data.find("/Type");
     if (it == data.end() || it->second.first != "/Pages")
     {
         throw pdf_error("In root catalog type must be '/Type /Pages'");
     }
-    vector<size_t> result;
-    get_pages_offsets_int(buffer, offset, id2offset, result);
+    vector<pair<unsigned int, unsigned int>> result;
+    get_pages_id_gen_int(buffer, catalog_pages_id_gen, id2offset, result);
 
     return result;
 }
 
+pair<unsigned int, unsigned int> get_id_gen(const string &data)
+{
+    size_t offset = 0;
+    size_t end_offset = efind_first(data, "\r\t\n ", offset);
+    unsigned int id = strict_stoul(data.substr(offset, end_offset - offset));
+    offset = find_number_exc(data, end_offset);
+    end_offset = efind_first(data, "\r\t\n ", offset);
+    unsigned int gen = strict_stoul(data.substr(offset, end_offset - offset));
+    return make_pair(id, gen);
+}
+
 void append_content_offsets(const string &buffer,
-                           size_t page_offset,
-                           const map<size_t, size_t> &id2offset,
-                           vector<size_t> &content_offsets)
+                            size_t page_offset,
+                            vector<pair<unsigned int, unsigned int>> &content_offsets)
 {
     const map<string, pair<string, pdf_object_t>> data = get_dictionary_data(buffer, page_offset);
     auto it = data.find("/Contents");
@@ -527,10 +546,10 @@ void append_content_offsets(const string &buffer,
     switch (it->second.second)
     {
     case ARRAY:
-        append_set(contents_data, id2offset, content_offsets);
+        append_set(contents_data, content_offsets);
         break;
     case INDIRECT_OBJECT:
-        content_offsets.push_back(id2offset.at(strict_stoul(contents_data.substr(0, efind(it->second.first, ' ', 0)))));
+        content_offsets.push_back(get_id_gen(contents_data));
         break;
     default:
         throw pdf_error(FUNC_STRING + "/Contents type must be ARRAY or INDIRECT_OBJECT");
@@ -538,24 +557,29 @@ void append_content_offsets(const string &buffer,
     }
 }
 
-vector<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset, const map<size_t, size_t> &id2offset)
+vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const string &buffer,
+                                                             size_t cross_ref_offset,
+                                                             const map<size_t, size_t> &id2offset)
 {
-    vector<size_t> result;
+    vector<pair<unsigned int, unsigned int>> result;
     size_t trailer_offset = efind(buffer, "trailer", cross_ref_offset);
     trailer_offset += LEN("trailer");
     const map<string, pair<string, pdf_object_t>> trailer_data = get_dictionary_data(buffer, trailer_offset);
     pair<string, pdf_object_t> p = trailer_data.at("/Root");
     if (p.second != INDIRECT_OBJECT) throw pdf_error(FUNC_STRING + "/Root value must be INDRECT_OBJECT");
-    size_t root_offset = get_indirect_object_offset(id2offset, p.first);
+    size_t root_offset = id2offset.at(get_id_gen(p.first).first);
     root_offset = efind(buffer, "<<", root_offset);
 
     const map<string, pair<string, pdf_object_t>> root_data = get_dictionary_data(buffer, root_offset);
     p = root_data.at("/Pages");
     if (p.second != INDIRECT_OBJECT) throw pdf_error(FUNC_STRING + "/Pages value must be INDRECT_OBJECT");
 
-    size_t catalog_pages_offset = get_indirect_object_offset(id2offset, p.first);
-    vector<size_t> page_offsets = get_pages_offsets(buffer, catalog_pages_offset, id2offset);
-    for (size_t page_offset : page_offsets) append_content_offsets(buffer, page_offset, id2offset, result);
+    const pair<unsigned int, unsigned int> catalog_pages_data = get_id_gen(p.first);
+    vector<pair<unsigned int, unsigned int>> pages_id_gen = get_pages_id_gen(buffer, catalog_pages_data, id2offset);
+    for (const pair<unsigned int, unsigned int> &id_gen : pages_id_gen)
+    {
+        append_content_offsets(buffer, id2offset.at(id_gen.first), result);
+    }
 
     return result;
 }
@@ -679,10 +703,14 @@ string pdf2txt(const string &buffer)
                                                                             trailer_offsets.at(0).first,
                                                                             trailer_offsets.at(0).second,
                                                                             id2offset);
-    for (const pair<string, pair<string, pdf_object_t>> &p : encrypt_data) cout << p.first << ' ' << p.second.first << endl;
-    vector<size_t> content_offsets = get_content_offsets(buffer, cross_ref_offset, id2offset);
+//    for (const pair<string, pair<string, pdf_object_t>> &p : encrypt_data) cout << p.first << ' ' << p.second.first << endl;
+    vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(buffer, cross_ref_offset, id2offset);
     string result;
-    for (size_t offset : content_offsets) result += output_content(buffer, id2offset, offset);
+    for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen) cout << id_gen.first
+                                                                                << ' '
+                                                                                << id_gen.second
+                                                                                << endl;
+//result += output_content(buffer, id2offset, offset);
 
     return result;
 }

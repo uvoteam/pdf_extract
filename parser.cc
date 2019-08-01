@@ -38,7 +38,6 @@ size_t efind_first(const string &src, const char* s, size_t pos, size_t n);
 size_t efind(const string &src, const string& str, size_t pos);
 size_t efind(const string &src, const char* s, size_t pos);
 size_t efind(const string &src, char c, size_t pos);
-size_t strict_stoul(const string &str);
 bool prefix(const char *pre, const char *str);
 size_t get_cross_ref_offset_start(const string &buffer, size_t end);
 bool is_blank(char c);
@@ -133,26 +132,6 @@ size_t efind(const string &src, char c, size_t pos)
     size_t ret = src.find(c, pos);
     if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + c + " in pos " + to_string(pos) + " failed");
     return ret;
-}
-
-size_t strict_stoul(const string &str)
-{
-    if (str.empty()) throw pdf_error(FUNC_STRING + "string is empty");
-    size_t pos;
-    if (str.find('-') != string::npos) throw pdf_error(FUNC_STRING + str + " is not unsigned number");
-    size_t val;
-    try
-    {
-        val = stoul(str, &pos);
-    }
-    catch (const std::exception &e)
-    {
-        throw pdf_error(FUNC_STRING + str + " is not unsigned number");
-    }
-
-    if (pos != str.size()) throw pdf_error(FUNC_STRING + str + " is not unsigned number");
-
-    return val;
 }
 
 bool prefix(const char *pre, const char *str)

@@ -54,7 +54,7 @@ void base_decrypt(const unsigned char* key,
     status = EVP_DecryptUpdate(&aes, text_out, &data_out_moved, text_in, text_len);
 	out_len = data_out_moved;
     if(status != 1) throw pdf_error(FUNC_STRING + "Error AES-decryption data" );
-    
+
     status = EVP_DecryptFinal_ex(&aes, text_out + out_len, &data_out_moved);
 	out_len += data_out_moved;
     if(status != 1) throw pdf_error(FUNC_STRING + "Error AES-decryption data final" );
@@ -95,34 +95,30 @@ bool is_encrypt_metadata(const map<string, string> &decrypt_opts)
     throw pdf_error(FUNC_STRING + "wrong bool value:" + it->second);
 }
 
-void RC4(const unsigned char* key,
-         int key_len,
-         const unsigned char* text_in,
-         int text_len,
-         unsigned char* text_out,
-         int text_out_len)
-{
-    if(text_len != text_out_len) throw pdf_error(FUNC_STRING + "text_len and text_out_len must be equal");
+int RC4(const unsigned char* key, int key_len, const unsigned char* text_in, int text_len, unsigned char* text_out)
 
+{
     EVP_CIPHER_CTX rc4;
 
     // Don't set the key because we will modify the parameters
     int status = EVP_EncryptInit_ex(&rc4, EVP_rc4(), NULL, NULL, NULL);
-    if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_EncryptInit_ex error");
-    
+    if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_DecryptInit_ex error");
+
     status = EVP_CIPHER_CTX_set_key_length(&rc4, key_len);
     if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_CIPHER_CTX_set_key_length error");
 
     // We finished modifying parameters so now we can set the key
     status = EVP_EncryptInit_ex(&rc4, NULL, NULL, key, NULL);
-    if(status != 1)throw pdf_error(FUNC_STRING + "RC4 EVP_EncryptInit_ex error");
+    if(status != 1)throw pdf_error(FUNC_STRING + "RC4 EVP_DecryptInit_ex error");
 
     int data_out_moved;
     status = EVP_EncryptUpdate(&rc4, text_out, &data_out_moved, text_in, text_len);
-    if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_EncryptUpdate error");
-    
+    if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_DecryptUpdate error");
+    int written = data_out_moved;
     status = EVP_EncryptFinal_ex(&rc4, &text_out[data_out_moved], &data_out_moved);
     if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_EncryptFinal_ex error" );
+    written += data_out_moved;
+    return written;
 }
 
 array<unsigned char, 32> get_encryption_key(const map<string, string> &decrypt_opts)
@@ -213,12 +209,12 @@ array<unsigned char, 32> get_encryption_key(const map<string, string> &decrypt_o
                 digest[j] = static_cast<unsigned char>(encryption_key[j] ^ k);
             }
             
-            RC4(digest, key_length, user_key.data(), 16, user_key.data(), 16);
+            RC4(digest, key_length, user_key.data(), 16, user_key.data());
         }
     }
     else
     {
-        RC4(encryption_key.data(), key_length, padding, 32, user_key.data(), 32);
+        RC4(encryption_key.data(), key_length, padding, 32, user_key.data());
     }
 }
 
@@ -284,17 +280,22 @@ void rc4_create_obj_key(unsigned int n,
     *key_len = (key_length <= 11) ? key_length + 5 : 16;
 }
 
-void decrypt_rc4(unsigned int n,
-                 unsigned int g,
-                 const unsigned char* in_str,
-                 int in_len,
-                 unsigned char* out_str,
-                 int &out_len,
-                 const map<string, string> &decrypt_opts)
+vector<unsigned char> decrypt_rc4(unsigned int n,
+                                  unsigned int g,
+                                  const unsigned char* in_str,
+                                  int in_len,
+                                  const map<string, string> &decrypt_opts)
 {
     unsigned char obj_key[MD5_DIGEST_LENGTH];
     int key_len;
 
     rc4_create_obj_key(n, g, obj_key, &key_len, decrypt_opts);
-    RC4(obj_key, key_len, in_str, in_len, out_str, out_len);
+    vector<unsigned char> out_str;
+    int out_len = key_len * 8 == 40? EVP_CIPHER_block_size(EVP_rc4_40()) + in_len :
+                                     EVP_CIPHER_block_size(EVP_rc4()) + in_len;
+    out_str.insert(out_str.end(), 0, out_len);
+    out_len = RC4(obj_key, key_len, in_str, in_len, out_str.data());
+    out_str.resize(out_len);
+
+    return out_str;
 }

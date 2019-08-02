@@ -22,14 +22,17 @@ using namespace std;
 extern string flate_decode(const string&);
 extern string lzw_decode(const string&);
 extern string ascii85_decode(const string&);
+extern vector<unsigned char> decrypt_rc4(unsigned int n,
+                                         unsigned int g,
+                                         const vector<unsigned char> &in,
+                                         const map<string, pair<string, pdf_object_t>> &decrypt_opts);
+
 
 enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what-is-the-smallest-possible-valid-pdf*/,
       CROSS_REFERENCE_LINE_SIZE = 20,
       BYTE_OFFSET_LEN = 10, /* length for byte offset in cross reference record */
       GENERATION_NUMBER_LEN = 5 /* length for generation number */
 };
-
-enum pdf_object_t {DICTIONARY = 1, ARRAY = 2, STRING = 3, VALUE = 4, INDIRECT_OBJECT = 5, NAME_OBJECT = 6};
 
 size_t efind_first(const string &src, const string& str, size_t pos);
 size_t efind_first(const string &src, const char* s, size_t pos);
@@ -44,6 +47,7 @@ bool is_blank(char c);
 size_t skip_spaces(const string &buffer, size_t offset);
 size_t get_cross_ref_offset_end(const string &buffer);
 size_t get_cross_ref_offset(const string &buffer);
+pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end);
 void append_object(const string &buf, size_t offset, vector<size_t> &objects);
 char get_object_status(const string &buffer, size_t offset);
 size_t get_xref_number(const string &buffer, size_t &offset);
@@ -79,13 +83,13 @@ vector<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset
 size_t get_content_len(const string &buffer,
                        const map<size_t, size_t> &id2offset,
                        const map<string, pair<string, pdf_object_t>> &props);
-string get_content(const string &buffer,
-                   const map<size_t, size_t> &id2offset,
-                   size_t offset,
-                   const map<string, pair<string, pdf_object_t>> &props);
+vector<unsigned char> get_content(const string &buffer,
+                                  const map<size_t, size_t> &id2offset,
+                                  size_t offset,
+                                  const map<string, pair<string, pdf_object_t>> &props);
 vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props);
 void decode(string &content, const vector<string> &filters);
-string output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset);
+//string output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset);
 map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t start,
                                                          size_t end,
@@ -610,7 +614,7 @@ size_t get_content_len(const string &buffer,
     }
 }
 
-string get_content(const string &buffer,
+vector<unsigned char> get_content(const string &buffer,
                    const map<size_t, size_t> &id2offset,
                    size_t offset,
                    const map<string, pair<string, pdf_object_t>> &props)
@@ -620,7 +624,8 @@ string get_content(const string &buffer,
     offset += LEN("stream");
     if (buffer[offset] == '\r') ++offset;
     if (buffer[offset] == '\n') ++offset;
-    return string(buffer.substr(offset, len).data(), len);
+    const unsigned char *content = reinterpret_cast<const unsigned char*>(buffer.substr(offset, len).data());
+    return vector<unsigned char>(content, content + len);
 }
 
 vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
@@ -651,19 +656,29 @@ void decode(string &content, const vector<string> &filters)
 //    cout << content;
 }
 
-string output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset)
+vector<unsigned char> output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset)
 {
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(buffer, offset);
 
-    string content = get_content(buffer, id2offset, offset, props);
-    if (props.count("/Filter") == 1)
+    vector<unsigned char> content = get_content(buffer, id2offset, offset, props);
+/*    if (props.count("/Filter") == 1)
     {
         vector<string> filters = get_filters(props);
         decode(content, filters);
-    }
+        }*/
     
     
     return content;
+}
+
+pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end)
+{
+    size_t off = efind(buffer, "/ID", start);
+    if (off >= end) throw pdf_error(FUNC_STRING + "Can`t find /ID key");
+    off = efind(buffer, '[', off);
+    if (off >= end) throw pdf_error(FUNC_STRING + "Can`t find /ID value");
+
+    return make_pair(string("/ID"), make_pair(get_array(buffer, off), ARRAY));
 }
 
 map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
@@ -675,22 +690,26 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
     if (off == string::npos || off >= end) return map<string, pair<string, pdf_object_t>>();
     off += LEN("/Encrypt");
     pdf_object_t type = get_object_type(buffer, off);
+    map<string, pair<string, pdf_object_t>> result;
     switch (type)
     {
     case DICTIONARY:
-        return get_dictionary_data(buffer, off);
+        result = get_dictionary_data(buffer, off);
         break;
     case INDIRECT_OBJECT:
         off = id2offset.at(strict_stoul(buffer.substr(off, efind_first(buffer, "\r\t\n ", off) - off)));
         off = efind(buffer, "obj", off);
         off += LEN("obj");
         off = skip_spaces(buffer, off);
-        return get_dictionary_data(buffer, off);
+        result = get_dictionary_data(buffer, off);
         break;
     default:
         throw pdf_error(FUNC_STRING + "wrong /Encrypt value: " + to_string(type));
         break;
     }
+    result.insert(get_id(buffer, start, end));
+
+    return result;
 }
 
 string pdf2txt(const string &buffer)
@@ -703,16 +722,22 @@ string pdf2txt(const string &buffer)
                                                                             trailer_offsets.at(0).first,
                                                                             trailer_offsets.at(0).second,
                                                                             id2offset);
-//    for (const pair<string, pair<string, pdf_object_t>> &p : encrypt_data) cout << p.first << ' ' << p.second.first << endl;
-    vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(buffer, cross_ref_offset, id2offset);
-    string result;
-    for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen) cout << id_gen.first
-                                                                                << ' '
-                                                                                << id_gen.second
-                                                                                << endl;
-//result += output_content(buffer, id2offset, offset);
+    if (encrypt_data.empty())
+    {
+        cout << "no encryption" << endl;
+        return string();
+    }
 
-    return result;
+    vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(buffer, cross_ref_offset, id2offset);
+    for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen)
+    {
+        vector<unsigned char> content = output_content(buffer, id2offset, id2offset.at(id_gen.first));
+        decrypt_rc4(id_gen.first, id_gen.second, content, encrypt_data);
+    }
+//    string result;
+//result += output_content(buffer, id2offset, offset);
+    return string();
+//    return result;
 }
 
 int main(int argc, char *argv[])

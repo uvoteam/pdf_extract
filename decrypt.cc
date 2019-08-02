@@ -86,13 +86,13 @@ array<unsigned char, 32> get_key(const string &password)
     return owner_key;
 }
 
-bool is_encrypt_metadata(const map<string, string> &decrypt_opts)
+bool is_encrypt_metadata(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     auto it = decrypt_opts.find("/EncryptMetadata");
     if (it == decrypt_opts.end()) return false;
-    if (it->second == "false") return false;
-    if (it->second == "true") return true;
-    throw pdf_error(FUNC_STRING + "wrong bool value:" + it->second);
+    if (it->second.first == "false") return false;
+    if (it->second.first == "true") return true;
+    throw pdf_error(FUNC_STRING + "wrong bool value:" + it->second.first);
 }
 
 int RC4(const unsigned char* key, int key_len, const unsigned char* text_in, int text_len, unsigned char* text_out)
@@ -121,29 +121,39 @@ int RC4(const unsigned char* key, int key_len, const unsigned char* text_in, int
     return written;
 }
 
-array<unsigned char, 32> get_encryption_key(const map<string, string> &decrypt_opts)
+string get_document_id(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+{
+    string id = decrypt_opts.at("/ID").first;
+    size_t start = id.find('<');
+    if (start == string::npos) throw pdf_error(FUNC_STRING + "can`t find '<'");
+    size_t end = id.find('>');
+    if (end == string::npos) throw pdf_error(FUNC_STRING + "can`t find '>'");
+    return id.substr(start, end - start);
+}
+
+array<unsigned char, 32> get_encryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     int j;
     int k;
-    unsigned int key_length = strict_stoul(decrypt_opts.at("/Length")) / 8;
+    unsigned int key_length = strict_stoul(decrypt_opts.at("/Length").first) / 8;
 
     MD5_CTX ctx;
     int status = MD5_Init(&ctx);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error initializing MD5 hashing engine" );
-    const string o_val = decrypt_opts.at("/O");
+    const string o_val = decrypt_opts.at("/O").first;
     status = MD5_Update(&ctx, get_user_pad(o_val).data(), 32);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
     status = MD5_Update(&ctx, get_key(o_val).data(), 32);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
     unsigned char ext[4];
-    int p_value = strict_stol(decrypt_opts.at("/P"));
+    int p_value = strict_stol(decrypt_opts.at("/P").first);
     ext[0] = static_cast<unsigned char>(p_value & 0xff);
     ext[1] = static_cast<unsigned char>((p_value >>  8) & 0xff);
     ext[2] = static_cast<unsigned char>((p_value >> 16) & 0xff);
     ext[3] = static_cast<unsigned char>((p_value >> 24) & 0xff);
     status = MD5_Update(&ctx, ext, 4);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
-    string document_id = decrypt_opts.at("/ID");
+    string document_id = get_document_id(decrypt_opts);
     unsigned int doc_id_length = static_cast<unsigned int>(document_id.length());
     vector<unsigned char> doc_id(document_id.length());
     if (doc_id_length > 0)
@@ -166,7 +176,7 @@ array<unsigned char, 32> get_encryption_key(const map<string, string> &decrypt_o
     status = MD5_Final(digest, &ctx);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
     
-    unsigned int revision = strict_stoul(decrypt_opts.at("/R"));
+    unsigned int revision = strict_stoul(decrypt_opts.at("/R").first);
     // only use the really needed bits as input for the hash
     if (revision == 3 || revision == 4)
     {
@@ -182,7 +192,7 @@ array<unsigned char, 32> get_encryption_key(const map<string, string> &decrypt_o
     }
     array<unsigned char, 32> encryption_key;
     memcpy(encryption_key.data(), digest, key_length);
-    array<unsigned char, 32> user_key = get_key(decrypt_opts.at("/U"));
+    array<unsigned char, 32> user_key = get_key(decrypt_opts.at("/U").first);
     // Setup user key
     if (revision == 3 || revision == 4)
     {
@@ -226,9 +236,9 @@ void get_MD5_binary(const unsigned char* data, int length, unsigned char* digest
     if (MD5_Final(digest, &ctx) != 1) throw pdf_error(FUNC_STRING + "error MD5_Final");
 }
 
-encrypt_algorithm_t get_algorithm(const map<string, string> &decrypt_opts)
+encrypt_algorithm_t get_algorithm(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
-    const string val = decrypt_opts.at("/V");
+    const string val = decrypt_opts.at("/V").first;
     switch (strict_stoul(val))
     {
     case 1:
@@ -253,10 +263,10 @@ void rc4_create_obj_key(unsigned int n,
                         unsigned int g,
                         unsigned char obj_key[16],
                         int *key_len,
-                        const map<string, string> &decrypt_opts)
+                        const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     unsigned char nkey[MD5_DIGEST_LENGTH + 5 + 4];
-    unsigned int key_length = strict_stoul(decrypt_opts.at("/Length")) / 8;
+    unsigned int key_length = strict_stoul(decrypt_opts.at("/Length").first) / 8;
     int local_key_len = key_length + 5;
     array<unsigned char, 32> encryption_key = get_encryption_key(decrypt_opts);
     for (size_t j = 0; j < key_length; j++) nkey[j] = encryption_key[j];
@@ -282,19 +292,18 @@ void rc4_create_obj_key(unsigned int n,
 
 vector<unsigned char> decrypt_rc4(unsigned int n,
                                   unsigned int g,
-                                  const unsigned char* in_str,
-                                  int in_len,
-                                  const map<string, string> &decrypt_opts)
+                                  const vector<unsigned char> &in,
+                                  const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     unsigned char obj_key[MD5_DIGEST_LENGTH];
     int key_len;
 
     rc4_create_obj_key(n, g, obj_key, &key_len, decrypt_opts);
     vector<unsigned char> out_str;
-    int out_len = key_len * 8 == 40? EVP_CIPHER_block_size(EVP_rc4_40()) + in_len :
-                                     EVP_CIPHER_block_size(EVP_rc4()) + in_len;
+    int out_len = key_len * 8 == 40? EVP_CIPHER_block_size(EVP_rc4_40()) + in.size():
+                                     EVP_CIPHER_block_size(EVP_rc4()) + in.size();
     out_str.insert(out_str.end(), 0, out_len);
-    out_len = RC4(obj_key, key_len, in_str, in_len, out_str.data());
+    out_len = RC4(obj_key, key_len, in.data(), in.size(), out_str.data());
     out_str.resize(out_len);
 
     return out_str;

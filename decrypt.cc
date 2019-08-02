@@ -303,7 +303,7 @@ vector<unsigned char> decrypt_rc4(unsigned int n,
     vector<unsigned char> out_str;
     int out_len = key_len * 8 == 40? EVP_CIPHER_block_size(EVP_rc4_40()) + in.size():
                                      EVP_CIPHER_block_size(EVP_rc4()) + in.size();
-    out_str.insert(out_str.end(), 0, out_len);
+    out_str.insert(out_str.end(), out_len, 0);
     out_len = RC4(obj_key, key_len, in.data(), in.size(), out_str.data());
     out_str.resize(out_len);
 

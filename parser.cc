@@ -22,10 +22,10 @@ using namespace std;
 extern string flate_decode(const string&);
 extern string lzw_decode(const string&);
 extern string ascii85_decode(const string&);
-extern vector<unsigned char> decrypt_rc4(unsigned int n,
-                                         unsigned int g,
-                                         const vector<unsigned char> &in,
-                                         const map<string, pair<string, pdf_object_t>> &decrypt_opts);
+extern string decrypt_rc4(unsigned int n,
+                          unsigned int g,
+                          const vector<unsigned char> &in,
+                          const map<string, pair<string, pdf_object_t>> &decrypt_opts);
 
 
 enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what-is-the-smallest-possible-valid-pdf*/,
@@ -89,7 +89,10 @@ vector<unsigned char> get_content(const string &buffer,
                                   const map<string, pair<string, pdf_object_t>> &props);
 vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props);
 void decode(string &content, const vector<string> &filters);
-//string output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset);
+string output_content(const string &buffer,
+                      const map<size_t, size_t> &id2offset,
+                      const pair<unsigned int, unsigned int> &id_gen,
+                      const map<string, pair<string, pdf_object_t>> &encrypt_data);
 map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t start,
                                                          size_t end,
@@ -653,22 +656,27 @@ void decode(string &content, const vector<string> &filters)
                                                                        {"/LZWDecode", lzw_decode},
                                                                        {"/ASCII85Decode", ascii85_decode}};
     for (const string& filter : filters) content = filter2func.at(filter)(content);
-//    cout << content;
+    cout << content;
 }
 
-vector<unsigned char> output_content(const string &buffer, const map<size_t, size_t> &id2offset, size_t offset)
+string output_content(const string &buffer,
+                      const map<size_t, size_t> &id2offset,
+                      const pair<unsigned int, unsigned int> &id_gen,
+                      const map<string, pair<string, pdf_object_t>> &encrypt_data)
 {
+    size_t offset = id2offset.at(id_gen.first);
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(buffer, offset);
 
     vector<unsigned char> content = get_content(buffer, id2offset, offset, props);
-/*    if (props.count("/Filter") == 1)
+    string content_str = encrypt_data.empty()? string(reinterpret_cast<char*>(content.data()), content.size()) :
+                                               decrypt_rc4(id_gen.first, id_gen.second, content, encrypt_data);
+    if (props.count("/Filter") == 1)
     {
         vector<string> filters = get_filters(props);
-        decode(content, filters);
-        }*/
-    
-    
-    return content;
+        decode(content_str, filters);
+    }
+
+    return content_str;
 }
 
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end)
@@ -722,22 +730,15 @@ string pdf2txt(const string &buffer)
                                                                             trailer_offsets.at(0).first,
                                                                             trailer_offsets.at(0).second,
                                                                             id2offset);
-    if (encrypt_data.empty())
-    {
-        cout << "no encryption" << endl;
-        return string();
-    }
 
     vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(buffer, cross_ref_offset, id2offset);
+    string result;
     for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen)
     {
-        vector<unsigned char> content = output_content(buffer, id2offset, id2offset.at(id_gen.first));
-        decrypt_rc4(id_gen.first, id_gen.second, content, encrypt_data);
+        result += output_content(buffer, id2offset, id_gen, encrypt_data);
     }
-//    string result;
-//result += output_content(buffer, id2offset, offset);
-    return string();
-//    return result;
+
+    return result;
 }
 
 int main(int argc, char *argv[])

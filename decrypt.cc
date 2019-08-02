@@ -291,10 +291,10 @@ void rc4_create_obj_key(unsigned int n,
     *key_len = (key_length <= 11) ? key_length + 5 : 16;
 }
 
-vector<unsigned char> decrypt_rc4(unsigned int n,
-                                  unsigned int g,
-                                  const vector<unsigned char> &in,
-                                  const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+string decrypt_rc4(unsigned int n,
+                   unsigned int g,
+                   const vector<unsigned char> &in,
+                   const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     unsigned char obj_key[MD5_DIGEST_LENGTH];
     int key_len;
@@ -305,7 +305,6 @@ vector<unsigned char> decrypt_rc4(unsigned int n,
                                      EVP_CIPHER_block_size(EVP_rc4()) + in.size();
     out_str.insert(out_str.end(), out_len, 0);
     out_len = RC4(obj_key, key_len, in.data(), in.size(), out_str.data());
-    out_str.resize(out_len);
 
-    return out_str;
+    return string(reinterpret_cast<char*>(out_str.data()), out_len);
 }

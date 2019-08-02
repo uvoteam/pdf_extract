@@ -99,7 +99,8 @@ int RC4(const unsigned char* key, int key_len, const unsigned char* text_in, int
 
 {
     EVP_CIPHER_CTX rc4;
-
+    EVP_CIPHER_CTX_init(&rc4);
+    unique_ptr<EVP_CIPHER_CTX, int (*)(EVP_CIPHER_CTX*)>  rc4_scope(&rc4, EVP_CIPHER_CTX_cleanup);
     // Don't set the key because we will modify the parameters
     int status = EVP_EncryptInit_ex(&rc4, EVP_rc4(), NULL, NULL, NULL);
     if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_DecryptInit_ex error");

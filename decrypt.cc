@@ -89,7 +89,7 @@ array<unsigned char, 32> get_key(const string &password)
 bool is_encrypt_metadata(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     auto it = decrypt_opts.find("/EncryptMetadata");
-    if (it == decrypt_opts.end()) return false;
+    if (it == decrypt_opts.end()) return true;
     if (it->second.first == "false") return false;
     if (it->second.first == "true") return true;
     throw pdf_error(FUNC_STRING + "wrong bool value:" + it->second.first);

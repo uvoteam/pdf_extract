@@ -132,6 +132,17 @@ string get_document_id(const map<string, pair<string, pdf_object_t>> &decrypt_op
     return id.substr(start + 1, end - start);
 }
 
+string get_string(const string& src)
+{
+    size_t offset = src.find_first_of("(<", 0);
+    if (offset == string::npos || offset == src.length() - 1) throw pdf_error(FUNC_STRING + "wrong string=" + src);
+    char end_delimiter = src[offset] == '('? ')' : '>';
+    size_t end_offset = src.find(end_delimiter, offset);
+    if (end_offset == string::npos) throw pdf_error(FUNC_STRING + "can`t find end_delimiter=" + end_delimiter);
+    ++offset;
+    return src.substr(offset, end_offset - offset);
+}
+
 array<unsigned char, 32> get_encryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     int j;
@@ -143,8 +154,8 @@ array<unsigned char, 32> get_encryption_key(const map<string, pair<string, pdf_o
     if(status != 1) throw pdf_error(FUNC_STRING + "Error initializing MD5 hashing engine" );
     status = MD5_Update(&ctx, padding, 32);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
-    const string o_val = decrypt_opts.at("/O").first;
-    status = MD5_Update(&ctx, get_key(o_val).data(), 32);
+    const string o_val = get_string(decrypt_opts.at("/O").first);
+    status = MD5_Update(&ctx, get_user_pad(o_val).data(), 32);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
     unsigned char ext[4];
     int p_value = strict_stol(decrypt_opts.at("/P").first);

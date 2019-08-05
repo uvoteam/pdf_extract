@@ -262,7 +262,7 @@ encrypt_algorithm_t get_algorithm(const map<string, pair<string, pdf_object_t>> 
 
 void rc4_create_obj_key(unsigned int n,
                         unsigned int g,
-                        unsigned char obj_key[16],
+                        unsigned char obj_key[MD5_DIGEST_LENGTH],
                         int *key_len,
                         const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {

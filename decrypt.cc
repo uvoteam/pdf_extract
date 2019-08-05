@@ -129,13 +129,14 @@ string get_document_id(const map<string, pair<string, pdf_object_t>> &decrypt_op
     if (start == string::npos) throw pdf_error(FUNC_STRING + "can`t find '<'");
     size_t end = id.find('>');
     if (end == string::npos) throw pdf_error(FUNC_STRING + "can`t find '>'");
-    return id.substr(start + 1, end - start);
+    ++start;
+    return id.substr(start, end - start);
 }
 
 string get_string(const string& src)
 {
     size_t offset = src.find_first_of("(<", 0);
-    if (offset == string::npos || offset == src.length() - 1) throw pdf_error(FUNC_STRING + "wrong string=" + src);
+    if (offset == string::npos) throw pdf_error(FUNC_STRING + "wrong string=" + src);
     char end_delimiter = src[offset] == '('? ')' : '>';
     size_t end_offset = src.find(end_delimiter, offset);
     if (end_offset == string::npos) throw pdf_error(FUNC_STRING + "can`t find end_delimiter=" + end_delimiter);

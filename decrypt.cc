@@ -147,6 +147,14 @@ string get_string(const string& src)
     return hex_decode(result);
 }
 
+vector<unsigned char> string2array(const string &src)
+{
+    vector<unsigned char> result(src.length());
+    for (size_t j = 0; j < src.length(); j++) result[j] = static_cast<unsigned char>(src[j]);
+
+    return result;
+}
+
 array<unsigned char, 32> get_encryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     int j;
@@ -174,7 +182,7 @@ array<unsigned char, 32> get_encryption_key(const map<string, pair<string, pdf_o
     vector<unsigned char> doc_id(document_id.length());
     if (doc_id_length > 0)
     {
-        for (size_t j = 0; j < doc_id_length; j++) doc_id[j] = static_cast<unsigned char>(document_id[j]);
+        doc_id = string2array(document_id);
         status = MD5_Update(&ctx, doc_id.data(), doc_id_length);
         if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
     }
@@ -208,7 +216,8 @@ array<unsigned char, 32> get_encryption_key(const map<string, pair<string, pdf_o
     }
     array<unsigned char, 32> encryption_key;
     memcpy(encryption_key.data(), digest, key_length);
-    array<unsigned char, 32> user_key = get_key(decrypt_opts.at("/U").first);
+    unsigned char user_key[32];
+
     // Setup user key
     if (revision == 3 || revision == 4)
     {
@@ -223,7 +232,7 @@ array<unsigned char, 32> get_encryption_key(const map<string, pair<string, pdf_o
         }
         status = MD5_Final(digest, &ctx);
         if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data");
-        memcpy(user_key.data(), digest, 16);
+        memcpy(user_key, digest, 16);
         for (k = 16; k < 32; ++k)
         {
             user_key[k] = 0;
@@ -235,13 +244,15 @@ array<unsigned char, 32> get_encryption_key(const map<string, pair<string, pdf_o
                 digest[j] = static_cast<unsigned char>(encryption_key[j] ^ k);
             }
             
-            RC4(digest, key_length, user_key.data(), 16, user_key.data());
+            RC4(digest, key_length, user_key, 16, user_key);
         }
     }
     else
     {
-        RC4(encryption_key.data(), key_length, padding, 32, user_key.data());
+        RC4(encryption_key.data(), key_length, padding, 32, user_key);
     }
+
+    return encryption_key;
 }
 
 void get_MD5_binary(const unsigned char* data, int length, unsigned char* digest)

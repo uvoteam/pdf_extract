@@ -122,15 +122,16 @@ int RC4(const unsigned char* key, int key_len, const unsigned char* text_in, int
     return written;
 }
 
-string get_document_id(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+string hex_decode(const string &hex)
 {
-    string id = decrypt_opts.at("/ID").first;
-    size_t start = id.find('<');
-    if (start == string::npos) throw pdf_error(FUNC_STRING + "can`t find '<'");
-    size_t end = id.find('>');
-    if (end == string::npos) throw pdf_error(FUNC_STRING + "can`t find '>'");
-    ++start;
-    return id.substr(start, end - start);
+    std::string result;
+    for (size_t i = 0; i < hex.length(); i += 2)
+    {
+        long int d = strtol(hex.substr(i, 2).c_str(), nullptr, 16);
+        if (errno != 0) throw pdf_error(FUNC_STRING + "wrong input" + hex);
+        result.push_back(static_cast<char>(d));
+    }
+    return result;
 }
 
 string get_string(const string& src)
@@ -141,7 +142,9 @@ string get_string(const string& src)
     size_t end_offset = src.find(end_delimiter, offset);
     if (end_offset == string::npos) throw pdf_error(FUNC_STRING + "can`t find end_delimiter=" + end_delimiter);
     ++offset;
-    return src.substr(offset, end_offset - offset);
+    string result = src.substr(offset, end_offset - offset);
+    if (end_delimiter == ')') return result;
+    return hex_decode(result);
 }
 
 array<unsigned char, 32> get_encryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
@@ -166,7 +169,7 @@ array<unsigned char, 32> get_encryption_key(const map<string, pair<string, pdf_o
     ext[3] = static_cast<unsigned char>((p_value >> 24) & 0xff);
     status = MD5_Update(&ctx, ext, 4);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
-    string document_id = get_document_id(decrypt_opts);
+    string document_id = get_string(decrypt_opts.at("/ID").first);
     unsigned int doc_id_length = static_cast<unsigned int>(document_id.length());
     vector<unsigned char> doc_id(document_id.length());
     if (doc_id_length > 0)

@@ -141,9 +141,9 @@ array<unsigned char, 32> get_encryption_key(const map<string, pair<string, pdf_o
     MD5_CTX ctx;
     int status = MD5_Init(&ctx);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error initializing MD5 hashing engine" );
-    const string o_val = decrypt_opts.at("/O").first;
-    status = MD5_Update(&ctx, get_user_pad(o_val).data(), 32);
+    status = MD5_Update(&ctx, padding, 32);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
+    const string o_val = decrypt_opts.at("/O").first;
     status = MD5_Update(&ctx, get_key(o_val).data(), 32);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
     unsigned char ext[4];

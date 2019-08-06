@@ -155,11 +155,18 @@ vector<unsigned char> string2array(const string &src)
     return result;
 }
 
+unsigned int get_length(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+{
+    auto it = decrypt_opts.find("/Length");
+    if (it == decrypt_opts.end()) return 40 / 8;
+    return strict_stoul(it->second.first) / 8;
+}
+
 vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     int j;
     int k;
-    unsigned int key_length = strict_stoul(decrypt_opts.at("/Length").first) / 8;
+    unsigned int key_length = get_length(decrypt_opts);
 
     MD5_CTX ctx;
     int status = MD5_Init(&ctx);

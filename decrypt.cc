@@ -32,7 +32,7 @@ typedef enum {
 } pdf_key_length_t;
 
 
-void base_decrypt(const unsigned char* key,
+/*void base_decrypt(const unsigned char* key,
                   int key_len,
                   const unsigned char* iv,
                   const unsigned char* text_in,
@@ -58,7 +58,7 @@ void base_decrypt(const unsigned char* key,
     status = EVP_DecryptFinal_ex(&aes, text_out + out_len, &data_out_moved);
 	out_len += data_out_moved;
     if(status != 1) throw pdf_error(FUNC_STRING + "Error AES-decryption data final" );
-}
+    }*/
 
 array<unsigned char, 32> get_user_pad(const string& password)
 {
@@ -338,6 +338,5 @@ string decrypt_rc4(unsigned int n,
                                      EVP_CIPHER_block_size(EVP_rc4()) + in.size();
     out_str.insert(out_str.end(), out_len, 0);
     out_len = RC4(obj_key, key_len, in.data(), in.size(), out_str.data());
-
     return string(reinterpret_cast<char*>(out_str.data()), out_len);
 }

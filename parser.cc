@@ -618,17 +618,18 @@ size_t get_content_len(const string &buffer,
 }
 
 vector<unsigned char> get_content(const string &buffer,
-                   const map<size_t, size_t> &id2offset,
-                   size_t offset,
-                   const map<string, pair<string, pdf_object_t>> &props)
+                                  const map<size_t, size_t> &id2offset,
+                                  size_t offset,
+                                  const map<string, pair<string, pdf_object_t>> &props)
 {
     size_t len = get_content_len(buffer, id2offset, props);
     offset = efind(buffer, "stream", offset);
     offset += LEN("stream");
     if (buffer[offset] == '\r') ++offset;
     if (buffer[offset] == '\n') ++offset;
-    const unsigned char *content = reinterpret_cast<const unsigned char*>(buffer.substr(offset, len).data());
-    return vector<unsigned char>(content, content + len);
+    const string content = buffer.substr(offset, len);
+    const char *content_p = content.data();
+    return vector<unsigned char>(content_p, content_p + len);
 }
 
 vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
@@ -666,7 +667,6 @@ string output_content(const string &buffer,
 {
     size_t offset = id2offset.at(id_gen.first);
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(buffer, offset);
-
     vector<unsigned char> content = get_content(buffer, id2offset, offset, props);
     string content_str = encrypt_data.empty()? string(reinterpret_cast<char*>(content.data()), content.size()) :
                                                decrypt_rc4(id_gen.first, id_gen.second, content, encrypt_data);

@@ -452,7 +452,7 @@ string get_dictionary(const string &buffer, size_t &offset)
 {
     if (buffer.substr(offset, 2) != "<<") throw pdf_error(FUNC_STRING + "dictionary must start with '<<'");
     stack<pdf_object_t> prevs;
-    size_t end_offset = offset;
+    size_t end_offset = offset + 2;
     while (end_offset < buffer.length())
     {
         if (buffer.at(end_offset) == '<' && buffer.at(end_offset + 1) == '<')

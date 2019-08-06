@@ -70,13 +70,6 @@ array<unsigned char, 32> get_user_pad(const string& password)
     return result;
 }
 
-array<unsigned char, 32> get_key(const string &password)
-{
-    array <unsigned char, 32> owner_key;
-    for (size_t i = 0; i < 32; ++i) owner_key[i] = static_cast<unsigned char>(password.at(i));
-    return owner_key;
-}
-
 bool is_encrypt_metadata(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     auto it = decrypt_opts.find("/EncryptMetadata");

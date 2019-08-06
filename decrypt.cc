@@ -326,9 +326,10 @@ void rc4_create_obj_key(unsigned int n,
 
 string decrypt_rc4(unsigned int n,
                    unsigned int g,
-                   const vector<unsigned char> &in,
+                   const string &in_str,
                    const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
+    vector<unsigned char> in = string2array(in_str);
     unsigned char obj_key[MD5_DIGEST_LENGTH];
     int key_len;
 

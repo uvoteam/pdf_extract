@@ -24,7 +24,7 @@ extern string lzw_decode(const string&);
 extern string ascii85_decode(const string&);
 extern string decrypt_rc4(unsigned int n,
                           unsigned int g,
-                          const vector<unsigned char> &in,
+                          const string &in,
                           const map<string, pair<string, pdf_object_t>> &decrypt_opts);
 
 
@@ -83,10 +83,10 @@ vector<size_t> get_content_offsets(const string &buffer, size_t cross_ref_offset
 size_t get_content_len(const string &buffer,
                        const map<size_t, size_t> &id2offset,
                        const map<string, pair<string, pdf_object_t>> &props);
-vector<unsigned char> get_content(const string &buffer,
-                                  const map<size_t, size_t> &id2offset,
-                                  size_t offset,
-                                  const map<string, pair<string, pdf_object_t>> &props);
+string get_content(const string &buffer,
+                   const map<size_t, size_t> &id2offset,
+                   size_t offset,
+                   const map<string, pair<string, pdf_object_t>> &props);
 vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props);
 void decode(string &content, const vector<string> &filters);
 string output_content(const string &buffer,
@@ -617,19 +617,17 @@ size_t get_content_len(const string &buffer,
     }
 }
 
-vector<unsigned char> get_content(const string &buffer,
-                                  const map<size_t, size_t> &id2offset,
-                                  size_t offset,
-                                  const map<string, pair<string, pdf_object_t>> &props)
+string get_content(const string &buffer,
+                   const map<size_t, size_t> &id2offset,
+                   size_t offset,
+                   const map<string, pair<string, pdf_object_t>> &props)
 {
     size_t len = get_content_len(buffer, id2offset, props);
     offset = efind(buffer, "stream", offset);
     offset += LEN("stream");
     if (buffer[offset] == '\r') ++offset;
     if (buffer[offset] == '\n') ++offset;
-    const string content = buffer.substr(offset, len);
-    const char *content_p = content.data();
-    return vector<unsigned char>(content_p, content_p + len);
+    return buffer.substr(offset, len);
 }
 
 vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
@@ -667,16 +665,15 @@ string output_content(const string &buffer,
 {
     size_t offset = id2offset.at(id_gen.first);
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(buffer, offset);
-    vector<unsigned char> content = get_content(buffer, id2offset, offset, props);
-    string content_str = encrypt_data.empty()? string(reinterpret_cast<char*>(content.data()), content.size()) :
-                                               decrypt_rc4(id_gen.first, id_gen.second, content, encrypt_data);
+    string content = get_content(buffer, id2offset, offset, props);
+    if (!encrypt_data.empty()) content = decrypt_rc4(id_gen.first, id_gen.second, content, encrypt_data);
     if (props.count("/Filter") == 1)
     {
         vector<string> filters = get_filters(props);
-        decode(content_str, filters);
+        decode(content, filters);
     }
 
-    return content_str;
+    return content;
 }
 
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end)

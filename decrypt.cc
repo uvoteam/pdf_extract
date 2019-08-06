@@ -62,21 +62,12 @@ typedef enum {
 
 array<unsigned char, 32> get_user_pad(const string& password)
 {
-    array<unsigned char, 32> pswd;
-    size_t m = password.length();
-    if (m > 32) m = 32;
+    array<unsigned char, 32> result;
+    size_t i = 0;
+    for (; i < result.size() && i < password.size(); ++i) result[i] = static_cast<unsigned char>(password.at(i));
+    for (size_t j = 0; i < result.size(); ++i, ++j) result[i] = padding[j];
 
-    size_t j;
-    size_t p = 0;
-    for (j = 0; j < m; j++)
-    {
-        pswd[p++] = static_cast<unsigned char>(password.at(j));
-    }
-    for (j = 0; p < 32 && j < 32; j++)
-    {
-        pswd[p++] = padding[j];
-    }
-    return pswd;
+    return result;
 }
 
 array<unsigned char, 32> get_key(const string &password)
@@ -339,5 +330,6 @@ string decrypt_rc4(unsigned int n,
                                      EVP_CIPHER_block_size(EVP_rc4()) + in.size();
     out_str.insert(out_str.end(), out_len, 0);
     out_len = RC4(obj_key, key_len, in.data(), in.size(), out_str.data());
+
     return string(reinterpret_cast<char*>(out_str.data()), out_len);
 }

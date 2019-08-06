@@ -76,6 +76,7 @@ bool is_encrypt_metadata(const map<string, pair<string, pdf_object_t>> &decrypt_
     if (it == decrypt_opts.end()) return true;
     if (it->second.first == "false") return false;
     if (it->second.first == "true") return true;
+
     throw pdf_error(FUNC_STRING + "wrong bool value:" + it->second.first);
 }
 
@@ -103,6 +104,7 @@ int RC4(const unsigned char* key, int key_len, const unsigned char* text_in, int
     status = EVP_EncryptFinal_ex(&rc4, &text_out[data_out_moved], &data_out_moved);
     if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_EncryptFinal_ex error" );
     written += data_out_moved;
+
     return written;
 }
 
@@ -115,6 +117,7 @@ string hex_decode(const string &hex)
         if (errno != 0) throw pdf_error(FUNC_STRING + "wrong input" + hex);
         result.push_back(static_cast<char>(d));
     }
+
     return result;
 }
 
@@ -128,6 +131,7 @@ string get_string(const string& src)
     ++offset;
     string result = src.substr(offset, end_offset - offset);
     if (end_delimiter == ')') return result;
+
     return hex_decode(result);
 }
 
@@ -143,13 +147,24 @@ unsigned int get_length(const map<string, pair<string, pdf_object_t>> &decrypt_o
 {
     auto it = decrypt_opts.find("/Length");
     if (it == decrypt_opts.end()) return 40 / 8;
+
     return strict_stoul(it->second.first) / 8;
+}
+
+array<unsigned char, 4> get_ext(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+{
+    array<unsigned char, 4> ext;
+    int p_value = strict_stol(decrypt_opts.at("/P").first);
+    ext[0] = static_cast<unsigned char>(p_value & 0xff);
+    ext[1] = static_cast<unsigned char>((p_value >>  8) & 0xff);
+    ext[2] = static_cast<unsigned char>((p_value >> 16) & 0xff);
+    ext[3] = static_cast<unsigned char>((p_value >> 24) & 0xff);
+
+    return ext;
 }
 
 vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
-    int j;
-    int k;
     unsigned int key_length = get_length(decrypt_opts);
 
     MD5_CTX ctx;
@@ -160,21 +175,15 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
     const string o_val = get_string(decrypt_opts.at("/O").first);
     status = MD5_Update(&ctx, get_user_pad(o_val).data(), 32);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
-    unsigned char ext[4];
-    int p_value = strict_stol(decrypt_opts.at("/P").first);
-    ext[0] = static_cast<unsigned char>(p_value & 0xff);
-    ext[1] = static_cast<unsigned char>((p_value >>  8) & 0xff);
-    ext[2] = static_cast<unsigned char>((p_value >> 16) & 0xff);
-    ext[3] = static_cast<unsigned char>((p_value >> 24) & 0xff);
-    status = MD5_Update(&ctx, ext, 4);
+    array<unsigned char, 4> ext = get_ext(decrypt_opts);
+    status = MD5_Update(&ctx, ext.data(), 4);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
     string document_id = get_string(decrypt_opts.at("/ID").first);
-    unsigned int doc_id_length = static_cast<unsigned int>(document_id.length());
     vector<unsigned char> doc_id(document_id.length());
-    if (doc_id_length > 0)
+    if (document_id.length() > 0)
     {
         doc_id = string2array(document_id);
-        status = MD5_Update(&ctx, doc_id.data(), doc_id_length);
+        status = MD5_Update(&ctx, doc_id.data(), document_id.length());
         if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
     }
 
@@ -195,7 +204,7 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
     // only use the really needed bits as input for the hash
     if (revision == 3 || revision == 4)
     {
-        for (k = 0; k < 50; ++k)
+        for (int k = 0; k < 50; ++k)
         {
             status = MD5_Init(&ctx);
             if(status != 1) throw pdf_error(FUNC_STRING + "Error initializing MD5 hashing engine" );
@@ -216,25 +225,18 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
         if(status != 1) throw pdf_error(FUNC_STRING + "Error initializing MD5 hashing engine");
         status = MD5_Update(&ctx, padding, 32);
         if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data");
-        if (!doc_id_length > 0)
+        if (!document_id.length() > 0)
         {
-            status = MD5_Update(&ctx, doc_id.data(), doc_id_length);
+            status = MD5_Update(&ctx, doc_id.data(), document_id.length());
             if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data");
         }
         status = MD5_Final(digest, &ctx);
         if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data");
         memcpy(user_key, digest, 16);
-        for (k = 16; k < 32; ++k)
+        for (int k = 16; k < 32; ++k) user_key[k] = 0;
+        for (int k = 0; k < 20; k++)
         {
-            user_key[k] = 0;
-        }
-        for (k = 0; k < 20; k++)
-        {
-            for (j = 0; j < key_length; ++j)
-            {
-                digest[j] = static_cast<unsigned char>(encryption_key[j] ^ k);
-            }
-            
+            for (int j = 0; j < key_length; ++j) digest[j] = static_cast<unsigned char>(encryption_key[j] ^ k);
             RC4(digest, key_length, user_key, 16, user_key);
         }
     }

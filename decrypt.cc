@@ -168,28 +168,28 @@ void md5_init_exc(MD5_CTX *ctx)
     if (MD5_Init(ctx) != 1) throw pdf_error(FUNC_STRING + "Error initializing MD5 hashing engine" );
 }
 
+void md5_update_exc(MD5_CTX *c, const void *data, unsigned long len)
+{
+    if (MD5_Update(c, data, len) != 1) throw pdf_error(FUNC_STRING + "Error MD5 update" );
+}
+
 vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     unsigned int key_length = get_length(decrypt_opts);
 
     MD5_CTX ctx;
     md5_init_exc(&ctx);
-    int status;
-    status = MD5_Update(&ctx, padding, 32);
-    if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
+    md5_update_exc(&ctx, padding, 32);
     const string o_val = get_string(decrypt_opts.at("/O").first);
-    status = MD5_Update(&ctx, get_user_pad(o_val).data(), 32);
-    if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
+    md5_update_exc(&ctx, get_user_pad(o_val).data(), 32);
     array<unsigned char, 4> ext = get_ext(decrypt_opts);
-    status = MD5_Update(&ctx, ext.data(), 4);
-    if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
+    md5_update_exc(&ctx, ext.data(), 4);
     string document_id = get_string(decrypt_opts.at("/ID").first);
     vector<unsigned char> doc_id(document_id.length());
     if (document_id.length() > 0)
     {
         doc_id = string2array(document_id);
-        status = MD5_Update(&ctx, doc_id.data(), document_id.length());
-        if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
+        md5_update_exc(&ctx, doc_id.data(), document_id.length());
     }
 
     // If document metadata is not being encrypted, 
@@ -198,10 +198,11 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
     if (!is_encrypt_metadata(decrypt_opts))
     {
 		unsigned char no_meta_addition[4] = { 0xff, 0xff, 0xff, 0xff };
-        status = MD5_Update(&ctx, no_meta_addition, 4);
+        md5_update_exc(&ctx, no_meta_addition, 4);
 	}
 
     unsigned char digest[MD5_DIGEST_LENGTH];
+    int status;
     status = MD5_Final(digest, &ctx);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
     
@@ -212,8 +213,7 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
         for (int k = 0; k < 50; ++k)
         {
             md5_init_exc(&ctx);
-            status = MD5_Update(&ctx, digest, key_length);
-            if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
+            md5_update_exc(&ctx, digest, key_length);
             status = MD5_Final(digest, &ctx);
             if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
         }
@@ -226,13 +226,8 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
     if (revision == 3 || revision == 4)
     {
         md5_init_exc(&ctx);
-        status = MD5_Update(&ctx, padding, 32);
-        if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data");
-        if (!document_id.length() > 0)
-        {
-            status = MD5_Update(&ctx, doc_id.data(), document_id.length());
-            if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data");
-        }
+        md5_update_exc(&ctx, padding, 32);
+        if (!document_id.length() > 0) md5_update_exc(&ctx, doc_id.data(), document_id.length());
         status = MD5_Final(digest, &ctx);
         if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data");
         memcpy(user_key, digest, 16);
@@ -255,7 +250,7 @@ void get_MD5_binary(const unsigned char* data, int length, unsigned char* digest
 {
     MD5_CTX ctx;
     md5_init_exc(&ctx);
-    if (MD5_Update(&ctx, data, length) != 1) throw pdf_error(FUNC_STRING + "error MD5_Update");
+    md5_update_exc(&ctx, data, length);
     if (MD5_Final(digest, &ctx) != 1) throw pdf_error(FUNC_STRING + "error MD5_Final");
 }
 

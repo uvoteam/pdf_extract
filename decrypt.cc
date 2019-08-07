@@ -165,12 +165,17 @@ array<unsigned char, 4> get_ext(const map<string, pair<string, pdf_object_t>> &d
 
 void md5_init_exc(MD5_CTX *ctx)
 {
-    if (MD5_Init(ctx) != 1) throw pdf_error(FUNC_STRING + "Error initializing MD5 hashing engine" );
+    if (MD5_Init(ctx) != 1) throw pdf_error(FUNC_STRING + "error initializing MD5 hashing engine" );
 }
 
-void md5_update_exc(MD5_CTX *c, const void *data, unsigned long len)
+void md5_update_exc(MD5_CTX *ctx, const void *data, unsigned long len)
 {
-    if (MD5_Update(c, data, len) != 1) throw pdf_error(FUNC_STRING + "Error MD5 update" );
+    if (MD5_Update(ctx, data, len) != 1) throw pdf_error(FUNC_STRING + "error MD5 update" );
+}
+
+void md5_final_exc(unsigned char *md, MD5_CTX *ctx)
+{
+    if (MD5_Final(md, ctx) != 1) throw pdf_error(FUNC_STRING + "error MD5 final");
 }
 
 vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
@@ -202,9 +207,7 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
 	}
 
     unsigned char digest[MD5_DIGEST_LENGTH];
-    int status;
-    status = MD5_Final(digest, &ctx);
-    if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
+    md5_final_exc(digest, &ctx);
     
     unsigned int revision = strict_stoul(decrypt_opts.at("/R").first);
     // only use the really needed bits as input for the hash
@@ -214,8 +217,7 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
         {
             md5_init_exc(&ctx);
             md5_update_exc(&ctx, digest, key_length);
-            status = MD5_Final(digest, &ctx);
-            if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
+            md5_final_exc(digest, &ctx);
         }
     }
     vector<unsigned char> encryption_key(key_length);
@@ -228,8 +230,7 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
         md5_init_exc(&ctx);
         md5_update_exc(&ctx, padding, 32);
         if (!document_id.length() > 0) md5_update_exc(&ctx, doc_id.data(), document_id.length());
-        status = MD5_Final(digest, &ctx);
-        if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data");
+        md5_final_exc(digest, &ctx);
         memcpy(user_key, digest, 16);
         for (int k = 16; k < 32; ++k) user_key[k] = 0;
         for (int k = 0; k < 20; k++)
@@ -251,7 +252,7 @@ void get_MD5_binary(const unsigned char* data, int length, unsigned char* digest
     MD5_CTX ctx;
     md5_init_exc(&ctx);
     md5_update_exc(&ctx, data, length);
-    if (MD5_Final(digest, &ctx) != 1) throw pdf_error(FUNC_STRING + "error MD5_Final");
+    md5_final_exc(digest, &ctx);
 }
 
 encrypt_algorithm_t get_algorithm(const map<string, pair<string, pdf_object_t>> &decrypt_opts)

@@ -163,13 +163,18 @@ array<unsigned char, 4> get_ext(const map<string, pair<string, pdf_object_t>> &d
     return ext;
 }
 
+void md5_init_exc(MD5_CTX *ctx)
+{
+    if (MD5_Init(ctx) != 1) throw pdf_error(FUNC_STRING + "Error initializing MD5 hashing engine" );
+}
+
 vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     unsigned int key_length = get_length(decrypt_opts);
 
     MD5_CTX ctx;
-    int status = MD5_Init(&ctx);
-    if(status != 1) throw pdf_error(FUNC_STRING + "Error initializing MD5 hashing engine" );
+    md5_init_exc(&ctx);
+    int status;
     status = MD5_Update(&ctx, padding, 32);
     if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
     const string o_val = get_string(decrypt_opts.at("/O").first);
@@ -206,8 +211,7 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
     {
         for (int k = 0; k < 50; ++k)
         {
-            status = MD5_Init(&ctx);
-            if(status != 1) throw pdf_error(FUNC_STRING + "Error initializing MD5 hashing engine" );
+            md5_init_exc(&ctx);
             status = MD5_Update(&ctx, digest, key_length);
             if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data" );
             status = MD5_Final(digest, &ctx);
@@ -221,8 +225,7 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
     // Setup user key
     if (revision == 3 || revision == 4)
     {
-        status = MD5_Init(&ctx);
-        if(status != 1) throw pdf_error(FUNC_STRING + "Error initializing MD5 hashing engine");
+        md5_init_exc(&ctx);
         status = MD5_Update(&ctx, padding, 32);
         if(status != 1) throw pdf_error(FUNC_STRING + "Error MD5-hashing data");
         if (!document_id.length() > 0)
@@ -251,7 +254,7 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
 void get_MD5_binary(const unsigned char* data, int length, unsigned char* digest)
 {
     MD5_CTX ctx;
-    if (MD5_Init(&ctx) != 1) throw pdf_error(FUNC_STRING + "error MD5_Init");
+    md5_init_exc(&ctx);
     if (MD5_Update(&ctx, data, length) != 1) throw pdf_error(FUNC_STRING + "error MD5_Update");
     if (MD5_Final(digest, &ctx) != 1) throw pdf_error(FUNC_STRING + "error MD5_Final");
 }

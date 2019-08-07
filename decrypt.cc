@@ -178,6 +178,14 @@ void md5_final_exc(unsigned char *md, MD5_CTX *ctx)
     if (MD5_Final(md, ctx) != 1) throw pdf_error(FUNC_STRING + "error MD5 final");
 }
 
+void get_md5_binary(const unsigned char* data, int length, unsigned char* digest)
+{
+    MD5_CTX ctx;
+    md5_init_exc(&ctx);
+    md5_update_exc(&ctx, data, length);
+    md5_final_exc(digest, &ctx);
+}
+
 vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
     unsigned int key_length = get_length(decrypt_opts);
@@ -213,12 +221,7 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
     // only use the really needed bits as input for the hash
     if (revision == 3 || revision == 4)
     {
-        for (int k = 0; k < 50; ++k)
-        {
-            md5_init_exc(&ctx);
-            md5_update_exc(&ctx, digest, key_length);
-            md5_final_exc(digest, &ctx);
-        }
+        for (int k = 0; k < 50; ++k) get_md5_binary(digest, key_length, digest);
     }
     vector<unsigned char> encryption_key(key_length);
     memcpy(encryption_key.data(), digest, key_length);
@@ -245,14 +248,6 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
     }
 
     return encryption_key;
-}
-
-void get_MD5_binary(const unsigned char* data, int length, unsigned char* digest)
-{
-    MD5_CTX ctx;
-    md5_init_exc(&ctx);
-    md5_update_exc(&ctx, data, length);
-    md5_final_exc(digest, &ctx);
 }
 
 encrypt_algorithm_t get_algorithm(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
@@ -304,8 +299,8 @@ void rc4_create_obj_key(unsigned int n,
         nkey[encryption_key.size() + 7] = 0x6c;
         nkey[encryption_key.size() + 8] = 0x54;
     }
-    
-    get_MD5_binary(nkey, local_key_len, obj_key);
+
+    get_md5_binary(nkey, local_key_len, obj_key);
     *key_len = (encryption_key.size() <= 11) ? encryption_key.size() + 5 : 16;
 }
 

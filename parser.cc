@@ -64,6 +64,7 @@ size_t find_number(const string &buffer, size_t offset);
 size_t find_number_exc(const string &buffer, size_t offset);
 void append_set(const string &array, vector<pair<unsigned int, unsigned int>> &result);
 size_t find_value_end_delimiter(const string &buffer, size_t offset);
+size_t find_name_end_delimiter(const string &buffer, size_t offset);
 string get_value(const string &buffer, size_t &offset);
 string get_array(const string &buffer, size_t &offset);
 string get_name_object(const string &buffer, size_t &offset);
@@ -368,6 +369,15 @@ size_t find_value_end_delimiter(const string &buffer, size_t offset)
     return result;
 }
 
+size_t find_name_end_delimiter(const string &buffer, size_t offset)
+{
+    size_t result = buffer.find_first_of("\r\t\n /", offset + 1);
+    size_t dict_end_offset = buffer.find(">>", offset);
+    if (result == string::npos || dict_end_offset < result) result = dict_end_offset;
+    if (result == string::npos) throw pdf_error(FUNC_STRING + " can`t find end delimiter for value");
+    return result;
+}
+
 string get_value(const string &buffer, size_t &offset)
 {
     size_t start_offset = offset;
@@ -407,7 +417,7 @@ string get_array(const string &buffer, size_t &offset)
 string get_name_object(const string &buffer, size_t &offset)
 {
     size_t start_offset = offset;
-    offset = find_value_end_delimiter(buffer, offset);
+    offset = find_name_end_delimiter(buffer, offset);
 
     return buffer.substr(start_offset, offset - start_offset);
 }

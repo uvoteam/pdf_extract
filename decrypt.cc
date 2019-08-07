@@ -18,6 +18,7 @@ using namespace std;
 const unsigned char padding[] =
 "\x28\xBF\x4E\x5E\x4E\x75\x8A\x41\x64\x00\x4E\x56\xFF\xFA\x01\x08\x2E\x2E\x00\xB6\xD0\x68\x3E\x80\x2F\x0C\xA9\xFE\x64\x53\x69\x7A";
 
+const unsigned char no_meta_addition[] = { 0xff, 0xff, 0xff, 0xff };
 
 typedef enum {
     ENCRYPT_ALGORITHM_RC4V1 = 1, ///< RC4 Version 1 encryption using a 40bit key
@@ -208,10 +209,9 @@ vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_obje
     // If document metadata is not being encrypted, 
 	// pass 4 bytes with the value 0xFFFFFFFF to the MD5 hash function.
 
-    if (!is_encrypt_metadata(decrypt_opts))
+    if (!is_encrypt_metadata(decrypt_opts)) 
     {
-		unsigned char no_meta_addition[4] = { 0xff, 0xff, 0xff, 0xff };
-        md5_update_exc(&ctx, no_meta_addition, 4);
+        md5_update_exc(&ctx, no_meta_addition, sizeof(no_meta_addition)/sizeof(unsigned char));
 	}
 
     unsigned char digest[MD5_DIGEST_LENGTH];

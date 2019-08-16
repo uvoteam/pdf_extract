@@ -6,6 +6,8 @@
 #include <algorithm>
 #include <stack>
 #include <regex>
+#include <cstdint>
+#include <numeric>
 
 //for test
 #include <fstream>
@@ -40,9 +42,14 @@ size_t efind_first(const string &src, const char* s, size_t pos, size_t n);
 size_t efind(const string &src, const string& str, size_t pos);
 size_t efind(const string &src, const char* s, size_t pos);
 size_t efind(const string &src, char c, size_t pos);
-bool prefix(const char *pre, const char *str);
+bool is_prefix(const char *pre, const char *str);
+uint64_t get_uint64(const string &src);
+array<uint64_t, 3> get_cross_reference_entry(const string &stream, size_t &offset, const array<unsigned int, 3> &w);
 pair<unsigned int, unsigned int> get_id_gen(const string &data);
 size_t get_cross_ref_offset_start(const string &buffer, size_t end);
+void get_offsets_internal_new(const string &stream,
+                              map<string, pair<string, pdf_object_t>> dictionary_data,
+                              vector<size_t> &result);
 bool is_blank(char c);
 size_t skip_spaces(const string &buffer, size_t offset);
 size_t get_cross_ref_offset_end(const string &buffer);
@@ -52,7 +59,11 @@ void append_object(const string &buf, size_t offset, vector<size_t> &objects);
 char get_object_status(const string &buffer, size_t offset);
 size_t get_xref_number(const string &buffer, size_t &offset);
 vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset);
+vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_t cross_ref_offset);
+vector<pair<size_t, size_t>> get_trailer_offsets_new(const string &buffer, size_t cross_ref_offset);
 void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &result);
+void get_object_offsets_new(const string &buffer, size_t offset, vector<size_t> &result);
+void get_object_offsets_old(const string &buffer, size_t offset, vector<size_t> &result);
 void validate_offsets(const string &buffer, const vector<size_t> &offsets);
 vector<size_t> get_all_object_offsets(const string &buffer,
                                       size_t cross_ref_offset,
@@ -65,6 +76,8 @@ size_t find_number_exc(const string &buffer, size_t offset);
 void append_set(const string &array, vector<pair<unsigned int, unsigned int>> &result);
 size_t find_value_end_delimiter(const string &buffer, size_t offset);
 size_t find_name_end_delimiter(const string &buffer, size_t offset);
+unsigned int get_cross_ref_entries(map<string, pair<string, pdf_object_t>> dictionary_data,
+                                   const array<unsigned int, 3> &w, size_t length);
 string get_value(const string &buffer, size_t &offset);
 string get_array(const string &buffer, size_t &offset);
 string get_name_object(const string &buffer, size_t &offset);
@@ -72,6 +85,7 @@ string get_indirect_object(const string &buffer, size_t &offset);
 string get_string(const string &buffer, size_t &offset);
 string get_dictionary(const string &buffer, size_t &offset);
 pdf_object_t get_object_type(const string &buffer, size_t &offset);
+array<unsigned int, 3> get_w(const map<string, pair<string, pdf_object_t>> &dictionary_data);
 void get_pages_id_gen_int(const string &buffer,
                           const pair<unsigned int, unsigned int> &page,
                           const map<size_t, size_t> &id2offset,
@@ -101,6 +115,9 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
 map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer, size_t offset);
 
 
+const map<string, string (&)(const string&)> FILTER2FUNC = {{"/FlateDecode", flate_decode},
+                                                            {"/LZWDecode", lzw_decode},
+                                                            {"/ASCII85Decode", ascii85_decode}};
 
 
 size_t efind_first(const string &src, const string& str, size_t pos)
@@ -145,7 +162,7 @@ size_t efind(const string &src, char c, size_t pos)
     return ret;
 }
 
-bool prefix(const char *pre, const char *str)
+bool is_prefix(const char *pre, const char *str)
 {
     return strncmp(pre, str, strlen(pre)) == 0;
 }
@@ -178,7 +195,7 @@ size_t get_cross_ref_offset_end(const string &buffer)
     if (buffer[end] == '\n') --end;
     if (buffer[end] == '\r') --end;
     end -= LEN("%%EOF");
-    if (!prefix("%%EOF", buffer.data() + end + 1)) throw pdf_error(FUNC_STRING + "can`t find %%EOF");
+    if (!is_prefix("%%EOF", buffer.data() + end + 1)) throw pdf_error(FUNC_STRING + "can`t find %%EOF");
     if (buffer[end] == '\n') --end;
     if (buffer[end] == '\r') --end;
 
@@ -235,6 +252,12 @@ size_t get_xref_number(const string &buffer, size_t &offset)
 
 vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset)
 {
+    if (is_prefix(buffer.data() + cross_ref_offset, "xref")) return get_trailer_offsets_old(buffer, cross_ref_offset);
+    return get_trailer_offsets_new(buffer, cross_ref_offset);
+}
+
+vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_t cross_ref_offset)
+{
     vector<pair<size_t, size_t>> trailer_offsets;
     while (true)
     {
@@ -247,6 +270,31 @@ vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cr
         }
         trailer_offsets.push_back(make_pair(cross_ref_offset, end_offset));
         size_t trailer_offset = efind(buffer, "trailer", cross_ref_offset);
+        trailer_offset += LEN("trailer");
+        map<string, pair<string, pdf_object_t>> data = get_dictionary_data(buffer, trailer_offset);
+        auto it = data.find("/Prev");
+        if (it == data.end()) break;
+        if (it->second.second != VALUE) throw pdf_error(FUNC_STRING + "/Prev value is not PDF VALUE type");
+        cross_ref_offset = strict_stoul(it->second.first);
+    }
+
+    return trailer_offsets;
+}
+
+vector<pair<size_t, size_t>> get_trailer_offsets_new(const string &buffer, size_t cross_ref_offset)
+{
+    vector<pair<size_t, size_t>> trailer_offsets;
+    while (true)
+    {
+        size_t end_offset;
+        if ((end_offset = buffer.find("\r\nstartxref\r\n", cross_ref_offset)) == string::npos &&
+            (end_offset = buffer.find("\nstartxref\n", cross_ref_offset)) == string::npos &&
+            (end_offset = buffer.find("\rstartxref\r", cross_ref_offset)) == string::npos)
+        {
+            throw pdf_error(FUNC_STRING + "Can`t find startxref in pos: " + to_string(cross_ref_offset));
+        }
+        trailer_offsets.push_back(make_pair(cross_ref_offset, end_offset));
+        size_t trailer_offset = efind(buffer, "<<", cross_ref_offset);
         trailer_offset += LEN("trailer");
         map<string, pair<string, pdf_object_t>> data = get_dictionary_data(buffer, trailer_offset);
         auto it = data.find("/Prev");
@@ -282,8 +330,137 @@ map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer
         result.insert(make_pair(key, make_pair(val, type)));
     }
 }
-
 void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &result)
+{
+    if (is_prefix(buffer.data() + offset, "xref")) return get_object_offsets_old(buffer, offset, result);
+    get_object_offsets_new(buffer, offset, result);
+}
+
+array<unsigned int, 3> get_w(const map<string, pair<string, pdf_object_t>> &dictionary_data)
+{
+    auto it = dictionary_data.find("/W");
+    if (it == dictionary_data.end()) throw pdf_error("can`t find /W");
+    if (it->second.second != ARRAY) throw pdf_error("/W value must have ARRAY type");
+    const string &str = it->second.first;
+    if (str.at(0) != '[') throw pdf_error(FUNC_STRING + "str must be started with '['");
+    if (str[str.length() - 1] != ']') throw pdf_error(FUNC_STRING + "str must be finished with ']'");
+    size_t i = 0;
+    array<unsigned int, 3> result;
+    for (size_t offset = find_number(str, 0); offset < str.length(); offset = find_number(str, offset))
+    {
+        size_t end_offset = efind_first(str, " \r\n]", offset);
+        result[i] = strict_stoul(str.substr(offset, end_offset - offset));
+        if (result[i] > sizeof(uint64_t))
+        {
+            throw pdf_error(FUNC_STRING + to_string(result[i]) + " is greater than max(uint64_t)");
+        }
+        ++i;
+        offset = end_offset;
+    }
+    if (i != 3) throw pdf_error(FUNC_STRING + "/W array must contain 3 elements");
+    return result;
+}
+
+uint64_t get_uint64(const string &src)
+{
+    uint64_t val = 0;
+    uint8_t *p = reinterpret_cast<uint8_t*>(&val);
+    for (int j = src.length() - 1; j >= 0; --j, ++p) *p = static_cast<unsigned char>(src[j]);
+    return val;
+}
+
+array<uint64_t, 3> get_cross_reference_entry(const string &stream, size_t &offset, const array<unsigned int, 3> &w)
+{
+    array<uint64_t, 3> result;
+    for (int i = 0; i < w.size(); ++i)
+    {
+        if (w[i] == 0)
+        {
+            //no data, set default value
+            //7.5.8.2Cross-Reference Stream Dictionary. table 17. W section
+            switch (i)
+            {
+            case 0:
+                result[i] = 1;
+                break;
+            default:
+                result[i] = 0;
+                break;
+            }
+            continue;
+        }
+        if (offset + w[i] > stream.length()) throw pdf_error(FUNC_STRING + "not enough data in stream for entry");
+        result[i] = get_uint64(stream.substr(offset, w[i]));
+        offset += w[i];
+    }
+//7.5.8.3. Cross-Reference Stream Data
+    return result;
+}
+
+unsigned int get_cross_ref_entries(map<string, pair<string, pdf_object_t>> dictionary_data,
+                                   const array<unsigned int, 3> &w,
+                                   size_t length)
+{
+    auto it = dictionary_data.find("/Index");
+    if (it == dictionary_data.end())
+    {
+        size_t w_bytes = accumulate(w.begin(), w.end(), 0);
+        if (length % w_bytes) throw pdf_error(FUNC_STRING + "wrong stream size");
+        return length / w_bytes;
+    }
+    const string &array = it->second.first;
+    if (it->second.second != ARRAY) throw pdf_error("/Index must be ARRAY");
+    if (count(array.begin(), array.end(), ']') != 1) throw pdf_error("/Index must be one dimensional array");
+    unsigned int entries = 0;
+    for (size_t offset = find_number(array, 0); offset < array.length(); ++offset)
+    {
+        offset = find_number_exc(array, efind_first(array, " \r\t\n", offset));
+        size_t end_offset = efind_first(array, " \r\t\n]", offset);
+        entries += strict_stoul(array.substr(offset, end_offset - offset));
+        if (array[end_offset] == ']') return entries;
+        offset = end_offset;
+    }
+}
+
+void get_offsets_internal_new(const string &stream,
+                              map<string, pair<string, pdf_object_t>> dictionary_data,
+                              vector<size_t> &result)
+{
+    //7.5.8.3. Cross-Reference Stream Data
+    //  enum { TYPE_0, TYPE_1, TYPE_2} type_t;
+//    const array<type_t, 3> types{TYPE_0, TYPE_1, TYPE_2};
+    array<unsigned int, 3> w = get_w(dictionary_data);
+    size_t offset = 0;
+    for (unsigned int i = 0, n = get_cross_ref_entries(dictionary_data, w, stream.length()); i < n; ++i)
+    {
+        array<uint64_t, 3> entry = get_cross_reference_entry(stream, offset, w);
+        if (entry[0] == 1) result.push_back(entry[1]);
+    }
+}
+
+void get_object_offsets_new(const string &buffer, size_t offset, vector<size_t> &result)
+{
+    offset = efind(buffer, "<<", offset);
+    string dict = get_dictionary(buffer, offset);
+    map<string, pair<string, pdf_object_t>> dictionary_data = get_dictionary_data(dict, 0);
+    auto it = dictionary_data.find("/Length");
+    if (it == dictionary_data.end()) throw pdf_error("can`t find /Length");
+    if (it->second.second != VALUE) throw pdf_error("/Length value must have VALUE type");
+    size_t length = strict_stoul(it->second.first);
+
+    offset += LEN("stream");
+    if (buffer[offset] == '\r') ++offset;
+    if (buffer[offset] == '\n') ++offset;
+    string content = buffer.substr(offset, length);
+    if (dictionary_data.count("/Filter") == 1)
+    {
+        vector<string> filters = get_filters(dictionary_data);
+        decode(content, filters);
+    }
+    get_offsets_internal_new(content, dictionary_data, result);
+}
+
+void get_object_offsets_old(const string &buffer, size_t offset, vector<size_t> &result)
 {
     offset = efind(buffer, "xref", offset);
     offset += LEN("xref");
@@ -661,11 +838,8 @@ vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
 
 void decode(string &content, const vector<string> &filters)
 {
-    static const map<string, string (&)(const string&)> filter2func = {{"/FlateDecode", flate_decode},
-                                                                       {"/LZWDecode", lzw_decode},
-                                                                       {"/ASCII85Decode", ascii85_decode}};
-    for (const string& filter : filters) content = filter2func.at(filter)(content);
-    cout << content;
+    for (const string& filter : filters) content = FILTER2FUNC.at(filter)(content);
+//    cout << content;
 }
 
 string output_content(const string &buffer,

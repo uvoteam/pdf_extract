@@ -7,7 +7,6 @@
 #include <stack>
 #include <regex>
 #include <cstdint>
-#include <numeric>
 
 //for test
 #include <fstream>
@@ -404,9 +403,9 @@ unsigned int get_cross_ref_entries(map<string, pair<string, pdf_object_t>> dicti
     auto it = dictionary_data.find("/Index");
     if (it == dictionary_data.end())
     {
-        size_t w_bytes = accumulate(w.begin(), w.end(), 0);
-        if (length % w_bytes) throw pdf_error(FUNC_STRING + "wrong stream size");
-        return length / w_bytes;
+        const pair<string, pdf_object_t> &val = dictionary_data.at("/Size");
+        if (val.second != VALUE) throw pdf_error(FUNC_STRING + "/Size must have VALUE type");
+        return strict_stoul(val.first);
     }
     const string &array = it->second.first;
     if (it->second.second != ARRAY) throw pdf_error("/Index must be ARRAY");
@@ -434,6 +433,7 @@ void get_offsets_internal_new(const string &stream,
     for (unsigned int i = 0, n = get_cross_ref_entries(dictionary_data, w, stream.length()); i < n; ++i)
     {
         array<uint64_t, 3> entry = get_cross_reference_entry(stream, offset, w);
+        cout << entry[0] << ' ' << entry[1] << ' ' << entry[2] << endl;
         if (entry[0] == 1) result.push_back(entry[1]);
     }
 }
@@ -503,7 +503,7 @@ map<size_t, size_t> get_id2offset(const string &buffer,
     map<size_t, size_t> ret;
     for (size_t offset : offsets)
     {
-        size_t start_offset = efind_first(buffer, "0123456789", offset);
+        size_t start_offset = find_number_exc(buffer, offset);
         size_t end_offset = efind(buffer, ' ', start_offset);
         ret.insert(make_pair(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset));
     }

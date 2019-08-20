@@ -39,7 +39,7 @@ namespace
     }
 }
 
-string ascii85_decode(const string &buf)
+string ascii85_decode(const string &buf, const map<string, pair<string, pdf_object_t>> &opts)
 {
     int count = 0;
     unsigned long tuple = 0;

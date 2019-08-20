@@ -37,7 +37,7 @@ namespace
     }
 }
 
-string lzw_decode(const string& buf)
+string lzw_decode(const string& buf, const map<string, pair<string, pdf_object_t>> &opts)
 {
     unsigned int  mask = 0;
     unsigned int  code_len = 9;
@@ -126,5 +126,6 @@ string lzw_decode(const string& buf)
             }
         }
     }
-    return result;
+    if (opts.empty()) return result;
+    return predictor_decode(result, opts);
 }

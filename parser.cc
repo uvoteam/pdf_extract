@@ -20,9 +20,9 @@ using namespace std;
 
 #define LEN(S) (sizeof(S) - 1)
 
-extern string flate_decode(const string&);
-extern string lzw_decode(const string&);
-extern string ascii85_decode(const string&);
+extern string flate_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
+extern string lzw_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
+extern string ascii85_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
 extern string decrypt_rc4(unsigned int n,
                           unsigned int g,
                           const string &in,
@@ -50,6 +50,8 @@ void get_offsets_internal_new(const string &stream,
                               map<string, pair<string, pdf_object_t>> dictionary_data,
                               vector<size_t> &result);
 bool is_blank(char c);
+vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,
+                                                                  size_t filters);
 size_t skip_spaces(const string &buffer, size_t offset);
 size_t get_cross_ref_offset_end(const string &buffer);
 size_t get_cross_ref_offset(const string &buffer);
@@ -102,7 +104,9 @@ string get_content(const string &buffer,
                    size_t offset,
                    const map<string, pair<string, pdf_object_t>> &props);
 vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props);
-void decode(string &content, const vector<string> &filters);
+void decode(string &content,
+            const vector<string> &filters,
+            const vector<map<string, pair<string, pdf_object_t>>> &decode_params);
 string output_content(const string &buffer,
                       const map<size_t, size_t> &id2offset,
                       const pair<unsigned int, unsigned int> &id_gen,
@@ -114,7 +118,8 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
 map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer, size_t offset);
 
 
-const map<string, string (&)(const string&)> FILTER2FUNC = {{"/FlateDecode", flate_decode},
+const map<string, string (&)(const string&, const map<string, pair<string, pdf_object_t>>&)> FILTER2FUNC =
+                                                           {{"/FlateDecode", flate_decode},
                                                             {"/LZWDecode", lzw_decode},
                                                             {"/ASCII85Decode", ascii85_decode}};
 
@@ -426,14 +431,11 @@ void get_offsets_internal_new(const string &stream,
                               vector<size_t> &result)
 {
     //7.5.8.3. Cross-Reference Stream Data
-    //  enum { TYPE_0, TYPE_1, TYPE_2} type_t;
-//    const array<type_t, 3> types{TYPE_0, TYPE_1, TYPE_2};
     array<unsigned int, 3> w = get_w(dictionary_data);
     size_t offset = 0;
     for (unsigned int i = 0, n = get_cross_ref_entries(dictionary_data, w, stream.length()); i < n; ++i)
     {
         array<uint64_t, 3> entry = get_cross_reference_entry(stream, offset, w);
-        cout << entry[0] << ' ' << entry[1] << ' ' << entry[2] << endl;
         if (entry[0] == 1) result.push_back(entry[1]);
     }
 }
@@ -455,7 +457,8 @@ void get_object_offsets_new(const string &buffer, size_t offset, vector<size_t> 
     if (dictionary_data.count("/Filter") == 1)
     {
         vector<string> filters = get_filters(dictionary_data);
-        decode(content, filters);
+        vector<map<string, pair<string, pdf_object_t>>> decode_params = get_decode_params(dictionary_data, filters.size());
+        decode(content, filters, decode_params);
     }
     get_offsets_internal_new(content, dictionary_data, result);
 }
@@ -836,10 +839,33 @@ vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
     }
 }
 
-void decode(string &content, const vector<string> &filters)
+void decode(string &content, const vector<string> &filters,
+            const vector<map<string, pair<string, pdf_object_t>>> &decode_params)
 {
-    for (const string& filter : filters) content = FILTER2FUNC.at(filter)(content);
-//    cout << content;
+    for (size_t i = 0; i < filters.size(); ++i) content = FILTER2FUNC.at(filters[i])(content, decode_params[i]);
+}
+
+vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,
+                                                                  size_t filters)
+{
+    auto it = src.find("/DecodeParms");
+    //default decode params for all filters
+    if (it == src.end()) return vector<map<string, pair<string, pdf_object_t>>>(filters);
+    const string &params_data = it->second.first;
+    if (it->second.second == DICTIONARY)
+    {
+        return vector<map<string, pair<string, pdf_object_t>>>{get_dictionary_data(params_data, 0)};
+    }
+    if (it->second.second != ARRAY) throw pdf_error(FUNC_STRING + "wrong type for /DecodeParms");
+    vector<map<string, pair<string, pdf_object_t>>> result;
+    size_t offset = 0;
+    while (true)
+    {
+        offset = params_data.find("<<");
+        if (offset == string::npos) return result;
+        result.push_back(get_dictionary_data(get_dictionary(params_data, offset), 0));
+    }
+    return result;
 }
 
 string output_content(const string &buffer,
@@ -854,7 +880,12 @@ string output_content(const string &buffer,
     if (props.count("/Filter") == 1)
     {
         vector<string> filters = get_filters(props);
-        decode(content, filters);
+        vector<map<string, pair<string, pdf_object_t>>> decode_params = get_decode_params(props, filters.size());
+        if (filters.size() != decode_params.size())
+        {
+            throw pdf_error(FUNC_STRING + "different sizes for filters and decode_params");
+        }
+        decode(content, filters, decode_params);
     }
 
     return content;

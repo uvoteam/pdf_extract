@@ -1,6 +1,7 @@
 #include <zlib.h>
 
 #include <string>
+#include <map>
 
 #include "pdf_internal.h"
 #include "pdf_extractor.h"
@@ -41,7 +42,7 @@ namespace
     }
 }
 
-string flate_decode(const string &data)
+string flate_decode(const string &data, const map<string, pair<string, pdf_object_t>> &opts)
 {
     z_stream strm  = {0};
     strm.zalloc = Z_NULL;
@@ -51,6 +52,6 @@ string flate_decode(const string &data)
     if (inflateInit(&strm) != Z_OK) throw pdf_error(FUNC_STRING + "inflateInit2 is not Z_OK");
     string result = decompress_block(&strm, data);
     inflateEnd(&strm);
-
-    return result;
+    if (opts.empty()) return result;
+    return predictor_decode(result, opts);
 }

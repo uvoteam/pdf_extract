@@ -13,7 +13,6 @@
 #include <iostream>
 
 
-#include "pdf_extractor.h"
 #include "pdf_internal.h"
 
 using namespace std;

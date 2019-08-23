@@ -4,7 +4,6 @@
 #include <map>
 
 #include "pdf_internal.h"
-#include "pdf_extractor.h"
 
 using namespace std;
 

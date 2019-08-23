@@ -23,6 +23,7 @@ using namespace std;
 extern string flate_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
 extern string lzw_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
 extern string ascii85_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
+extern string ascii_hex_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
 extern string decrypt_rc4(unsigned int n,
                           unsigned int g,
                           const string &in,
@@ -55,6 +56,7 @@ bool is_blank(char c);
 vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,
                                                                   size_t filters);
 size_t skip_spaces(const string &buffer, size_t offset);
+size_t skip_comment(const string &buffer, size_t offset);
 size_t get_cross_ref_offset_end(const string &buffer);
 size_t get_cross_ref_offset(const string &buffer);
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end);
@@ -124,7 +126,8 @@ map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer
 const map<string, string (&)(const string&, const map<string, pair<string, pdf_object_t>>&)> FILTER2FUNC =
                                                            {{"/FlateDecode", flate_decode},
                                                             {"/LZWDecode", lzw_decode},
-                                                            {"/ASCII85Decode", ascii85_decode}};
+                                                            {"/ASCII85Decode", ascii85_decode},
+                                                            {"/ASCIIHexDecode", ascii_hex_decode}};
 
 const map<pdf_object_t, string (&)(const string&, size_t&)> TYPE2FUNC = {{DICTIONARY, get_dictionary},
                                                                          {ARRAY, get_array},
@@ -154,6 +157,8 @@ public:
         if (it == id2offsets.end()) return id2obj_stm.at(id);
         size_t offset = efind(doc, "obj", it->second);
         offset += LEN("obj");
+        offset = skip_spaces(doc, offset);
+        offset = skip_comment(doc, offset);
         pdf_object_t type = get_object_type(doc, offset);
         return make_pair(TYPE2FUNC.at(type)(doc, offset), type);
     }
@@ -277,6 +282,13 @@ bool is_blank(char c)
 {
     if (c == '\r' || c == '\n' || c == ' ' || c == '\t') return true;
     return false;
+}
+
+size_t skip_comment(const string &buffer, size_t offset)
+{
+    if (buffer[offset] != '%') return offset;
+    while (offset < buffer.length() && buffer[offset] != '\r' && buffer[offset] != '\n') ++offset;
+    return offset;
 }
 
 size_t skip_spaces(const string &buffer, size_t offset)

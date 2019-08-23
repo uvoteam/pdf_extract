@@ -188,7 +188,7 @@ namespace
         md5_final_exc(digest, &ctx);
     }
 
-    vector<unsigned char> get_encryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+    vector<unsigned char> get_decryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
     {
         unsigned int key_length = get_length(decrypt_opts);
 
@@ -223,8 +223,8 @@ namespace
         {
             for (int k = 0; k < 50; ++k) get_md5_binary(digest, key_length, digest);
         }
-        vector<unsigned char> encryption_key(key_length);
-        memcpy(encryption_key.data(), digest, key_length);
+        vector<unsigned char> decryption_key(key_length);
+        memcpy(decryption_key.data(), digest, key_length);
         unsigned char user_key[32];
 
         // Setup user key
@@ -238,16 +238,16 @@ namespace
             for (int k = 16; k < 32; ++k) user_key[k] = 0;
             for (int k = 0; k < 20; k++)
             {
-                for (int j = 0; j < key_length; ++j) digest[j] = static_cast<unsigned char>(encryption_key[j] ^ k);
+                for (int j = 0; j < key_length; ++j) digest[j] = static_cast<unsigned char>(decryption_key[j] ^ k);
                 RC4(digest, key_length, user_key, 16, user_key);
             }
         }
         else
         {
-            RC4(encryption_key.data(), key_length, padding, 32, user_key);
+            RC4(decryption_key.data(), key_length, padding, 32, user_key);
         }
 
-        return encryption_key;
+        return decryption_key;
     }
 
     encrypt_algorithm_t get_algorithm(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
@@ -280,28 +280,28 @@ namespace
                             const map<string, pair<string, pdf_object_t>> &decrypt_opts)
     {
         unsigned char nkey[MD5_DIGEST_LENGTH + 5 + 4];
-        const vector<unsigned char> encryption_key = get_encryption_key(decrypt_opts);
-        int local_key_len = encryption_key.size() + 5;
+        const vector<unsigned char> decryption_key = get_decryption_key(decrypt_opts);
+        int local_key_len = decryption_key.size() + 5;
 
-        for (size_t j = 0; j < encryption_key.size(); j++) nkey[j] = encryption_key[j];
-        nkey[encryption_key.size() + 0] = static_cast<unsigned char>(0xff &  n);
-        nkey[encryption_key.size() + 1] = static_cast<unsigned char>(0xff & (n >> 8));
-        nkey[encryption_key.size() + 2] = static_cast<unsigned char>(0xff & (n >> 16));
-        nkey[encryption_key.size() + 3] = static_cast<unsigned char>(0xff &  g);
-        nkey[encryption_key.size() + 4] = static_cast<unsigned char>(0xff & (g >> 8));
+        for (size_t j = 0; j < decryption_key.size(); j++) nkey[j] = decryption_key[j];
+        nkey[decryption_key.size() + 0] = static_cast<unsigned char>(0xff &  n);
+        nkey[decryption_key.size() + 1] = static_cast<unsigned char>(0xff & (n >> 8));
+        nkey[decryption_key.size() + 2] = static_cast<unsigned char>(0xff & (n >> 16));
+        nkey[decryption_key.size() + 3] = static_cast<unsigned char>(0xff &  g);
+        nkey[decryption_key.size() + 4] = static_cast<unsigned char>(0xff & (g >> 8));
 
         if (get_algorithm(decrypt_opts) == ENCRYPT_ALGORITHM_AESV2)
         {
             // AES encryption needs some 'salt'
             local_key_len += 4;
-            nkey[encryption_key.size() + 5] = 0x73;
-            nkey[encryption_key.size() + 6] = 0x41;
-            nkey[encryption_key.size() + 7] = 0x6c;
-            nkey[encryption_key.size() + 8] = 0x54;
+            nkey[decryption_key.size() + 5] = 0x73;
+            nkey[decryption_key.size() + 6] = 0x41;
+            nkey[decryption_key.size() + 7] = 0x6c;
+            nkey[decryption_key.size() + 8] = 0x54;
         }
 
         get_md5_binary(nkey, local_key_len, obj_key);
-        *key_len = (encryption_key.size() <= 11) ? encryption_key.size() + 5 : 16;
+        *key_len = (decryption_key.size() <= 11) ? decryption_key.size() + 5 : 16;
     }
 }
 

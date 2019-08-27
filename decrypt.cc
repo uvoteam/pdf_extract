@@ -303,23 +303,42 @@ namespace
         get_md5_binary(nkey, local_key_len, obj_key);
         *key_len = (decryption_key.size() <= 11) ? decryption_key.size() + 5 : 16;
     }
+
+    string decrypt_rc4(unsigned int n,
+                       unsigned int g,
+                       const string &in_str,
+                       const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+    {
+        vector<unsigned char> in = string2array(in_str);
+        unsigned char obj_key[MD5_DIGEST_LENGTH];
+        int key_len;
+
+        rc4_create_obj_key(n, g, obj_key, &key_len, decrypt_opts);
+        vector<unsigned char> out_str;
+        int out_len = key_len * 8 == 40? EVP_CIPHER_block_size(EVP_rc4_40()) + in.size():
+        EVP_CIPHER_block_size(EVP_rc4()) + in.size();
+        out_str.insert(out_str.end(), out_len, 0);
+        out_len = RC4(obj_key, key_len, in.data(), in.size(), out_str.data());
+
+        return string(reinterpret_cast<char*>(out_str.data()), out_len);
+    }
 }
 
-string decrypt_rc4(unsigned int n,
-                   unsigned int g,
-                   const string &in_str,
-                   const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+string decrypt(unsigned int n,
+               unsigned int g,
+               const string &in_str,
+               const map<string, pair<string, pdf_object_t>> &decrypt_opts)
 {
-    vector<unsigned char> in = string2array(in_str);
-    unsigned char obj_key[MD5_DIGEST_LENGTH];
-    int key_len;
-
-    rc4_create_obj_key(n, g, obj_key, &key_len, decrypt_opts);
-    vector<unsigned char> out_str;
-    int out_len = key_len * 8 == 40? EVP_CIPHER_block_size(EVP_rc4_40()) + in.size():
-                                     EVP_CIPHER_block_size(EVP_rc4()) + in.size();
-    out_str.insert(out_str.end(), out_len, 0);
-    out_len = RC4(obj_key, key_len, in.data(), in.size(), out_str.data());
-
-    return string(reinterpret_cast<char*>(out_str.data()), out_len);
+    if (decrypt_opts.empty()) return in_str;
+    encrypt_algorithm_t algorithm = get_algorithm(decrypt_opts);
+    switch (algorithm)
+    {
+    case ENCRYPT_ALGORITHM_RC4V1:
+    case ENCRYPT_ALGORITHM_RC4V2:
+        return decrypt_rc4(n, g, in_str, decrypt_opts);
+        break;
+    default:
+        throw pdf_error("Unknown algorithm: " + to_string(algorithm));
+        break;
+    }
 }

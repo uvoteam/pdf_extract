@@ -23,10 +23,10 @@ extern string flate_decode(const string&, const map<string, pair<string, pdf_obj
 extern string lzw_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
 extern string ascii85_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
 extern string ascii_hex_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
-extern string decrypt_rc4(unsigned int n,
-                          unsigned int g,
-                          const string &in,
-                          const map<string, pair<string, pdf_object_t>> &decrypt_opts);
+extern string decrypt(unsigned int n,
+                      unsigned int g,
+                      const string &in,
+                      const map<string, pair<string, pdf_object_t>> &decrypt_opts);
 
 
 enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what-is-the-smallest-possible-valid-pdf*/,
@@ -990,7 +990,7 @@ string output_content(const string &buffer,
     if (content_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "content must be dictionary");
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(content_pair.first, 0);
     string content = get_content(buffer, storage, storage.get_offset(id_gen.first), props);
-    if (!encrypt_data.empty()) content = decrypt_rc4(id_gen.first, id_gen.second, content, encrypt_data);
+    content = decrypt(id_gen.first, id_gen.second, content, encrypt_data);
     if (props.count("/Filter") == 1)
     {
         vector<string> filters = get_filters(props);

@@ -715,9 +715,21 @@ string get_string(const string &buffer, size_t &offset)
     stack<pdf_object_t> prevs;
     string result(1, delimiter);
     ++offset;
-    while (true)
+    for (bool is_escaped = false; ; ++offset)
     {
+        if (buffer[offset] == '\\')
+        {
+            is_escaped = !is_escaped;
+            result.push_back(buffer.at(offset));
+            continue;
+        }
         result.push_back(buffer.at(offset));
+        if (is_escaped)
+        {
+            is_escaped = false;
+            continue;
+        }
+
         if (buffer[offset] == delimiter)
         {
             prevs.push(STRING);
@@ -731,7 +743,6 @@ string get_string(const string &buffer, size_t &offset)
             }
             prevs.pop();
         }
-        ++offset;
     }
 }
 

@@ -1034,8 +1034,8 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
     }
     case INDIRECT_OBJECT:
     {
-        end = efind_first(buffer, "\r\t\n ", off);
-        const pair<string, pdf_object_t> encrypt_pair = storage.get_object(strict_stoul(buffer.substr(off, end - off)));
+        size_t end_off = efind_first(buffer, "\r\t\n ", off);
+        const pair<string, pdf_object_t> encrypt_pair = storage.get_object(strict_stoul(buffer.substr(off, end_off - off)));
         if (encrypt_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "Encrypt indirect object must be DICTIONARY");
         result = get_dictionary_data(encrypt_pair.first, 0);
         break;

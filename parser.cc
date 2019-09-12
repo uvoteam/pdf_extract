@@ -4,8 +4,6 @@
 #include <utility>
 #include <vector>
 #include <algorithm>
-#include <stack>
-#include <regex>
 #include <cstdint>
 
 //for test
@@ -16,8 +14,6 @@
 #include "pdf_internal.h"
 
 using namespace std;
-
-#define LEN(S) (sizeof(S) - 1)
 
 extern string flate_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
 extern string lzw_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
@@ -37,12 +33,6 @@ enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what
 
 class ObjectStorage;
 
-size_t efind_first(const string &src, const string& str, size_t pos);
-size_t efind_first(const string &src, const char* s, size_t pos);
-size_t efind_first(const string &src, const char* s, size_t pos, size_t n);
-size_t efind(const string &src, const string& str, size_t pos);
-size_t efind(const string &src, const char* s, size_t pos);
-size_t efind(const string &src, char c, size_t pos);
 bool is_prefix(const char *str, const char *pre);
 uint64_t get_uint64(const string &src);
 array<uint64_t, 3> get_cross_reference_entry(const string &stream, size_t &offset, const array<unsigned int, 3> &w);
@@ -54,7 +44,6 @@ void get_offsets_internal_new(const string &stream,
 bool is_blank(char c);
 vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,
                                                                   size_t filters);
-size_t skip_spaces(const string &buffer, size_t offset);
 size_t skip_comment(const string &buffer, size_t offset);
 size_t get_cross_ref_offset_end(const string &buffer);
 size_t get_cross_ref_offset(const string &buffer);
@@ -81,17 +70,8 @@ ObjectStorage get_object_storage(const string &buffer,
 size_t find_number(const string &buffer, size_t offset);
 size_t find_number_exc(const string &buffer, size_t offset);
 void append_set(const string &array, vector<pair<unsigned int, unsigned int>> &result);
-size_t find_value_end_delimiter(const string &buffer, size_t offset);
-size_t find_name_end_delimiter(const string &buffer, size_t offset);
 unsigned int get_cross_ref_entries(const map<string, pair<string, pdf_object_t>> dictionary_data,
                                    const array<unsigned int, 3> &w, size_t length);
-string get_value(const string &buffer, size_t &offset);
-string get_array(const string &buffer, size_t &offset);
-string get_name_object(const string &buffer, size_t &offset);
-string get_indirect_object(const string &buffer, size_t &offset);
-string get_string(const string &buffer, size_t &offset);
-string get_dictionary(const string &buffer, size_t &offset);
-pdf_object_t get_object_type(const string &buffer, size_t &offset);
 array<unsigned int, 3> get_w(const map<string, pair<string, pdf_object_t>> &dictionary_data);
 void get_pages_id_gen_int(const string &buffer,
                           const pair<unsigned int, unsigned int> &page,
@@ -119,7 +99,6 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t start,
                                                          size_t end,
                                                          const ObjectStorage &storage);
-map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer, size_t offset);
 
 
 const map<string, string (&)(const string&, const map<string, pair<string, pdf_object_t>>&)> FILTER2FUNC =
@@ -127,13 +106,6 @@ const map<string, string (&)(const string&, const map<string, pair<string, pdf_o
                                                             {"/LZWDecode", lzw_decode},
                                                             {"/ASCII85Decode", ascii85_decode},
                                                             {"/ASCIIHexDecode", ascii_hex_decode}};
-
-const map<pdf_object_t, string (&)(const string&, size_t&)> TYPE2FUNC = {{DICTIONARY, get_dictionary},
-                                                                         {ARRAY, get_array},
-                                                                         {STRING, get_string},
-                                                                         {VALUE, get_value},
-                                                                         {INDIRECT_OBJECT, get_indirect_object},
-                                                                         {NAME_OBJECT, get_name_object}};
 
 class ObjectStorage
 {
@@ -219,50 +191,6 @@ private:
     const string &doc;
 };
 
-
-
-size_t efind_first(const string &src, const string& str, size_t pos)
-{
-    size_t ret = src.find_first_of(str, pos);
-    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + str + " in pos " + to_string(pos) + " failed");
-    return ret;
-}
-
-size_t efind_first(const string &src, const char* s, size_t pos)
-{
-    size_t ret = src.find_first_of(s, pos);
-    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
-    return ret;
-}
-
-size_t efind_first(const string &src, const char* s, size_t pos, size_t n)
-{
-    size_t ret = src.find_first_of(s, pos, n);
-    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
-    return ret;
-}
-
-size_t efind(const string &src, const string& str, size_t pos)
-{
-    size_t ret = src.find(str, pos);
-    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + str + " in pos " + to_string(pos) + " failed");
-    return ret;
-}
-
-size_t efind(const string &src, const char* s, size_t pos)
-{
-    size_t ret = src.find(s, pos);
-    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
-    return ret;
-}
-
-size_t efind(const string &src, char c, size_t pos)
-{
-    size_t ret = src.find(c, pos);
-    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + c + " in pos " + to_string(pos) + " failed");
-    return ret;
-}
-
 bool is_prefix(const char *str, const char *pre)
 {
     return strncmp(str, pre, strlen(pre)) == 0;
@@ -277,23 +205,10 @@ size_t get_cross_ref_offset_start(const string &buffer, size_t end)
     return start;
 }
 
-bool is_blank(char c)
-{
-    if (c == '\r' || c == '\n' || c == ' ' || c == '\t') return true;
-    return false;
-}
-
 size_t skip_comment(const string &buffer, size_t offset)
 {
     if (buffer[offset] != '%') return offset;
     while (offset < buffer.length() && buffer[offset] != '\r' && buffer[offset] != '\n') ++offset;
-    return offset;
-}
-
-size_t skip_spaces(const string &buffer, size_t offset)
-{
-    while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
-    if (offset >= buffer.length()) throw pdf_error(FUNC_STRING + "no data after space");
     return offset;
 }
 
@@ -413,24 +328,6 @@ vector<pair<size_t, size_t>> get_trailer_offsets_new(const string &buffer, size_
     return trailer_offsets;
 }
 
-map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer, size_t offset)
-{
-    offset = efind(buffer, "<<", offset);
-    offset += LEN("<<");
-    map<string, pair<string, pdf_object_t>> result;
-    while (true)
-    {
-        offset = skip_spaces(buffer, offset);
-        if (buffer.at(offset) == '>' && buffer.at(offset + 1) == '>') return result;
-        if (buffer[offset] != '/') throw pdf_error(FUNC_STRING + "Can`t find name key");
-        size_t end_offset = efind_first(buffer, "\r\t\n /<[(", offset + 1);
-        const string key = buffer.substr(offset, end_offset - offset);
-        offset = end_offset;
-        pdf_object_t type = get_object_type(buffer, offset);
-        const string val = TYPE2FUNC.at(type)(buffer, offset);
-        result.insert(make_pair(key, make_pair(val, type)));
-    }
-}
 void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &result)
 {
     if (is_prefix(buffer.data() + offset, "xref")) return get_object_offsets_old(buffer, offset, result);
@@ -635,159 +532,6 @@ void append_set(const string &array, vector<pair<unsigned int, unsigned int>> &r
         result.push_back(make_pair(id, gen));
         offset = efind(array, 'R', end_offset);
     }
-}
-
-size_t find_value_end_delimiter(const string &buffer, size_t offset)
-{
-    size_t result = buffer.find_first_of("\r\t\n /", offset);
-    size_t dict_end_offset = buffer.find(">>", offset);
-    if (result == string::npos || dict_end_offset < result) result = dict_end_offset;
-    if (result == string::npos) throw pdf_error(FUNC_STRING + " can`t find end delimiter for value");
-    return result;
-}
-
-size_t find_name_end_delimiter(const string &buffer, size_t offset)
-{
-    size_t result = buffer.find_first_of("\r\t\n /", offset + 1);
-    size_t dict_end_offset = buffer.find(">>", offset);
-    if (result == string::npos || dict_end_offset < result) result = dict_end_offset;
-    if (result == string::npos) throw pdf_error(FUNC_STRING + " can`t find end delimiter for value");
-    return result;
-}
-
-string get_value(const string &buffer, size_t &offset)
-{
-    size_t start_offset = offset;
-    offset = find_value_end_delimiter(buffer, offset);
-
-    return buffer.substr(start_offset, offset - start_offset);
-}
-
-string get_array(const string &buffer, size_t &offset)
-{
-    if (buffer[offset] != '[') throw pdf_error(FUNC_STRING + "offset should point to '['");
-    string result = "[";
-    ++offset;
-    stack<pdf_object_t> prevs;
-    while (true)
-    {
-        result.push_back(buffer.at(offset));
-        switch (buffer[offset])
-        {
-        case '[':
-            prevs.push(ARRAY);
-            break;
-        case ']':
-            if (prevs.empty())
-            {
-                ++offset;
-                return result;
-            }
-            prevs.pop();
-            break;
-        }
-        ++offset;
-    }
-    throw pdf_error(FUNC_STRING + " no array in " + to_string(offset));
-}
-
-string get_name_object(const string &buffer, size_t &offset)
-{
-    size_t start_offset = offset;
-    offset = find_name_end_delimiter(buffer, offset);
-
-    return buffer.substr(start_offset, offset - start_offset);
-}
-
-string get_indirect_object(const string &buffer, size_t &offset)
-{
-    size_t start_offset = offset;
-    offset = efind(buffer, 'R', offset) + 1;
-
-    return buffer.substr(start_offset, offset - start_offset);
-}
-
-string get_string(const string &buffer, size_t &offset)
-{
-    char delimiter = buffer.at(offset);
-    if (delimiter != '(' && delimiter != '<') throw pdf_error(FUNC_STRING + "string must start with '(' or '<'");
-    char end_delimiter = delimiter == '('? ')' : '>';
-    stack<pdf_object_t> prevs;
-    string result(1, delimiter);
-    ++offset;
-    for (bool is_escaped = false; ; ++offset)
-    {
-        if (buffer[offset] == '\\')
-        {
-            is_escaped = !is_escaped;
-            result.push_back(buffer.at(offset));
-            continue;
-        }
-        result.push_back(buffer.at(offset));
-        if (is_escaped)
-        {
-            is_escaped = false;
-            continue;
-        }
-
-        if (buffer[offset] == delimiter)
-        {
-            prevs.push(STRING);
-        }
-        if (buffer[offset] == end_delimiter)
-        {
-            if (prevs.empty())
-            {
-                ++offset;
-                return result;
-            }
-            prevs.pop();
-        }
-    }
-}
-
-string get_dictionary(const string &buffer, size_t &offset)
-{
-    if (buffer.substr(offset, 2) != "<<") throw pdf_error(FUNC_STRING + "dictionary must be started with '<<'");
-    stack<pdf_object_t> prevs;
-    size_t end_offset = offset + 2;
-    while (end_offset < buffer.length())
-    {
-        if (buffer.at(end_offset) == '<' && buffer.at(end_offset + 1) == '<')
-        {
-            prevs.push(DICTIONARY);
-            end_offset += 2;
-            continue;
-        }
-        if (buffer.at(end_offset) == '>' && buffer.at(end_offset + 1) == '>')
-        {
-            if (prevs.empty())
-            {
-                end_offset += 2;
-                size_t start_offset = offset;
-                offset = end_offset;
-                return buffer.substr(start_offset, end_offset - start_offset);
-            }
-            prevs.pop();
-            end_offset += 2;
-            continue;
-        }
-        ++end_offset;
-    }
-    if (end_offset >= buffer.length()) throw pdf_error(FUNC_STRING + "can`t find dictionary end delimiter");
-}
-
-
-pdf_object_t get_object_type(const string &buffer, size_t &offset)
-{
-    offset = skip_spaces(buffer, offset);
-    const string str = buffer.substr(offset, 2);
-    if (str == "<<") return DICTIONARY;
-    if (str[0] == '[') return ARRAY;
-    if (str[0] == '<' || str[0] == '(') return STRING;
-    if (str[0] == '/') return NAME_OBJECT;
-    if (regex_search(buffer.substr(offset), regex("^[0-9]+[\r\t\n ]+[0-9]+[\r\t\n ]+R"))) return INDIRECT_OBJECT;
-    return VALUE;
 }
 
 void get_pages_id_gen_int(const string &buffer,

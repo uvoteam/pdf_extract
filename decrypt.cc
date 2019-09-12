@@ -1,5 +1,4 @@
-#include <string.h>
-
+#include <cstring>
 #include <map>
 #include <array>
 #include <memory>
@@ -12,6 +11,8 @@
 #include "pdf_internal.h"
 
 
+
+#include <iostream> //remove
 using namespace std;
 
 namespace
@@ -33,34 +34,8 @@ namespace
         PDF_KEY_LENGTH_256 = 256
     } pdf_key_length_t;
 
-    enum { DEFAULT_LENGTH = 40 };
-/*void base_decrypt(const unsigned char* key,
-  int key_len,
-  const unsigned char* iv,
-  const unsigned char* text_in,
-  int text_len,
-  unsigned char* text_out,
-  int &out_len)
-  {
-  EVP_CIPHER_CTX aes;
-  EVP_CIPHER_CTX_init(&aes);
-  unique_ptr<EVP_CIPHER_CTX, int (*)(EVP_CIPHER_CTX*)>  aes_scope(&aes, EVP_CIPHER_CTX_cleanup);
-  if ((text_len % 16) != 0) throw pdf_error(FUNC_STRING + "error AES-decryption data length not a multiple of 16" );
+    enum { DEFAULT_LENGTH = 40, AES_IV_LENGTH = 16 };
 
-  int status;
-  if (key_len == PDF_KEY_LENGTH_128 / 8) status = EVP_DecryptInit_ex(&aes, EVP_aes_128_cbc(), NULL, key, iv);
-  else if (key_len == PDF_KEY_LENGTH_256 / 8) status = EVP_DecryptInit_ex(&aes, EVP_aes_256_cbc(), NULL, key, iv);
-  else throw pdf_error(FUNC_STRING + "invalid AES key length");
-  if(status != 1) throw pdf_error(FUNC_STRING + "error initializing AES decryption engine" );
-  int data_out_moved;
-  status = EVP_DecryptUpdate(&aes, text_out, &data_out_moved, text_in, text_len);
-  out_len = data_out_moved;
-  if(status != 1) throw pdf_error(FUNC_STRING + "Error AES-decryption data" );
-
-  status = EVP_DecryptFinal_ex(&aes, text_out + out_len, &data_out_moved);
-  out_len += data_out_moved;
-  if(status != 1) throw pdf_error(FUNC_STRING + "Error AES-decryption data final" );
-  }*/
 
     array<unsigned char, 32> get_user_pad(const string& password)
     {
@@ -108,33 +83,6 @@ namespace
         written += data_out_moved;
 
         return written;
-    }
-
-    string hex_decode(const string &hex)
-    {
-        std::string result;
-        for (size_t i = 0; i < hex.length(); i += 2)
-        {
-            long int d = strtol(hex.substr(i, 2).c_str(), nullptr, 16);
-            if (errno != 0) throw pdf_error(FUNC_STRING + "wrong input" + hex);
-            result.push_back(static_cast<char>(d));
-        }
-
-        return result;
-    }
-
-    string get_string(const string& src)
-    {
-        size_t offset = src.find_first_of("(<", 0);
-        if (offset == string::npos) throw pdf_error(FUNC_STRING + "wrong string=" + src);
-        char end_delimiter = src[offset] == '('? ')' : '>';
-        size_t end_offset = src.find(end_delimiter, offset);
-        if (end_offset == string::npos) throw pdf_error(FUNC_STRING + "can`t find end_delimiter=" + end_delimiter);
-        ++offset;
-        string result = src.substr(offset, end_offset - offset);
-        if (end_delimiter == ')') return result;
-
-        return hex_decode(result);
     }
 
     vector<unsigned char> string2array(const string &src)
@@ -191,20 +139,23 @@ namespace
     vector<unsigned char> get_decryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
     {
         unsigned int key_length = get_length(decrypt_opts);
-
         MD5_CTX ctx;
         md5_init_exc(&ctx);
+
         md5_update_exc(&ctx, padding, 32);
-        const string o_val = get_string(decrypt_opts.at("/O").first);
+        const string o_val = decode_string(decrypt_opts.at("/O").first);
         md5_update_exc(&ctx, get_user_pad(o_val).data(), 32);
+
         array<unsigned char, 4> ext = get_ext(decrypt_opts);
         md5_update_exc(&ctx, ext.data(), 4);
-        string document_id = get_string(decrypt_opts.at("/ID").first);
+        //get_first_array_element
+        size_t offset = 1;
+        string document_id = decode_string(get_string(decrypt_opts.at("/ID").first, offset));
         vector<unsigned char> doc_id(document_id.length());
         if (document_id.length() > 0)
         {
             doc_id = string2array(document_id);
-            md5_update_exc(&ctx, doc_id.data(), document_id.length());
+            md5_update_exc(&ctx, doc_id.data(), doc_id.size());
         }
 
         // If document metadata is not being encrypted,
@@ -252,35 +203,52 @@ namespace
 
     encrypt_algorithm_t get_algorithm(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
     {
-        const string val = decrypt_opts.at("/V").first;
+        const string val = decrypt_opts.at("/R").first;
         switch (strict_stoul(val))
         {
-        case 1:
+        case 2:
+        {
             return ENCRYPT_ALGORITHM_RC4V1;
             break;
-        case 2:
+        }
+        case 3:
+        {
             return ENCRYPT_ALGORITHM_RC4V2;
             break;
-        case 3:
+        }
+        case 4:
+        {
+            if (decrypt_opts.count("/StdCF") == 0) return ENCRYPT_ALGORITHM_AESV2;
+            const map<string, pair<string, pdf_object_t>> stdCF_dict = get_dictionary_data(decrypt_opts.at("/StdCF").first,
+                                                                                           0);
+            auto it = stdCF_dict.find("/CFM");
+            if (it == stdCF_dict.end()) return ENCRYPT_ALGORITHM_AESV2;
+            if (it->second.first == "V2") return ENCRYPT_ALGORITHM_RC4V2;
             return ENCRYPT_ALGORITHM_AESV2;
             break;
-        case 4:
+        }
+        case 5:
+        {
             return ENCRYPT_ALGORITHM_AESV3;
             break;
+        }
         default:
-            throw pdf_error(FUNC_STRING + "wrong /V value:" + val);
+        {
+            throw pdf_error(FUNC_STRING + "wrong /R value:" + val);
             break;
+        }
         }
     }
 
-    void rc4_create_obj_key(unsigned int n,
-                            unsigned int g,
-                            unsigned char obj_key[MD5_DIGEST_LENGTH],
-                            int *key_len,
-                            const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+    void create_obj_key(unsigned int n,
+                        unsigned int g,
+                        unsigned char obj_key[MD5_DIGEST_LENGTH],
+                        int *key_len,
+                        const map<string, pair<string, pdf_object_t>> &decrypt_opts)
     {
         unsigned char nkey[MD5_DIGEST_LENGTH + 5 + 4];
         const vector<unsigned char> decryption_key = get_decryption_key(decrypt_opts);
+
         int local_key_len = decryption_key.size() + 5;
 
         for (size_t j = 0; j < decryption_key.size(); j++) nkey[j] = decryption_key[j];
@@ -313,7 +281,7 @@ namespace
         unsigned char obj_key[MD5_DIGEST_LENGTH];
         int key_len;
 
-        rc4_create_obj_key(n, g, obj_key, &key_len, decrypt_opts);
+        create_obj_key(n, g, obj_key, &key_len, decrypt_opts);
         vector<unsigned char> out_str;
         int out_len = key_len * 8 == 40? EVP_CIPHER_block_size(EVP_rc4_40()) + in.size():
         EVP_CIPHER_block_size(EVP_rc4()) + in.size();
@@ -321,6 +289,64 @@ namespace
         out_len = RC4(obj_key, key_len, in.data(), in.size(), out_str.data());
 
         return string(reinterpret_cast<char*>(out_str.data()), out_len);
+    }
+
+    void aes_base_decrypt(const unsigned char* key,
+                          int key_len,
+                          const unsigned char* iv,
+                          const unsigned char* text_in,
+                          int text_len,
+                          unsigned char* text_out,
+                          int &out_len)
+    {
+        EVP_CIPHER_CTX aes;
+        EVP_CIPHER_CTX_init(&aes);
+        unique_ptr<EVP_CIPHER_CTX, int (*)(EVP_CIPHER_CTX*)>  aes_scope(&aes, EVP_CIPHER_CTX_cleanup);
+        if ((text_len % 16) != 0) throw pdf_error(FUNC_STRING + "error: AES data length must be multiple of 16" );
+        int status;
+        switch (key_len)
+        {
+        case PDF_KEY_LENGTH_128 / 8:
+            status = EVP_DecryptInit_ex(&aes, EVP_aes_128_cbc(), NULL, key, iv);
+            break;
+        case PDF_KEY_LENGTH_256 / 8:
+            status = EVP_DecryptInit_ex(&aes, EVP_aes_256_cbc(), NULL, key, iv);
+            break;
+        default:
+            throw pdf_error(FUNC_STRING + "invalid AES key length: " + to_string(key_len));
+            break;
+        }
+        if(status != 1) throw pdf_error(FUNC_STRING + "error initializing AES decryption engine" );
+
+        int data_out_moved;
+        status = EVP_DecryptUpdate(&aes, text_out, &data_out_moved, text_in, text_len);
+        out_len = data_out_moved;
+        if(status != 1) throw pdf_error(FUNC_STRING + "Error AES-decryption data" );
+
+        status = EVP_DecryptFinal_ex(&aes, text_out + out_len, &data_out_moved);
+        out_len += data_out_moved;
+        if(status != 1) throw pdf_error(FUNC_STRING + "Error AES-decryption data final");
+    }
+
+    string decrypt_aesv2(unsigned int n,
+                         unsigned int g,
+                         const string &in_str,
+                         const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+    {
+        vector<unsigned char> in = string2array(in_str);
+        unsigned char obj_key[MD5_DIGEST_LENGTH];
+        int key_len;
+
+        create_obj_key(n, g, obj_key, &key_len, decrypt_opts);
+        int out_buffer_len = in.size() - 2 - AES_IV_LENGTH;
+        vector<unsigned char> out_buffer(out_buffer_len + 16 - (out_buffer_len % 16));
+        aes_base_decrypt(obj_key,
+                         key_len,
+                         in.data(),
+                         in.data() + AES_IV_LENGTH,
+                         in.size() - AES_IV_LENGTH,
+                         out_buffer.data(), out_buffer_len);
+        return string(reinterpret_cast<char*>(out_buffer.data()), out_buffer_len);
     }
 }
 
@@ -337,6 +363,8 @@ string decrypt(unsigned int n,
     case ENCRYPT_ALGORITHM_RC4V2:
         return decrypt_rc4(n, g, in_str, decrypt_opts);
         break;
+    case ENCRYPT_ALGORITHM_AESV2:
+        return decrypt_aesv2(n, g, in_str, decrypt_opts);
     default:
         throw pdf_error("Unknown algorithm: " + to_string(algorithm));
         break;

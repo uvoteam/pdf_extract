@@ -44,7 +44,7 @@ void get_offsets_internal_new(const string &stream,
 bool is_blank(char c);
 vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,
                                                                   size_t filters);
-size_t skip_comment(const string &buffer, size_t offset);
+size_t skip_comments(const string &buffer, size_t offset);
 size_t get_cross_ref_offset_end(const string &buffer);
 size_t get_cross_ref_offset(const string &buffer);
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end);
@@ -128,8 +128,7 @@ public:
         if (it == id2offsets.end()) return id2obj_stm.at(id);
         size_t offset = efind(doc, "obj", it->second);
         offset += LEN("obj");
-        offset = skip_spaces(doc, offset);
-        offset = skip_comment(doc, offset);
+        offset = skip_comments(doc, offset);
         pdf_object_t type = get_object_type(doc, offset);
         return make_pair(TYPE2FUNC.at(type)(doc, offset), type);
     }
@@ -205,11 +204,14 @@ size_t get_cross_ref_offset_start(const string &buffer, size_t end)
     return start;
 }
 
-size_t skip_comment(const string &buffer, size_t offset)
+size_t skip_comments(const string &buffer, size_t offset)
 {
-    if (buffer[offset] != '%') return offset;
-    while (offset < buffer.length() && buffer[offset] != '\r' && buffer[offset] != '\n') ++offset;
-    return offset;
+    while (true)
+    {
+        offset = skip_spaces(buffer, offset);
+        if (buffer[offset] != '%') return offset;
+        while (offset < buffer.length() && buffer[offset] != '\r' && buffer[offset] != '\n') ++offset;
+    }
 }
 
 size_t get_cross_ref_offset_end(const string &buffer)
@@ -500,7 +502,7 @@ ObjectStorage get_object_storage(const string &buffer,
     map<size_t, size_t> id2offsets;
     for (size_t offset : offsets)
     {
-        size_t start_offset = find_number_exc(buffer, offset);
+        size_t start_offset = find_number_exc(buffer, skip_comments(buffer, offset));
         size_t end_offset = efind(buffer, ' ', start_offset);
         id2offsets.insert(make_pair(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset));
     }

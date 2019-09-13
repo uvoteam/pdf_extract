@@ -349,6 +349,7 @@ size_t skip_spaces(const string &buffer, size_t offset)
     if (offset >= buffer.length()) throw pdf_error(FUNC_STRING + "no data after space");
     return offset;
 }
+
 string predictor_decode(const string &data, const map<string, pair<string, pdf_object_t>> &opts)
 {
     unsigned int predictor = get_decode_key(opts, "/Predictor", 1);

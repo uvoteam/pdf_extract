@@ -731,6 +731,17 @@ string output_content(const string &buffer,
                       const map<string, pair<string, pdf_object_t>> &encrypt_data)
 {
     const pair<string, pdf_object_t> content_pair = storage.get_object(id_gen.first);
+    if (content_pair.second == ARRAY)
+    {
+        vector<pair<unsigned int, unsigned int>> contents;
+        append_set(content_pair.first, contents);
+        string result;
+        for (const pair<unsigned int, unsigned int> &p : contents)
+        {
+            result += output_content(buffer, storage, p, encrypt_data);
+        }
+        return result;
+    }
     if (content_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "content must be dictionary");
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(content_pair.first, 0);
     string content = get_content(buffer, storage, storage.get_offset(id_gen.first), props);

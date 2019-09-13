@@ -265,7 +265,6 @@ char get_object_status(const string &buffer, size_t offset)
 
 size_t get_xref_number(const string &buffer, size_t &offset)
 {
-    offset = skip_spaces(buffer, offset);
     offset = efind_first(buffer, "\r\t\n ", offset);
     offset = skip_spaces(buffer, offset);
     size_t end_offset = efind_first(buffer, "\r\t\n ", offset);
@@ -463,12 +462,17 @@ void get_object_offsets_old(const string &buffer, size_t offset, vector<size_t> 
 {
     offset = efind(buffer, "xref", offset);
     offset += LEN("xref");
-    size_t n = get_xref_number(buffer, offset);
-    size_t end_offset = offset + n * CROSS_REFERENCE_LINE_SIZE;
-    if (end_offset >= buffer.length()) throw pdf_error(FUNC_STRING + "pdf buffer has no data for indirect objects info");
-    for ( ; offset < end_offset; offset += CROSS_REFERENCE_LINE_SIZE)
+    while (true)
     {
-        if (get_object_status(buffer, offset) == 'n') append_object(buffer, offset, result);
+        offset = skip_spaces(buffer, offset);
+        if (is_prefix(buffer.data() + offset, "trailer")) return;
+        size_t n = get_xref_number(buffer, offset);
+        size_t end_offset = offset + n * CROSS_REFERENCE_LINE_SIZE;
+        if (end_offset >= buffer.length()) throw pdf_error(FUNC_STRING + "pdf buffer has no data for indirect objects info");
+        for ( ; offset < end_offset; offset += CROSS_REFERENCE_LINE_SIZE)
+        {
+            if (get_object_status(buffer, offset) == 'n') append_object(buffer, offset, result);
+        }
     }
 }
 

@@ -81,10 +81,7 @@ vector<pair<unsigned int, unsigned int>> get_pages_id_gen(const string &buffer,
 void append_content_offsets(const pair<string, pdf_object_t> &page_pair,
                             vector<pair<unsigned int, unsigned int>> &content_offsets);
 size_t get_content_len(const ObjectStorage &storage, const map<string, pair<string, pdf_object_t>> &props);
-string get_content(const string &buffer,
-                   const ObjectStorage &storage,
-                   size_t offset,
-                   const map<string, pair<string, pdf_object_t>> &props);
+string get_content(const string &buffer, size_t len, size_t offset);
 vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props);
 void decode(string &content,
             const vector<string> &filters,
@@ -138,11 +135,8 @@ private:
         map<string, pair<string, pdf_object_t>> dictionary = get_dictionary_data(get_dictionary(doc, offset), 0);
         auto it = dictionary.find("/Type");
         if (it == dictionary.end() || it->second.first != "/ObjStm") return;
-        offset += LEN("stream");
-        if (doc[offset] == '\r') ++offset;
-        if (doc[offset] == '\n') ++offset;
         unsigned int len = strict_stoul(dictionary.at("/Length").first);
-        string content = doc.substr(offset, len);
+        string content = get_content(doc, len, offset);
         if (dictionary.count("/Filter") == 1)
         {
             vector<string> filters = get_filters(dictionary);
@@ -423,11 +417,7 @@ void get_object_offsets_new(const string &buffer, size_t offset, vector<size_t> 
     if (it == dictionary_data.end()) throw pdf_error("can`t find /Length");
     if (it->second.second != VALUE) throw pdf_error("/Length value must have VALUE type");
     size_t length = strict_stoul(it->second.first);
-
-    offset += LEN("stream");
-    if (buffer[offset] == '\r') ++offset;
-    if (buffer[offset] == '\n') ++offset;
-    string content = buffer.substr(offset, length);
+    string content = get_content(buffer, length, offset);
     if (dictionary_data.count("/Filter") == 1)
     {
         vector<string> filters = get_filters(dictionary_data);
@@ -649,12 +639,8 @@ size_t get_content_len(const ObjectStorage &storage, const map<string, pair<stri
     }
 }
 
-string get_content(const string &buffer,
-                   const ObjectStorage &storage,
-                   size_t offset,
-                   const map<string, pair<string, pdf_object_t>> &props)
+string get_content(const string &buffer, size_t len, size_t offset)
 {
-    size_t len = get_content_len(storage, props);
     offset = efind(buffer, "stream", offset);
     offset += LEN("stream");
     if (buffer[offset] == '\r') ++offset;
@@ -729,7 +715,7 @@ string output_content(const string &buffer,
     }
     if (content_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "content must be dictionary");
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(content_pair.first, 0);
-    string content = get_content(buffer, storage, storage.get_offset(id_gen.first), props);
+    string content = get_content(buffer, get_content_len(storage, props), storage.get_offset(id_gen.first));
     content = decrypt(id_gen.first, id_gen.second, content, encrypt_data);
     if (props.count("/Filter") == 1)
     {

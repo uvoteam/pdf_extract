@@ -37,7 +37,6 @@ bool is_prefix(const char *str, const char *pre);
 uint64_t get_uint64(const string &src);
 array<uint64_t, 3> get_cross_reference_entry(const string &stream, size_t &offset, const array<unsigned int, 3> &w);
 pair<unsigned int, unsigned int> get_id_gen(const string &data);
-size_t get_cross_ref_offset_start(const string &buffer, size_t end);
 void get_offsets_internal_new(const string &stream,
                               const map<string, pair<string, pdf_object_t>> dictionary_data,
                               vector<size_t> &result);
@@ -45,7 +44,6 @@ bool is_blank(char c);
 vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,
                                                                   size_t filters);
 size_t skip_comments(const string &buffer, size_t offset);
-size_t get_cross_ref_offset_end(const string &buffer);
 size_t get_cross_ref_offset(const string &buffer);
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end);
 void append_object(const string &buf, size_t offset, vector<size_t> &objects);
@@ -195,15 +193,6 @@ bool is_prefix(const char *str, const char *pre)
     return strncmp(str, pre, strlen(pre)) == 0;
 }
 
-size_t get_cross_ref_offset_start(const string &buffer, size_t end)
-{
-    size_t start = buffer.find_last_of("\r\n", end);
-    if (start == string::npos) throw pdf_error(FUNC_STRING + "can`t find start offset");
-    ++start;
-    
-    return start;
-}
-
 size_t skip_comments(const string &buffer, size_t offset)
 {
     while (true)
@@ -214,25 +203,15 @@ size_t skip_comments(const string &buffer, size_t offset)
     }
 }
 
-size_t get_cross_ref_offset_end(const string &buffer)
-{
-    size_t end = buffer.size() - 1;
-    if (buffer[end] == '\n') --end;
-    if (buffer[end] == '\r') --end;
-    end -= LEN("%%EOF");
-    if (!is_prefix(buffer.data() + end + 1, "%%EOF")) throw pdf_error(FUNC_STRING + "can`t find %%EOF");
-    if (buffer[end] == '\n') --end;
-    if (buffer[end] == '\r') --end;
-
-    return end;
-}
-
 size_t get_cross_ref_offset(const string &buffer)
 {
-    size_t offset_end = get_cross_ref_offset_end(buffer);
-    size_t offset_start = get_cross_ref_offset_start(buffer, offset_end);
-
-    size_t r = strict_stoul(buffer.substr(offset_start, offset_end - offset_start + 1));
+    size_t offset_start = buffer.rfind("startxref");
+    if (offset_start == string::npos) throw pdf_error(FUNC_STRING + "can`t find startxref");
+    offset_start += LEN("startxref");
+    offset_start = skip_comments(buffer, offset_start);
+    size_t offset_end = buffer.find_first_not_of("0123456789", offset_start);
+    if (offset_end == string::npos) throw pdf_error(FUNC_STRING + "can`t find end of trailer offset number");
+    size_t r = strict_stoul(buffer.substr(offset_start, offset_end - offset_start));
     if (r >= buffer.size())
     {
         throw pdf_error(FUNC_STRING + to_string(r) + " is larger than buffer size " + to_string(buffer.size()));

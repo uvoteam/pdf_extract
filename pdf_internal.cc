@@ -194,13 +194,20 @@ string get_dictionary(const string &buffer, size_t &offset)
     size_t end_offset = offset + 2;
     while (end_offset < buffer.length())
     {
-        if (buffer.at(end_offset) == '<' && buffer.at(end_offset + 1) == '<')
+        char c = buffer.at(end_offset);
+        char c_next = buffer.at(end_offset + 1);
+        if (c == '<' && c_next == '<')
         {
             prevs.push(DICTIONARY);
             end_offset += 2;
             continue;
         }
-        if (buffer.at(end_offset) == '>' && buffer.at(end_offset + 1) == '>')
+        if (c == '(' || c == '<')
+        {
+            get_string(buffer, end_offset);
+            continue;
+        }
+        if (c == '>' && c_next == '>')
         {
             if (prevs.empty())
             {

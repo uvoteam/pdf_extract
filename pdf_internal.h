@@ -32,6 +32,7 @@ size_t efind(const std::string &src, const std::string& str, size_t pos);
 size_t efind(const std::string &src, const char* s, size_t pos);
 size_t efind(const std::string &src, char c, size_t pos);
 size_t skip_spaces(const std::string &buffer, size_t offset);
+size_t skip_comments(const std::string &buffer, size_t offset);
 pdf_object_t get_object_type(const std::string &buffer, size_t &offset);
 std::string get_value(const std::string &buffer, size_t &offset);
 std::string get_array(const std::string &buffer, size_t &offset);

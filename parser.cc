@@ -40,10 +40,9 @@ pair<unsigned int, unsigned int> get_id_gen(const string &data);
 void get_offsets_internal_new(const string &stream,
                               const map<string, pair<string, pdf_object_t>> dictionary_data,
                               vector<size_t> &result);
-bool is_blank(char c);
+
 vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,
                                                                   size_t filters);
-size_t skip_comments(const string &buffer, size_t offset);
 size_t get_cross_ref_offset(const string &buffer);
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end);
 void append_object(const string &buf, size_t offset, vector<size_t> &objects);
@@ -140,7 +139,9 @@ private:
         offset = skip_comments(doc, offset);
         size_t gen_id = get_gen_id(offset);
         offset = skip_comments(doc, offset);
-        if (doc.at(offset) != '<' && doc.at(offset + 1) != '<') return;
+        offset = efind(doc, "obj", offset);
+        offset += LEN("obj");
+        if (get_object_type(doc, offset) != DICTIONARY) return;
         map<string, pair<string, pdf_object_t>> dictionary = get_dictionary_data(get_dictionary(doc, offset), 0);
         auto it = dictionary.find("/Type");
         if (it == dictionary.end() || it->second.first != "/ObjStm") return;
@@ -196,16 +197,6 @@ private:
 bool is_prefix(const char *str, const char *pre)
 {
     return strncmp(str, pre, strlen(pre)) == 0;
-}
-
-size_t skip_comments(const string &buffer, size_t offset)
-{
-    while (true)
-    {
-        offset = skip_spaces(buffer, offset);
-        if (buffer[offset] != '%') return offset;
-        while (offset < buffer.length() && buffer[offset] != '\r' && buffer[offset] != '\n') ++offset;
-    }
 }
 
 pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets)

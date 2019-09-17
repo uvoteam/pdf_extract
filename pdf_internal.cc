@@ -175,9 +175,26 @@ size_t efind(const string &src, char c, size_t pos)
     return ret;
 }
 
+size_t skip_spaces(const string &buffer, size_t offset)
+{
+    while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
+    if (offset >= buffer.length()) throw pdf_error(FUNC_STRING + "no data after space");
+    return offset;
+}
+
+size_t skip_comments(const string &buffer, size_t offset)
+{
+    while (true)
+    {
+        offset = skip_spaces(buffer, offset);
+        if (buffer[offset] != '%') return offset;
+        while (offset < buffer.length() && buffer[offset] != '\r' && buffer[offset] != '\n') ++offset;
+    }
+}
+
 pdf_object_t get_object_type(const string &buffer, size_t &offset)
 {
-    offset = skip_spaces(buffer, offset);
+    offset = skip_comments(buffer, offset);
     const string str = buffer.substr(offset, 2);
     if (str == "<<") return DICTIONARY;
     if (str[0] == '[') return ARRAY;
@@ -348,13 +365,6 @@ map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer
         const string val = TYPE2FUNC.at(type)(buffer, offset);
         result.insert(make_pair(key, make_pair(val, type)));
     }
-}
-
-size_t skip_spaces(const string &buffer, size_t offset)
-{
-    while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
-    if (offset >= buffer.length()) throw pdf_error(FUNC_STRING + "no data after space");
-    return offset;
 }
 
 string predictor_decode(const string &data, const map<string, pair<string, pdf_object_t>> &opts)

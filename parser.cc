@@ -62,11 +62,11 @@ void validate_offsets(const string &buffer, const vector<size_t> &offsets);
 vector<size_t> get_all_object_offsets(const string &buffer,
                                       size_t cross_ref_offset,
                                       const vector<pair<size_t, size_t>> &trailer_offsets);
-ObjectStorage get_object_storage(const string &buffer,
-                                 size_t cross_ref_offset,
-                                 const vector<pair<size_t, size_t>> &trailer_offsets);
+map<size_t, size_t> get_id2offsets(const string &buffer,
+                                   size_t cross_ref_offset,
+                                   const vector<pair<size_t, size_t>> &trailer_offsets);
 size_t find_number(const string &buffer, size_t offset);
-size_t find_number_exc(const string &buffer, size_t offset);
+size_t efind_number(const string &buffer, size_t offset);
 void append_set(const string &array, vector<pair<unsigned int, unsigned int>> &result);
 unsigned int get_cross_ref_entries(const map<string, pair<string, pdf_object_t>> dictionary_data,
                                    const array<unsigned int, 3> &w, size_t length);
@@ -93,8 +93,8 @@ string output_content(const string &buffer,
 map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t start,
                                                          size_t end,
-                                                         const ObjectStorage &storage);
-
+                                                         const map<size_t, size_t> &id2offsets);
+pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets);
 
 const map<string, string (&)(const string&, const map<string, pair<string, pdf_object_t>>&)> FILTER2FUNC =
                                                            {{"/FlateDecode", flate_decode},
@@ -105,8 +105,10 @@ const map<string, string (&)(const string&, const map<string, pair<string, pdf_o
 class ObjectStorage
 {
 public:
-    ObjectStorage(const string &doc_arg, map<size_t, size_t> &&id2offsets_arg) :
-                  doc(doc_arg), id2offsets(move(id2offsets_arg))
+    ObjectStorage(const string &doc_arg,
+                  map<size_t, size_t> &&id2offsets_arg,
+                  const map<string, pair<string, pdf_object_t>> &encrypt_data_arg) :
+                  doc(doc_arg), id2offsets(move(id2offsets_arg)), encrypt_data(encrypt_data_arg)
     {
         for (const pair<size_t, size_t> &p : id2offsets) insert_obj_stream(p.first);
     }
@@ -121,22 +123,29 @@ public:
         auto it = id2offsets.find(id);
         //object is located inside object stream
         if (it == id2offsets.end()) return id2obj_stm.at(id);
-        size_t offset = efind(doc, "obj", it->second);
-        offset += LEN("obj");
-        offset = skip_comments(doc, offset);
-        pdf_object_t type = get_object_type(doc, offset);
-        return make_pair(TYPE2FUNC.at(type)(doc, offset), type);
+        return ::get_object(doc, id, id2offsets);
     }
 private:
+    size_t get_gen_id(size_t offset)
+    {
+        offset = efind_first(doc, " \r\t\n", offset);
+        offset = efind_number(doc, offset);
+        size_t end_offset = efind_first(doc, " \r\t\n", offset);
+        return strict_stoul(doc.substr(offset, end_offset - offset));
+    }
+
     void insert_obj_stream(size_t id)
     {
         size_t offset = id2offsets.at(id);
+        offset = skip_comments(doc, offset);
+        size_t gen_id = get_gen_id(offset);
         offset = efind(doc, "<<", offset);
         map<string, pair<string, pdf_object_t>> dictionary = get_dictionary_data(get_dictionary(doc, offset), 0);
         auto it = dictionary.find("/Type");
         if (it == dictionary.end() || it->second.first != "/ObjStm") return;
         unsigned int len = strict_stoul(dictionary.at("/Length").first);
         string content = get_content(doc, len, offset);
+        content = decrypt(id, gen_id, content, encrypt_data);
         if (dictionary.count("/Filter") == 1)
         {
             vector<string> filters = get_filters(dictionary);
@@ -162,10 +171,10 @@ private:
         unsigned int n = strict_stoul(dictionary.at("/N").first);
         for (unsigned int i = 0; i < n; ++i)
         {
-            offset = find_number_exc(content, offset);
+            offset = efind_number(content, offset);
             size_t end_offset = efind_first(content, " \r\n", offset);
             unsigned int id = strict_stoul(content.substr(offset, end_offset - offset));
-            offset = find_number_exc(content, end_offset);
+            offset = efind_number(content, end_offset);
             end_offset = efind_first(content, " \r\n", offset);
             unsigned int obj_off = strict_stoul(content.substr(offset, end_offset - offset));
             result.push_back(make_pair(id, obj_off));
@@ -180,6 +189,7 @@ private:
     //7.5.7. Object Streams
     map<size_t, pair<string, pdf_object_t>> id2obj_stm;
     const string &doc;
+    const map<string, pair<string, pdf_object_t>> &encrypt_data;
 };
 
 bool is_prefix(const char *str, const char *pre)
@@ -195,6 +205,17 @@ size_t skip_comments(const string &buffer, size_t offset)
         if (buffer[offset] != '%') return offset;
         while (offset < buffer.length() && buffer[offset] != '\r' && buffer[offset] != '\n') ++offset;
     }
+}
+
+pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets)
+{
+    size_t offset = id2offsets.at(id);
+    offset = skip_comments(buffer, offset);
+    offset = efind(buffer, "obj", id2offsets.at(id));
+    offset += LEN("obj");
+    offset = skip_comments(buffer, offset);
+    pdf_object_t type = get_object_type(buffer, offset);
+    return make_pair(TYPE2FUNC.at(type)(buffer, offset), type);
 }
 
 size_t get_cross_ref_offset(const string &buffer)
@@ -386,7 +407,7 @@ unsigned int get_cross_ref_entries(const map<string, pair<string, pdf_object_t>>
     unsigned int entries = 0;
     for (size_t offset = find_number(array, 0); offset < array.length(); ++offset)
     {
-        offset = find_number_exc(array, efind_first(array, " \r\t\n", offset));
+        offset = efind_number(array, efind_first(array, " \r\t\n", offset));
         size_t end_offset = efind_first(array, " \r\t\n]", offset);
         entries += strict_stoul(array.substr(offset, end_offset - offset));
         if (array[end_offset] == ']') return entries;
@@ -467,22 +488,23 @@ vector<size_t> get_all_object_offsets(const string &buffer,
     return object_offsets;
 }
 
-ObjectStorage get_object_storage(const string &buffer,
-                                 size_t cross_ref_offset,
-                                 const vector<pair<size_t, size_t>> &trailer_offsets)
+map<size_t, size_t> get_id2offsets(const string &buffer,
+                                   size_t cross_ref_offset,
+                                   const vector<pair<size_t, size_t>> &trailer_offsets)
 {
     vector<size_t> offsets = get_all_object_offsets(buffer, cross_ref_offset, trailer_offsets);
     map<size_t, size_t> id2offsets;
     for (size_t offset : offsets)
     {
-        size_t start_offset = find_number_exc(buffer, skip_comments(buffer, offset));
+        size_t start_offset = efind_number(buffer, skip_comments(buffer, offset));
         size_t end_offset = efind(buffer, ' ', start_offset);
         id2offsets.insert(make_pair(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset));
     }
-    return ObjectStorage(buffer, move(id2offsets));
+
+    return id2offsets;
 }
 
-size_t find_number_exc(const string &buffer, size_t offset)
+size_t efind_number(const string &buffer, size_t offset)
 {
     size_t result = find_number(buffer, offset);
     if (result >= buffer.length()) throw pdf_error(FUNC_STRING + "can`t find number");
@@ -501,7 +523,7 @@ void append_set(const string &array, vector<pair<unsigned int, unsigned int>> &r
     {
         size_t end_offset = efind_first(array, "  \r\n", offset);
         unsigned int id = strict_stoul(array.substr(offset, end_offset - offset));
-        offset = find_number_exc(array, end_offset);
+        offset = efind_number(array, end_offset);
         end_offset = efind_first(array, "  \r\n", offset);
         unsigned int gen = strict_stoul(array.substr(offset, end_offset - offset));
         result.push_back(make_pair(id, gen));
@@ -558,7 +580,7 @@ pair<unsigned int, unsigned int> get_id_gen(const string &data)
     size_t offset = 0;
     size_t end_offset = efind_first(data, "\r\t\n ", offset);
     unsigned int id = strict_stoul(data.substr(offset, end_offset - offset));
-    offset = find_number_exc(data, end_offset);
+    offset = efind_number(data, end_offset);
     end_offset = efind_first(data, "\r\t\n ", offset);
     unsigned int gen = strict_stoul(data.substr(offset, end_offset - offset));
     return make_pair(id, gen);
@@ -744,7 +766,7 @@ pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t sta
 map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t start,
                                                          size_t end,
-                                                         const ObjectStorage &storage)
+                                                         const map<size_t, size_t> &id2offsets)
 {
     size_t off = buffer.find("/Encrypt", start);
     if (off == string::npos || off >= end) return map<string, pair<string, pdf_object_t>>();
@@ -761,7 +783,9 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
     case INDIRECT_OBJECT:
     {
         size_t end_off = efind_first(buffer, "\r\t\n ", off);
-        const pair<string, pdf_object_t> encrypt_pair = storage.get_object(strict_stoul(buffer.substr(off, end_off - off)));
+        const pair<string, pdf_object_t> encrypt_pair = get_object(buffer,
+                                                                   strict_stoul(buffer.substr(off, end_off - off)),
+                                                                   id2offsets);
         if (encrypt_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "Encrypt indirect object must be DICTIONARY");
         result = get_dictionary_data(encrypt_pair.first, 0);
         break;
@@ -782,12 +806,12 @@ string pdf2txt(const string &buffer)
     if (buffer.size() < SMALLEST_PDF_SIZE) throw pdf_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     vector<pair<size_t, size_t>> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
-    ObjectStorage storage = get_object_storage(buffer, cross_ref_offset, trailer_offsets);
+    map<size_t, size_t> id2offsets = get_id2offsets(buffer, cross_ref_offset, trailer_offsets);
     map<string, pair<string, pdf_object_t>> encrypt_data = get_encrypt_data(buffer,
                                                                             trailer_offsets.at(0).first,
                                                                             trailer_offsets.at(0).second,
-                                                                            storage);
-
+                                                                            id2offsets);
+    ObjectStorage storage(buffer, move(id2offsets), encrypt_data);
     vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(buffer, cross_ref_offset, storage);
     string result;
     for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen)

@@ -139,7 +139,8 @@ private:
         size_t offset = id2offsets.at(id);
         offset = skip_comments(doc, offset);
         size_t gen_id = get_gen_id(offset);
-        offset = efind(doc, "<<", offset);
+        offset = skip_comments(doc, offset);
+        if (doc.at(offset) != '<' && doc.at(offset + 1) != '<') return;
         map<string, pair<string, pdf_object_t>> dictionary = get_dictionary_data(get_dictionary(doc, offset), 0);
         auto it = dictionary.find("/Type");
         if (it == dictionary.end() || it->second.first != "/ObjStm") return;

@@ -497,7 +497,7 @@ map<size_t, size_t> get_id2offsets(const string &buffer,
     for (size_t offset : offsets)
     {
         size_t start_offset = efind_number(buffer, skip_comments(buffer, offset));
-        size_t end_offset = efind(buffer, ' ', start_offset);
+        size_t end_offset = efind_first(buffer, " \r\n\t", start_offset);
         id2offsets.insert(make_pair(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset));
     }
 
@@ -521,10 +521,10 @@ void append_set(const string &array, vector<pair<unsigned int, unsigned int>> &r
 {
     for (size_t offset = find_number(array, 0); offset < array.length(); offset = find_number(array, offset))
     {
-        size_t end_offset = efind_first(array, "  \r\n", offset);
+        size_t end_offset = efind_first(array, "  \r\n\t", offset);
         unsigned int id = strict_stoul(array.substr(offset, end_offset - offset));
         offset = efind_number(array, end_offset);
-        end_offset = efind_first(array, "  \r\n", offset);
+        end_offset = efind_first(array, "  \r\n\t", offset);
         unsigned int gen = strict_stoul(array.substr(offset, end_offset - offset));
         result.push_back(make_pair(id, gen));
         offset = efind(array, 'R', end_offset);

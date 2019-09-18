@@ -398,6 +398,7 @@ unsigned int get_cross_ref_entries(const map<string, pair<string, pdf_object_t>>
         if (array[end_offset] == ']') return entries;
         offset = end_offset;
     }
+    return entries;
 }
 
 void get_offsets_internal_new(const string &stream,

@@ -82,9 +82,7 @@ void append_content_offsets(const pair<string, pdf_object_t> &page_pair,
 size_t get_content_len(const ObjectStorage &storage, const map<string, pair<string, pdf_object_t>> &props);
 string get_content(const string &buffer, size_t len, size_t offset);
 vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props);
-void decode(string &content,
-            const vector<string> &filters,
-            const vector<map<string, pair<string, pdf_object_t>>> &decode_params);
+string decode(const string &content, const map<string, pair<string, pdf_object_t>> &props);
 string output_content(const string &buffer,
                       const ObjectStorage &storage,
                       const pair<unsigned int, unsigned int> &id_gen,
@@ -148,12 +146,8 @@ private:
         unsigned int len = strict_stoul(dictionary.at("/Length").first);
         string content = get_content(doc, len, offset);
         content = decrypt(id, gen_id, content, encrypt_data);
-        if (dictionary.count("/Filter") == 1)
-        {
-            vector<string> filters = get_filters(dictionary);
-            vector<map<string, pair<string, pdf_object_t>>> decode_params = get_decode_params(dictionary, filters.size());
-            decode(content, filters, decode_params);
-        }
+        content = decode(content, dictionary);
+
         vector<pair<size_t, size_t>> id2offsets_obj_stm = get_id2offsets_obj_stm(content, dictionary);
         offset = strict_stoul(dictionary.at("/First").first);
         for (const pair<size_t, size_t> &p : id2offsets_obj_stm)
@@ -397,7 +391,7 @@ unsigned int get_cross_ref_entries(const map<string, pair<string, pdf_object_t>>
     if (it->second.second != ARRAY) throw pdf_error("/Index must be ARRAY");
     if (count(array.begin(), array.end(), ']') != 1) throw pdf_error("/Index must be one dimensional array");
     unsigned int entries = 0;
-    for (size_t offset = find_number(array, 0); offset < array.length(); ++offset)
+    for (size_t offset = find_number(array, 0); offset < array.length(); offset = find_number(array, offset))
     {
         offset = efind_number(array, efind_first(array, " \r\t\n", offset));
         size_t end_offset = efind_first(array, " \r\t\n]", offset);
@@ -431,12 +425,7 @@ void get_object_offsets_new(const string &buffer, size_t offset, vector<size_t> 
     if (it->second.second != VALUE) throw pdf_error("/Length value must have VALUE type");
     size_t length = strict_stoul(it->second.first);
     string content = get_content(buffer, length, offset);
-    if (dictionary_data.count("/Filter") == 1)
-    {
-        vector<string> filters = get_filters(dictionary_data);
-        vector<map<string, pair<string, pdf_object_t>>> decode_params = get_decode_params(dictionary_data, filters.size());
-        decode(content, filters, decode_params);
-    }
+    content = decode(content, dictionary_data);
     get_offsets_internal_new(content, dictionary_data, result);
 }
 
@@ -681,10 +670,18 @@ vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
     }
 }
 
-void decode(string &content, const vector<string> &filters,
-            const vector<map<string, pair<string, pdf_object_t>>> &decode_params)
+string decode(const string &content, const map<string, pair<string, pdf_object_t>> &props)
 {
-    for (size_t i = 0; i < filters.size(); ++i) content = FILTER2FUNC.at(filters[i])(content, decode_params[i]);
+    if (!props.count("/Filter")) return content;
+    vector<string> filters = get_filters(props);
+    vector<map<string, pair<string, pdf_object_t>>> decode_params = get_decode_params(props, filters.size());
+    if (filters.size() != decode_params.size())
+    {
+        throw pdf_error(FUNC_STRING + "different sizes for filters and decode_params");
+    }
+    string result = content;
+    for (size_t i = 0; i < filters.size(); ++i) result = FILTER2FUNC.at(filters[i])(result, decode_params[i]);
+    return result;
 }
 
 vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,
@@ -731,16 +728,7 @@ string output_content(const string &buffer,
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(content_pair.first, 0);
     string content = get_content(buffer, get_content_len(storage, props), storage.get_offset(id_gen.first));
     content = decrypt(id_gen.first, id_gen.second, content, encrypt_data);
-    if (props.count("/Filter") == 1)
-    {
-        vector<string> filters = get_filters(props);
-        vector<map<string, pair<string, pdf_object_t>>> decode_params = get_decode_params(props, filters.size());
-        if (filters.size() != decode_params.size())
-        {
-            throw pdf_error(FUNC_STRING + "different sizes for filters and decode_params");
-        }
-        decode(content, filters, decode_params);
-    }
+    content = decode(content, props);
 
     return content;
 }

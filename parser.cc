@@ -104,10 +104,10 @@ class ObjectStorage
 public:
     ObjectStorage(const string &doc_arg,
                   map<size_t, size_t> &&id2offsets_arg,
-                  const map<string, pair<string, pdf_object_t>> &encrypt_data_arg) :
-                  doc(doc_arg), id2offsets(move(id2offsets_arg)), encrypt_data(encrypt_data_arg)
+                  const map<string, pair<string, pdf_object_t>> &encrypt_data) :
+                  doc(doc_arg), id2offsets(move(id2offsets_arg))
     {
-        for (const pair<size_t, size_t> &p : id2offsets) insert_obj_stream(p.first);
+        for (const pair<size_t, size_t> &p : id2offsets) insert_obj_stream(p.first, encrypt_data);
     }
 
     size_t get_offset(size_t id) const
@@ -131,7 +131,7 @@ private:
         return strict_stoul(doc.substr(offset, end_offset - offset));
     }
 
-    void insert_obj_stream(size_t id)
+    void insert_obj_stream(size_t id, const map<string, pair<string, pdf_object_t>> &encrypt_data)
     {
         size_t offset = id2offsets.at(id);
         offset = skip_comments(doc, offset);
@@ -185,7 +185,6 @@ private:
     //7.5.7. Object Streams
     map<size_t, pair<string, pdf_object_t>> id2obj_stm;
     const string &doc;
-    const map<string, pair<string, pdf_object_t>> &encrypt_data;
 };
 
 bool is_prefix(const char *str, const char *pre)

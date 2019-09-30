@@ -77,4 +77,5 @@ string ascii85_decode(const string &buf, const map<string, pair<string, pdf_obje
         --len;
         ++buffer;
     }
+    return result;
 }

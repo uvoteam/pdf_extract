@@ -154,6 +154,27 @@ size_t efind_first(const string &src, const char* s, size_t pos, size_t n)
     return ret;
 }
 
+size_t efind_first_not(const string &src, const string& str, size_t pos)
+{
+    size_t ret = src.find_first_not_of(str, pos);
+    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + str + " in pos " + to_string(pos) + " failed");
+    return ret;
+}
+
+size_t efind_first_not(const string &src, const char* s, size_t pos)
+{
+    size_t ret = src.find_first_not_of(s, pos);
+    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
+    return ret;
+}
+
+size_t efind_first_not(const string &src, const char* s, size_t pos, size_t n)
+{
+    size_t ret = src.find_first_not_of(s, pos, n);
+    if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + s + " in pos " + to_string(pos) + " failed");
+    return ret;
+}
+
 size_t efind(const string &src, const string& str, size_t pos)
 {
     size_t ret = src.find(str, pos);

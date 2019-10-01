@@ -168,10 +168,10 @@ private:
         for (unsigned int i = 0; i < n; ++i)
         {
             offset = efind_number(content, offset);
-            size_t end_offset = efind_first(content, " \r\n", offset);
+            size_t end_offset = efind_first_not(content, "0123456789", offset);
             unsigned int id = strict_stoul(content.substr(offset, end_offset - offset));
             offset = efind_number(content, end_offset);
-            end_offset = efind_first(content, " \r\n", offset);
+            end_offset = efind_first_not(content, "0123456789", offset);
             unsigned int obj_off = strict_stoul(content.substr(offset, end_offset - offset));
             result.push_back(make_pair(id, obj_off));
             offset = end_offset;

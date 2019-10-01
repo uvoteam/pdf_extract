@@ -28,6 +28,9 @@ public:
 size_t efind_first(const std::string &src, const std::string& str, size_t pos);
 size_t efind_first(const std::string &src, const char* s, size_t pos);
 size_t efind_first(const std::string &src, const char* s, size_t pos, size_t n);
+size_t efind_first_not(const std::string &src, const std::string& str, size_t pos);
+size_t efind_first_not(const std::string &src, const char* s, size_t pos);
+size_t efind_first_not(const std::string &src, const char* s, size_t pos, size_t n);
 size_t efind(const std::string &src, const std::string& str, size_t pos);
 size_t efind(const std::string &src, const char* s, size_t pos);
 size_t efind(const std::string &src, char c, size_t pos);

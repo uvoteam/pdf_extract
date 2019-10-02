@@ -343,8 +343,11 @@ string get_array(const string &buffer, size_t &offset)
         switch (buffer[offset])
         {
         case '(':
-        case '<':
             result += get_string(buffer, offset);
+            continue;
+            break;
+        case '<':
+            result += buffer.at(offset + 1) == '<'? get_dictionary(buffer, offset) : get_string(buffer, offset);
             continue;
             break;
         case '[':

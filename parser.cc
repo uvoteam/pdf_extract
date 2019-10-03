@@ -310,6 +310,7 @@ vector<pair<size_t, size_t>> get_trailer_offsets_new(const string &buffer, size_
 
 void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &result)
 {
+    offset = skip_comments(buffer, offset);
     if (is_prefix(buffer.data() + offset, "xref")) return get_object_offsets_old(buffer, offset, result);
     get_object_offsets_new(buffer, offset, result);
 }

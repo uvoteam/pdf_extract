@@ -79,7 +79,9 @@ vector<pair<unsigned int, unsigned int>> get_pages_id_gen(const string &buffer,
                                                           const ObjectStorage &storage);
 void append_content_offsets(const pair<string, pdf_object_t> &page_pair,
                             vector<pair<unsigned int, unsigned int>> &content_offsets);
-size_t get_content_len(const ObjectStorage &storage, const map<string, pair<string, pdf_object_t>> &props);
+size_t get_length(const string &buffer,
+                  const map<size_t, size_t> &id2offsets,
+                  const map<string, pair<string, pdf_object_t>> &props);
 string get_content(const string &buffer, size_t len, size_t offset);
 vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props);
 string decode(const string &content, const map<string, pair<string, pdf_object_t>> &props);
@@ -110,17 +112,17 @@ public:
         for (const pair<size_t, size_t> &p : id2offsets) insert_obj_stream(p.first, encrypt_data);
     }
 
-    size_t get_offset(size_t id) const
-    {
-        return id2offsets.at(id);
-    }
-
     pair<string, pdf_object_t> get_object(size_t id) const
     {
         auto it = id2offsets.find(id);
         //object is located inside object stream
         if (it == id2offsets.end()) return id2obj_stm.at(id);
         return ::get_object(doc, id, id2offsets);
+    }
+
+    const map<size_t, size_t>& get_id2offsets() const
+    {
+        return id2offsets;
     }
 private:
     size_t get_gen_id(size_t offset)
@@ -143,7 +145,7 @@ private:
         map<string, pair<string, pdf_object_t>> dictionary = get_dictionary_data(get_dictionary(doc, offset), 0);
         auto it = dictionary.find("/Type");
         if (it == dictionary.end() || it->second.first != "/ObjStm") return;
-        unsigned int len = strict_stoul(dictionary.at("/Length").first);
+        unsigned int len = get_length(doc, id2offsets, dictionary);
         string content = get_content(doc, len, offset);
         content = decrypt(id, gen_id, content, encrypt_data);
         content = decode(content, dictionary);
@@ -623,7 +625,9 @@ vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const string &buffe
 }
 
 
-size_t get_content_len(const ObjectStorage &storage, const map<string, pair<string, pdf_object_t>> &props)
+size_t get_length(const string &buffer,
+                  const map<size_t, size_t> &id2offsets,
+                  const map<string, pair<string, pdf_object_t>> &props)
 {
     const pair<string, pdf_object_t> &r = props.at("/Length");
     if (r.second == VALUE)
@@ -633,8 +637,8 @@ size_t get_content_len(const ObjectStorage &storage, const map<string, pair<stri
     else if (r.second == INDIRECT_OBJECT)
     {
         size_t id = strict_stoul(r.first.substr(0, efind_first(r.first, " \r\n\t", 0)));
-        const pair<string, pdf_object_t> content_len_pair = storage.get_object(id);
-        if (content_len_pair.second != VALUE) throw pdf_error(FUNC_STRING + "content len indirect obj must be VALUE");
+        const pair<string, pdf_object_t> content_len_pair = get_object(buffer, id, id2offsets);
+        if (content_len_pair.second != VALUE) throw pdf_error(FUNC_STRING + "length indirect obj must be VALUE");
         return strict_stoul(content_len_pair.first);
     }
     else
@@ -727,7 +731,8 @@ string output_content(const string &buffer,
     }
     if (content_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "content must be dictionary");
     const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(content_pair.first, 0);
-    string content = get_content(buffer, get_content_len(storage, props), storage.get_offset(id_gen.first));
+    const map<size_t, size_t> &id2offsets = storage.get_id2offsets();
+    string content = get_content(buffer, get_length(buffer, id2offsets, props), id2offsets.at(id_gen.first));
     content = decrypt(id_gen.first, id_gen.second, content, encrypt_data);
     content = decode(content, props);
 

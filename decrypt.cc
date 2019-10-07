@@ -149,7 +149,7 @@ namespace
         array<unsigned char, 4> ext = get_ext(decrypt_opts);
         md5_update_exc(&ctx, ext.data(), 4);
         //get_first_array_element
-        size_t offset = 1;
+        size_t offset = skip_spaces(decrypt_opts.at("/ID").first, 1);
         string document_id = decode_string(get_string(decrypt_opts.at("/ID").first, offset));
         vector<unsigned char> doc_id(document_id.length());
         if (document_id.length() > 0)

@@ -379,7 +379,7 @@ map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer
     map<string, pair<string, pdf_object_t>> result;
     while (true)
     {
-        offset = skip_spaces(buffer, offset);
+        offset = skip_comments(buffer, offset);
         if (buffer.at(offset) == '>' && buffer.at(offset + 1) == '>') return result;
         if (buffer[offset] != '/') throw pdf_error(FUNC_STRING + "Can`t find name key");
         size_t end_offset = efind_first(buffer, "\r\t\n /<[(", offset + 1);

@@ -438,13 +438,12 @@ void get_object_offsets_old(const string &buffer, size_t offset, vector<size_t> 
     offset += LEN("xref");
     while (true)
     {
-        offset = skip_spaces(buffer, offset);
+        offset = skip_comments(buffer, offset);
         if (is_prefix(buffer.data() + offset, "trailer")) return;
         size_t n = get_xref_number(buffer, offset);
-        size_t end_offset = offset + n * CROSS_REFERENCE_LINE_SIZE;
-        if (end_offset >= buffer.length()) throw pdf_error(FUNC_STRING + "pdf buffer has no data for indirect objects info");
-        for ( ; offset < end_offset; offset += CROSS_REFERENCE_LINE_SIZE)
+        for (size_t i = 0 ; i < n; offset += CROSS_REFERENCE_LINE_SIZE, ++i)
         {
+            offset = skip_comments(buffer, offset);
             if (get_object_status(buffer, offset) == 'n') append_object(buffer, offset, result);
         }
     }

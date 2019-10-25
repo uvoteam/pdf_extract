@@ -37,6 +37,7 @@ bool is_prefix(const char *str, const char *pre);
 uint64_t get_uint64(const string &src);
 array<uint64_t, 3> get_cross_reference_entry(const string &stream, size_t &offset, const array<unsigned int, 3> &w);
 pair<unsigned int, unsigned int> get_id_gen(const string &data);
+pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st);
 void get_offsets_internal_new(const string &stream,
                               const map<string, pair<string, pdf_object_t>> dictionary_data,
                               vector<size_t> &result);
@@ -94,6 +95,8 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t end,
                                                          const map<size_t, size_t> &id2offsets);
 pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets);
+string get_strings_from_array(const string &array);
+string extract_text(const string& buf);
 
 const map<string, string (&)(const string&, const map<string, pair<string, pdf_object_t>>&)> FILTER2FUNC =
                                                            {{"/FlateDecode", flate_decode},
@@ -716,6 +719,86 @@ vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<stri
     return result;
 }
 
+string get_strings_from_array(const string &array)
+{
+    string result;
+    for (size_t offset = array.find_first_of("(<", 0); offset != string::npos; offset = array.find_first_of("(<", offset))
+    {
+        result += decode_string(get_string(array, offset));
+    }
+    return result;
+}
+
+pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st)
+{
+    if (st.empty()) throw pdf_error(FUNC_STRING + "stack is empty");
+    pair<pdf_object_t, string> result = st.back();
+    st.pop_back();
+    return result;
+}
+
+string extract_text(const string &buffer)
+{
+    string result;
+    vector<pair<pdf_object_t, string>> st;
+    string token;
+    size_t end;
+    pair<pdf_object_t, string> el;
+
+    for (size_t i = 0; i < buffer.length();)
+    {
+        size_t ssize = st.size();
+        switch (buffer[i])
+        {
+        case '(':
+        case '<':
+            st.push_back(make_pair(STRING, get_string(buffer, i)));
+            break;
+        case '[':
+            st.push_back(make_pair(ARRAY, get_array(buffer, i)));
+            break;
+        case '\r':
+        case '\n':
+        case ' ':
+        case '\t':
+            ++i;
+            break;
+        default:
+            end = buffer.find_first_of(" \r\n\t", i);
+            if (end == string::npos) end = buffer.length();
+            token = buffer.substr(i, end - i);
+            i = end + 1;
+            if (token == "Tj")
+            {
+                el = pop(st);
+                //wrong arg for Tj operator skipping..
+                if (el.first != STRING) break;
+                result += decode_string(el.second);
+            }
+            else if (token == "'" || token == "\"")
+            {
+                el = pop(st);
+                //wrong arg for '" operators skipping..
+                if (el.first != STRING) break;
+                result += '\n' + decode_string(el.second);
+            }
+            else if (token == "TJ")
+            {
+                el = pop(st);
+                //wrong arg for TJ operator skipping..
+                if (el.first != ARRAY) break;
+                result += '\n' + get_strings_from_array(el.second);
+            }
+            else
+            {
+                st.push_back(make_pair(VALUE, std::move(token)));
+            }
+            break;
+        }
+    }
+    return result;
+}
+
 string output_content(const string &buffer,
                       const ObjectStorage &storage,
                       const pair<unsigned int, unsigned int> &id_gen,
@@ -738,9 +821,7 @@ string output_content(const string &buffer,
     const map<size_t, size_t> &id2offsets = storage.get_id2offsets();
     string content = get_content(buffer, get_length(buffer, id2offsets, props), id2offsets.at(id_gen.first));
     content = decrypt(id_gen.first, id_gen.second, content, encrypt_data);
-    content = decode(content, props);
-
-    return content;
+    return decode(content, props);
 }
 
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end)
@@ -803,13 +884,13 @@ string pdf2txt(const string &buffer)
                                                                             id2offsets);
     ObjectStorage storage(buffer, move(id2offsets), encrypt_data);
     vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(buffer, cross_ref_offset, storage);
-    string result;
+    string content;
     for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen)
     {
-        result += output_content(buffer, storage, id_gen, encrypt_data);
+        content += output_content(buffer, storage, id_gen, encrypt_data);
     }
-    cout << result;
-    return result;
+
+    return extract_text(content);
 }
 
 int main(int argc, char *argv[])
@@ -817,7 +898,7 @@ int main(int argc, char *argv[])
     std::ifstream t(argv[1]);
     std::string str((std::istreambuf_iterator<char>(t)),
                     std::istreambuf_iterator<char>());
-    pdf2txt(str);
+    cout << pdf2txt(str);
     
     return 0;
 }

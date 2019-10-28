@@ -25,11 +25,7 @@ namespace
         for (j = i; j < str.size(); ++j)
             if (!isdigit(str[j])) break;
         size_t len = j - i;
-        if (len >= 4)
-        {
-            i += len - 3;
-            len = 3;
-        }
+        if (len > 3) len = (str[i] == 0)? 4 : 3; //leading zero as oct mark
 
         long int result = strtol(str.substr(i, len).c_str(), nullptr, 8);
         if (errno != 0) throw pdf_error(FUNC_STRING + "wrong octal number: " + str.substr(i, len));

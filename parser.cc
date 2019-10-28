@@ -789,6 +789,10 @@ string extract_text(const string &buffer)
                 if (el.first != ARRAY) break;
                 result += '\n' + get_strings_from_array(el.second);
             }
+            else if (token == "T*")
+            {
+                result += '\n';
+            }
             else
             {
                 st.push_back(make_pair(VALUE, std::move(token)));

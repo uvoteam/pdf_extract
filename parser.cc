@@ -55,9 +55,6 @@ vector<pair<size_t, size_t>> get_trailer_offsets_new(const string &buffer, size_
 void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &result);
 void get_object_offsets_new(const string &buffer, size_t offset, vector<size_t> &result);
 void get_object_offsets_old(const string &buffer, size_t offset, vector<size_t> &result);
-vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const string &buffer,
-                                                             size_t cross_ref_offset,
-                                                             const ObjectStorage &storage);
 void validate_offsets(const string &buffer, const vector<size_t> &offsets);
 vector<size_t> get_all_object_offsets(const string &buffer,
                                       size_t cross_ref_offset,
@@ -67,7 +64,7 @@ map<size_t, size_t> get_id2offsets(const string &buffer,
                                    const vector<pair<size_t, size_t>> &trailer_offsets);
 size_t find_number(const string &buffer, size_t offset);
 size_t efind_number(const string &buffer, size_t offset);
-void append_set(const string &array, vector<pair<unsigned int, unsigned int>> &result);
+vector<pair<unsigned int, unsigned int>> get_set(const string &array);
 unsigned int get_cross_ref_entries(const map<string, pair<string, pdf_object_t>> dictionary_data,
                                    const array<unsigned int, 3> &w, size_t length);
 array<unsigned int, 3> get_w(const map<string, pair<string, pdf_object_t>> &dictionary_data);
@@ -75,11 +72,15 @@ void get_pages_id_gen_int(const string &buffer,
                           const pair<unsigned int, unsigned int> &page,
                           const ObjectStorage &storage,
                           vector<pair<unsigned int, unsigned int>> &result);
+string get_text(const string &buffer,
+                size_t cross_ref_offset,
+                const ObjectStorage &storage,
+                map<string, pair<string, pdf_object_t>> &encrypt_data);
 vector<pair<unsigned int, unsigned int>> get_pages_id_gen(const string &buffer,
                                                           const pair<unsigned int, unsigned int> &catalog_pages_id_gen,
                                                           const ObjectStorage &storage);
-void append_content_offsets(const pair<string, pdf_object_t> &page_pair,
-                            vector<pair<unsigned int, unsigned int>> &content_offsets);
+vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, pdf_object_t> &page_pair);
+
 size_t get_length(const string &buffer,
                   const map<size_t, size_t> &id2offsets,
                   const map<string, pair<string, pdf_object_t>> &props);
@@ -503,8 +504,9 @@ size_t find_number(const string &buffer, size_t offset)
     return offset;
 }
 
-void append_set(const string &array, vector<pair<unsigned int, unsigned int>> &result)
+vector<pair<unsigned int, unsigned int>> get_set(const string &array)
 {
+    vector<pair<unsigned int, unsigned int>> result;
     for (size_t offset = find_number(array, 0); offset < array.length(); offset = find_number(array, offset))
     {
         size_t end_offset = efind_first(array, "  \r\n\t", offset);
@@ -515,6 +517,7 @@ void append_set(const string &array, vector<pair<unsigned int, unsigned int>> &r
         result.push_back(make_pair(id, gen));
         offset = efind(array, 'R', end_offset);
     }
+    return result;
 }
 
 void get_pages_id_gen_int(const string &buffer,
@@ -530,8 +533,7 @@ void get_pages_id_gen_int(const string &buffer,
     pair<string, pdf_object_t> p = data.at("/Kids");
     if (p.second != ARRAY) throw pdf_error(FUNC_STRING + "/Kids is not array");
     string kids_string = p.first;
-    vector<pair<unsigned int, unsigned int>> pages;
-    append_set(kids_string, pages);
+    vector<pair<unsigned int, unsigned int>> pages = get_set(kids_string);
     for (const pair<unsigned int, unsigned int> &page : pages)
     {
         //avoid infinite recursion for 'bad' pdf
@@ -572,34 +574,34 @@ pair<unsigned int, unsigned int> get_id_gen(const string &data)
     return make_pair(id, gen);
 }
 
-void append_content_offsets(const pair<string, pdf_object_t> &page_pair,
-                            vector<pair<unsigned int, unsigned int>> &content_offsets)
+vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, pdf_object_t> &page_pair)
 {
     if (page_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
     const map<string, pair<string, pdf_object_t>> data = get_dictionary_data(page_pair.first, 0);
     auto it = data.find("/Contents");
     // "/Contents" key can be absent for Page. In this case Page is empty
-    if (it == data.end()) return;
+    if (it == data.end()) return vector<pair<unsigned int, unsigned int>>();
+    vector<pair<unsigned int, unsigned int>> contents_id_gen;
     const string &contents_data = it->second.first;
     switch (it->second.second)
     {
     case ARRAY:
-        append_set(contents_data, content_offsets);
-        break;
+        contents_id_gen = get_set(contents_data);
+        return contents_id_gen;
     case INDIRECT_OBJECT:
-        content_offsets.push_back(get_id_gen(contents_data));
-        break;
+        contents_id_gen.push_back(get_id_gen(contents_data));
+        return contents_id_gen;
     default:
         throw pdf_error(FUNC_STRING + "/Contents type must be ARRAY or INDIRECT_OBJECT");
         break;
     }
 }
 
-vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const string &buffer,
-                                                             size_t cross_ref_offset,
-                                                             const ObjectStorage &storage)
+string get_text(const string &buffer,
+                size_t cross_ref_offset,
+                const ObjectStorage &storage,
+                map<string, pair<string, pdf_object_t>> &encrypt_data)
 {
-    vector<pair<unsigned int, unsigned int>> result;
     size_t trailer_offset = cross_ref_offset;
     if (is_prefix(buffer.data() + cross_ref_offset, "xref"))
     {
@@ -618,9 +620,16 @@ vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const string &buffe
 
     const pair<unsigned int, unsigned int> catalog_pages_data = get_id_gen(pages_pair.first);
     vector<pair<unsigned int, unsigned int>> pages_id_gen = get_pages_id_gen(buffer, catalog_pages_data, storage);
+    string result;
     for (const pair<unsigned int, unsigned int> &id_gen : pages_id_gen)
     {
-        append_content_offsets(storage.get_object(id_gen.first), result);
+        vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(storage.get_object(id_gen.first));
+        string page_content;
+        for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen)
+        {
+            page_content += output_content(buffer, storage, id_gen, encrypt_data);
+        }
+        result += extract_text(page_content);
     }
 
     return result;
@@ -811,8 +820,7 @@ string output_content(const string &buffer,
     const pair<string, pdf_object_t> content_pair = storage.get_object(id_gen.first);
     if (content_pair.second == ARRAY)
     {
-        vector<pair<unsigned int, unsigned int>> contents;
-        append_set(content_pair.first, contents);
+        vector<pair<unsigned int, unsigned int>> contents = get_set(content_pair.first);
         string result;
         for (const pair<unsigned int, unsigned int> &p : contents)
         {
@@ -887,14 +895,7 @@ string pdf2txt(const string &buffer)
                                                                             trailer_offsets.at(0).second,
                                                                             id2offsets);
     ObjectStorage storage(buffer, move(id2offsets), encrypt_data);
-    vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(buffer, cross_ref_offset, storage);
-    string content;
-    for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen)
-    {
-        content += output_content(buffer, storage, id_gen, encrypt_data);
-    }
-
-    return extract_text(content);
+    return get_text(buffer, cross_ref_offset, storage, encrypt_data);
 }
 
 int main(int argc, char *argv[])
@@ -903,6 +904,7 @@ int main(int argc, char *argv[])
     std::string str((std::istreambuf_iterator<char>(t)),
                     std::istreambuf_iterator<char>());
     cout << pdf2txt(str);
+
     
     return 0;
 }

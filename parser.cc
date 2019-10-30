@@ -59,6 +59,9 @@ void validate_offsets(const string &buffer, const vector<size_t> &offsets);
 vector<size_t> get_all_object_offsets(const string &buffer,
                                       size_t cross_ref_offset,
                                       const vector<pair<size_t, size_t>> &trailer_offsets);
+map<string, pair<string, pdf_object_t>> get_resources(const map<string, pair<string, pdf_object_t>> &dictionary,
+                                                      const ObjectStorage &storage,
+                                                      const map<string, pair<string, pdf_object_t>> &parent_resources);
 map<size_t, size_t> get_id2offsets(const string &buffer,
                                    size_t cross_ref_offset,
                                    const vector<pair<size_t, size_t>> &trailer_offsets);
@@ -96,7 +99,7 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          const map<size_t, size_t> &id2offsets);
 pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets);
 string get_strings_from_array(const string &array);
-string extract_text(const string& buf);
+string extract_text(const string& buf, const map<string, pair<string, pdf_object_t>> &resource);
 
 const map<string, string (&)(const string&, const map<string, pair<string, pdf_object_t>>&)> FILTER2FUNC =
                                                            {{"/FlateDecode", flate_decode},
@@ -551,6 +554,23 @@ void get_pages_id_resources_int(const map<string, pair<string, pdf_object_t>> &p
     }
 }
 
+map<string, pair<string, pdf_object_t>> get_resources(const map<string, pair<string, pdf_object_t>> &dictionary,
+                                                      const ObjectStorage &storage,
+                                                      const map<string, pair<string, pdf_object_t>> &parent_resources)
+{
+    auto it = dictionary.find("/Resources");
+    if (it == dictionary.end()) return parent_resources;
+    if (it->second.second == DICTIONARY) return get_dictionary_data(it->second.first, 0);
+    if (it->second.second == INDIRECT_OBJECT)
+    {
+        size_t id = strict_stoul(it->second.first.substr(0, efind_first(it->second.first, " \r\n\t", 0)));
+        const pair<string, pdf_object_t> resource_pair = storage.get_object(id);
+        if (resource_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "/Resources indirect obj must be DICTIONARY");
+        return get_dictionary_data(resource_pair.first, 0);
+    }
+    throw pdf_error(FUNC_STRING + "wrong /Resources type " + to_string(it->second.second));
+}
+
 map<unsigned int, map<string, pair<string, pdf_object_t>>> get_pages_id_resources(unsigned int catalog_pages_id,
                                                                                   const ObjectStorage &storage)
 {
@@ -643,7 +663,7 @@ string get_text(const string &buffer,
         {
             page_content += output_content(buffer, storage, id_gen, encrypt_data);
         }
-        result += extract_text(page_content);
+        result += extract_text(page_content, page_id_resource.second);
     }
 
     return result;
@@ -760,7 +780,7 @@ pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st)
     return result;
 }
 
-string extract_text(const string &buffer)
+string extract_text(const string &buffer, const map<string, pair<string, pdf_object_t>> &resources)
 {
     string result;
     vector<pair<pdf_object_t, string>> st;

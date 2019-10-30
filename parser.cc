@@ -3,8 +3,8 @@
 #include <map>
 #include <utility>
 #include <vector>
-#include <algorithm>
 #include <cstdint>
+#include <algorithm>
 
 //for test
 #include <fstream>
@@ -68,17 +68,16 @@ vector<pair<unsigned int, unsigned int>> get_set(const string &array);
 unsigned int get_cross_ref_entries(const map<string, pair<string, pdf_object_t>> dictionary_data,
                                    const array<unsigned int, 3> &w, size_t length);
 array<unsigned int, 3> get_w(const map<string, pair<string, pdf_object_t>> &dictionary_data);
-void get_pages_id_gen_int(const string &buffer,
-                          const pair<unsigned int, unsigned int> &page,
-                          const ObjectStorage &storage,
-                          vector<pair<unsigned int, unsigned int>> &result);
 string get_text(const string &buffer,
                 size_t cross_ref_offset,
                 const ObjectStorage &storage,
                 map<string, pair<string, pdf_object_t>> &encrypt_data);
-vector<pair<unsigned int, unsigned int>> get_pages_id_gen(const string &buffer,
-                                                          const pair<unsigned int, unsigned int> &catalog_pages_id_gen,
-                                                          const ObjectStorage &storage);
+map<unsigned int, map<string, pair<string, pdf_object_t>>> get_pages_id_resources(unsigned int catalog_pages_id,
+                                                                                  const ObjectStorage &storage);
+void get_pages_id_resources_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
+                                const map<string, pair<string, pdf_object_t>> &parent_resources,
+                                const ObjectStorage &storage,
+                                map<unsigned int, map<string, pair<string, pdf_object_t>>> &result);
 vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, pdf_object_t> &page_pair);
 
 size_t get_length(const string &buffer,
@@ -520,45 +519,58 @@ vector<pair<unsigned int, unsigned int>> get_set(const string &array)
     return result;
 }
 
-void get_pages_id_gen_int(const string &buffer,
-                          const pair<unsigned int, unsigned int> &parent_page,
-                          const ObjectStorage &storage,
-                          vector<pair<unsigned int, unsigned int>> &result)
+void get_pages_id_resources_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
+                                const map<string, pair<string, pdf_object_t>> &parent_resources,
+                                const ObjectStorage &storage,
+                                map<unsigned int, map<string, pair<string, pdf_object_t>>> &result)
 {
-    const pair<string, pdf_object_t> parent_page_pair = storage.get_object(parent_page.first);
-    if (parent_page_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be dictionary");
-    map<string, pair<string, pdf_object_t>> data = get_dictionary_data(parent_page_pair.first, 0);
-    auto it = data.find("/Type");
-    if (it == data.end() || it->second.first != "/Pages") return;
-    pair<string, pdf_object_t> p = data.at("/Kids");
-    if (p.second != ARRAY) throw pdf_error(FUNC_STRING + "/Kids is not array");
-    string kids_string = p.first;
-    vector<pair<unsigned int, unsigned int>> pages = get_set(kids_string);
-    for (const pair<unsigned int, unsigned int> &page : pages)
+    auto it = parent_dict.find("/Type");
+    if (it == parent_dict.end() || it->second.first != "/Pages") return;
+    pair<string, pdf_object_t> kids = parent_dict.at("/Kids");
+    if (kids.second != ARRAY) throw pdf_error(FUNC_STRING + "/Kids is not array");
+
+    for (const pair<unsigned int, unsigned int> &page : get_set(kids.first))
     {
+        unsigned int id = page.first;
         //avoid infinite recursion for 'bad' pdf
-        if (find(result.begin(), result.end(), page) == result.end())
+        if (result.count(id) == 0)
         {
-            get_pages_id_gen_int(buffer, page, storage, result);
-            result.insert(result.end(), pages.begin(), pages.end());
+            const pair<string, pdf_object_t> page_dict = storage.get_object(id);
+            if (page_dict.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
+            const map<string, pair<string, pdf_object_t>> dict_data = get_dictionary_data(page_dict.first, 0);
+            it = dict_data.find("/Resources");
+            //due to PDF official documentation /Resources is required;inheritable(Table 3.8) and must be dictionary
+            //Tolarate this rule: if resources is not dict, take parent resources
+            const map<string, pair<string, pdf_object_t>> resources = (it != dict_data.end() &&
+                                                                       it->second.second == DICTIONARY)?
+                                                                      get_dictionary_data(it->second.first, 0) :
+                                                                      parent_resources;
+            result.insert(make_pair(id, resources));
+            get_pages_id_resources_int(dict_data, resources, storage, result);
         }
     }
 }
 
-vector<pair<unsigned int, unsigned int>> get_pages_id_gen(const string &buffer,
-                                                          const pair<unsigned int, unsigned int> &catalog_pages_id_gen,
-                                                          const ObjectStorage &storage)
+map<unsigned int, map<string, pair<string, pdf_object_t>>> get_pages_id_resources(unsigned int catalog_pages_id,
+                                                                                  const ObjectStorage &storage)
 {
-    const pair<string, pdf_object_t> catalog_pair = storage.get_object(catalog_pages_id_gen.first);
+    const pair<string, pdf_object_t> catalog_pair = storage.get_object(catalog_pages_id);
     if (catalog_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "catalog must be DICTIONARY");
-    map<string, pair<string, pdf_object_t>> data = get_dictionary_data(catalog_pair.first, 0);
+    const map<string, pair<string, pdf_object_t>> data = get_dictionary_data(catalog_pair.first, 0);
     auto it = data.find("/Type");
     if (it == data.end() || it->second.first != "/Pages")
     {
         throw pdf_error("In root catalog type must be '/Type /Pages'");
     }
-    vector<pair<unsigned int, unsigned int>> result;
-    get_pages_id_gen_int(buffer, catalog_pages_id_gen, storage, result);
+    it = data.find("/Resources");
+    //due to PDF official documentation /Resources is required;inheritable(Table 3.8) and must be dictionary
+    //Tolarate this rule: root /Resources always exists
+    const map<string, pair<string, pdf_object_t>> resources = (it != data.end() && it->second.second == DICTIONARY)?
+                                                              get_dictionary_data(it->second.first, 0) :
+                                                              map<string, pair<string, pdf_object_t>>();
+
+    map<unsigned int, map<string, pair<string, pdf_object_t>>> result;
+    get_pages_id_resources_int(data, resources, storage, result);
 
     return result;
 }
@@ -618,12 +630,14 @@ string get_text(const string &buffer,
     const pair<string, pdf_object_t> pages_pair = root_data.at("/Pages");
     if (pages_pair.second != INDIRECT_OBJECT) throw pdf_error(FUNC_STRING + "/Pages value must be INDRECT_OBJECT");
 
-    const pair<unsigned int, unsigned int> catalog_pages_data = get_id_gen(pages_pair.first);
-    vector<pair<unsigned int, unsigned int>> pages_id_gen = get_pages_id_gen(buffer, catalog_pages_data, storage);
+    unsigned int catalog_pages_id = get_id_gen(pages_pair.first).first;
+    map<unsigned int, map<string, pair<string, pdf_object_t>>> pages_id_resources = get_pages_id_resources(catalog_pages_id,
+                                                                                                           storage);
     string result;
-    for (const pair<unsigned int, unsigned int> &id_gen : pages_id_gen)
+    for (const pair<unsigned int, map<string, pair<string, pdf_object_t>>> &page_id_resource : pages_id_resources)
     {
-        vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(storage.get_object(id_gen.first));
+        unsigned int page_id = page_id_resource.first;
+        vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(storage.get_object(page_id));
         string page_content;
         for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen)
         {

@@ -56,8 +56,8 @@ void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &res
 void get_object_offsets_new(const string &buffer, size_t offset, vector<size_t> &result);
 void get_object_offsets_old(const string &buffer, size_t offset, vector<size_t> &result);
 void validate_offsets(const string &buffer, const vector<size_t> &offsets);
-map<string, pair<string, pdf_object_t>> get_dict_or_indirect_obj(const pair<string, pdf_object_t> &data,
-                                                                 const ObjectStorage &storage);
+map<string, pair<string, pdf_object_t>> get_dict_or_indirect_dict(const pair<string, pdf_object_t> &data,
+                                                                  const ObjectStorage &storage);
 vector<size_t> get_all_object_offsets(const string &buffer,
                                       size_t cross_ref_offset,
                                       const vector<pair<size_t, size_t>> &trailer_offsets);
@@ -101,13 +101,16 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          const map<size_t, size_t> &id2offsets);
 pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets);
 string get_strings_from_array(const string &array, const char **encoding);
-string extract_text(const string& buf, const map<string, pair<string, pdf_object_t>> &resource);
+string extract_text(const string& buf,
+                    const map<string, pair<string, pdf_object_t>> &resource,
+                    const ObjectStorage &storage);
 
 
 extern const char *standard_encoding[256];
 extern const char *mac_roman_encoding[256];
 extern const char *mac_expert_encoding[256];
 extern const char *win_ansi_encoding[256];
+extern const char *identity_encoding[256];
 
 
 const map<string, string (&)(const string&, const map<string, pair<string, pdf_object_t>>&)> FILTER2FUNC =
@@ -237,8 +240,8 @@ size_t get_cross_ref_offset(const string &buffer)
     return r;
 }
 
-map<string, pair<string, pdf_object_t>> get_dict_or_indirect_obj(const pair<string, pdf_object_t> &data,
-                                                                 const ObjectStorage &storage)
+map<string, pair<string, pdf_object_t>> get_dict_or_indirect_dict(const pair<string, pdf_object_t> &data,
+                                                                  const ObjectStorage &storage)
 {
     size_t id;
     pair<string, pdf_object_t> p;
@@ -585,10 +588,10 @@ map<string, pair<string, pdf_object_t>> get_fonts(const map<string, pair<string,
 {
     auto it = dictionary.find("/Resources");
     if (it == dictionary.end()) return parent_fonts;
-    const map<string, pair<string, pdf_object_t>> resources = get_dict_or_indirect_obj(it->second, storage);
+    const map<string, pair<string, pdf_object_t>> resources = get_dict_or_indirect_dict(it->second, storage);
     it = resources.find("/Font");
     if (it == resources.end()) return map<string, pair<string, pdf_object_t>>();
-    return get_dict_or_indirect_obj(it->second, storage);
+    return get_dict_or_indirect_dict(it->second, storage);
 }
 
 map<unsigned int, map<string, pair<string, pdf_object_t>>> get_pages_id_fonts(unsigned int catalog_pages_id,
@@ -681,7 +684,7 @@ string get_text(const string &buffer,
         {
             page_content += output_content(buffer, storage, id_gen, encrypt_data);
         }
-        result += extract_text(page_content, page_id_resource.second);
+        result += extract_text(page_content, page_id_resource.second, storage);
     }
 
     return result;
@@ -797,15 +800,54 @@ pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st)
     st.pop_back();
     return result;
 }
+const char** get_font_encoding(const string &encoding)
+{
+    if (encoding == "/WinAnsiEncoding") return win_ansi_encoding;
+    if (encoding == "/MacRomanEncoding") return mac_roman_encoding;
+    if (encoding == "/MacExpertEncoding") return mac_expert_encoding;
+    if (encoding == "/Identity-H") return identity_encoding;
+    throw pdf_error(FUNC_STRING + "wrong encoding value " + encoding);
+}
 
-string extract_text(const string &buffer, const map<string, pair<string, pdf_object_t>> &fonts)
+const char** get_font_encoding(const string &font,
+                               const map<string, pair<string, pdf_object_t>> &fonts,
+                               const char **current,
+                               const ObjectStorage &storage)
+{
+    auto it = fonts.find(font);
+    if (it == fonts.end()) return current;
+    map<string, pair<string, pdf_object_t>> font_dict = get_dict_or_indirect_dict(it->second, storage);
+    it = font_dict.find("/Encoding");
+    if (it == font_dict.end()) return current;
+    string encoding;
+    switch (it->second.second)
+    {
+    //TODO custom mapping table
+    case DICTIONARY:
+        return current;
+    case INDIRECT_OBJECT:
+    {
+        //TODO handle dict and scalar
+        return current;
+        break;
+    }
+    case NAME_OBJECT:
+    {
+        encoding = it->second.first;
+        break;
+    }
+    default:
+        throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(it->second.second));
+    }
+
+    return get_font_encoding(encoding);
+}
+
+string extract_text(const string &buffer, const map<string, pair<string, pdf_object_t>> &fonts, const ObjectStorage &storage)
 {
     const char **encoding = standard_encoding;
     string result;
     vector<pair<pdf_object_t, string>> st;
-    string token;
-    size_t end;
-    pair<pdf_object_t, string> el;
     bool in_text_block = false;
     for (size_t i = 0; i < buffer.length();)
     {
@@ -826,9 +868,11 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
             ++i;
             break;
         default:
-            end = buffer.find_first_of(" \r\n\t", i);
+        {
+            size_t end = buffer.find_first_of(" \r\n\t", i);
             if (end == string::npos) end = buffer.length();
-            token = buffer.substr(i, end - i);
+            const string token = buffer.substr(i, end - i);
+
             i = end + 1;
             if (token == "BT")
             {
@@ -843,21 +887,21 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
             if (!in_text_block) break;
             if (token == "Tj")
             {
-                el = pop(st);
+                const pair<pdf_object_t, string> el = pop(st);
                 //wrong arg for Tj operator skipping..
                 if (el.first != STRING) break;
                 result += decode_string(el.second, encoding);
             }
             else if (token == "'" || token == "\"")
             {
-                el = pop(st);
+                const pair<pdf_object_t, string> el = pop(st);
                 //wrong arg for '" operators skipping..
                 if (el.first != STRING) break;
                 result += '\n' + decode_string(el.second, encoding);
             }
             else if (token == "TJ")
             {
-                el = pop(st);
+                const pair<pdf_object_t, string> el = pop(st);
                 //wrong arg for TJ operator skipping..
                 if (el.first != ARRAY) break;
                 result += '\n' + get_strings_from_array(el.second, encoding);
@@ -866,12 +910,18 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
             {
                 result += '\n';
             }
+            else if (token == "Tf")
+            {
+                pop(st);
+                encoding = get_font_encoding(pop(st).second, fonts, encoding, storage);
+            }
             else
             {
-                st.push_back(make_pair(VALUE, std::move(token)));
+                st.push_back(make_pair(VALUE, token));
             }
             break;
         }
+    }
     }
     return result;
 }

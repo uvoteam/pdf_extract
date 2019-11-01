@@ -1,4 +1,4 @@
-const char standard_encoding[256] =
+const char *standard_encoding[256] =
 {
     "",
     "",
@@ -814,7 +814,7 @@ const char *win_ansi_encoding[256] =
   nullptr,
   " ",
   "!",
-  "\@",
+  "@",
   "#",
   "$",
   "%",
@@ -875,7 +875,7 @@ const char *win_ansi_encoding[256] =
   "\\",
   "]",
   "^",
-  "_",,
+  "_",
   "`",
   "a",
   "b",
@@ -1036,4 +1036,4 @@ const char *win_ansi_encoding[256] =
   "ý",
   "þ",
   "ÿ"
-}
+};

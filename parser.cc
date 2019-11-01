@@ -795,7 +795,7 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
     string token;
     size_t end;
     pair<pdf_object_t, string> el;
-
+    bool in_text_block = false;
     for (size_t i = 0; i < buffer.length();)
     {
         size_t ssize = st.size();
@@ -819,6 +819,17 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
             if (end == string::npos) end = buffer.length();
             token = buffer.substr(i, end - i);
             i = end + 1;
+            if (token == "BT")
+            {
+                in_text_block = true;
+                break;
+            }
+            if (token == "ET")
+            {
+                in_text_block = false;
+                break;
+            }
+            if (!in_text_block) break;
             if (token == "Tj")
             {
                 el = pop(st);

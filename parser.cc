@@ -56,12 +56,14 @@ void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &res
 void get_object_offsets_new(const string &buffer, size_t offset, vector<size_t> &result);
 void get_object_offsets_old(const string &buffer, size_t offset, vector<size_t> &result);
 void validate_offsets(const string &buffer, const vector<size_t> &offsets);
+map<string, pair<string, pdf_object_t>> get_dict_or_indirect_obj(const pair<string, pdf_object_t> &data,
+                                                                 const ObjectStorage &storage);
 vector<size_t> get_all_object_offsets(const string &buffer,
                                       size_t cross_ref_offset,
                                       const vector<pair<size_t, size_t>> &trailer_offsets);
-map<string, pair<string, pdf_object_t>> get_resources(const map<string, pair<string, pdf_object_t>> &dictionary,
-                                                      const ObjectStorage &storage,
-                                                      const map<string, pair<string, pdf_object_t>> &parent_resources);
+map<string, pair<string, pdf_object_t>> get_fonts(const map<string, pair<string, pdf_object_t>> &dictionary,
+                                                  const ObjectStorage &storage,
+                                                  const map<string, pair<string, pdf_object_t>> &parent_fonts);
 map<size_t, size_t> get_id2offsets(const string &buffer,
                                    size_t cross_ref_offset,
                                    const vector<pair<size_t, size_t>> &trailer_offsets);
@@ -75,12 +77,12 @@ string get_text(const string &buffer,
                 size_t cross_ref_offset,
                 const ObjectStorage &storage,
                 map<string, pair<string, pdf_object_t>> &encrypt_data);
-map<unsigned int, map<string, pair<string, pdf_object_t>>> get_pages_id_resources(unsigned int catalog_pages_id,
-                                                                                  const ObjectStorage &storage);
-void get_pages_id_resources_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
-                                const map<string, pair<string, pdf_object_t>> &parent_resources,
-                                const ObjectStorage &storage,
-                                map<unsigned int, map<string, pair<string, pdf_object_t>>> &result);
+map<unsigned int, map<string, pair<string, pdf_object_t>>> get_pages_id_fonts(unsigned int catalog_pages_id,
+                                                                              const ObjectStorage &storage);
+void get_pages_id_fonts_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
+                            const map<string, pair<string, pdf_object_t>> &parent_fonts,
+                            const ObjectStorage &storage,
+                            map<unsigned int, map<string, pair<string, pdf_object_t>>> &result);
 vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, pdf_object_t> &page_pair);
 
 size_t get_length(const string &buffer,
@@ -233,6 +235,28 @@ size_t get_cross_ref_offset(const string &buffer)
     }
 
     return r;
+}
+
+map<string, pair<string, pdf_object_t>> get_dict_or_indirect_obj(const pair<string, pdf_object_t> &data,
+                                                                 const ObjectStorage &storage)
+{
+    size_t id;
+    pair<string, pdf_object_t> p;
+    switch (data.second)
+    {
+    case DICTIONARY:
+        return get_dictionary_data(data.first, 0);
+    case INDIRECT_OBJECT:
+        id = strict_stoul(data.first.substr(0, efind_first(data.first, " \r\n\t", 0)));
+        p = storage.get_object(id);
+        if (p.second != DICTIONARY)
+        {
+            throw pdf_error(FUNC_STRING + "Indirect obj must be DICTIONARY. Type: " + to_string(p.second));
+        }
+        return get_dictionary_data(p.first, 0);
+    default:
+        throw pdf_error(FUNC_STRING + "wrong object type " + to_string(data.second));
+    }
 }
 
 void append_object(const string &buf, size_t offset, vector<size_t> &objects)
@@ -529,10 +553,10 @@ vector<pair<unsigned int, unsigned int>> get_set(const string &array)
     return result;
 }
 
-void get_pages_id_resources_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
-                                const map<string, pair<string, pdf_object_t>> &parent_resources,
-                                const ObjectStorage &storage,
-                                map<unsigned int, map<string, pair<string, pdf_object_t>>> &result)
+void get_pages_id_fonts_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
+                            const map<string, pair<string, pdf_object_t>> &parent_fonts,
+                            const ObjectStorage &storage,
+                            map<unsigned int, map<string, pair<string, pdf_object_t>>> &result)
 {
     auto it = parent_dict.find("/Type");
     if (it == parent_dict.end() || it->second.first != "/Pages") return;
@@ -548,38 +572,27 @@ void get_pages_id_resources_int(const map<string, pair<string, pdf_object_t>> &p
             const pair<string, pdf_object_t> page_dict = storage.get_object(id);
             if (page_dict.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
             const map<string, pair<string, pdf_object_t>> dict_data = get_dictionary_data(page_dict.first, 0);
-            it = dict_data.find("/Resources");
-            //due to PDF official documentation /Resources is required;inheritable(Table 3.8) and must be dictionary
-            //Tolarate this rule: if resources is not dict, take parent resources
-            const map<string, pair<string, pdf_object_t>> resources = (it != dict_data.end() &&
-                                                                       it->second.second == DICTIONARY)?
-                                                                      get_dictionary_data(it->second.first, 0) :
-                                                                      parent_resources;
-            result.insert(make_pair(id, resources));
-            get_pages_id_resources_int(dict_data, resources, storage, result);
+            const map<string, pair<string, pdf_object_t>> fonts = get_fonts(dict_data, storage, parent_fonts);
+            result.insert(make_pair(id, fonts));
+            get_pages_id_fonts_int(dict_data, fonts, storage, result);
         }
     }
 }
 
-map<string, pair<string, pdf_object_t>> get_resources(const map<string, pair<string, pdf_object_t>> &dictionary,
-                                                      const ObjectStorage &storage,
-                                                      const map<string, pair<string, pdf_object_t>> &parent_resources)
+map<string, pair<string, pdf_object_t>> get_fonts(const map<string, pair<string, pdf_object_t>> &dictionary,
+                                                  const ObjectStorage &storage,
+                                                  const map<string, pair<string, pdf_object_t>> &parent_fonts)
 {
     auto it = dictionary.find("/Resources");
-    if (it == dictionary.end()) return parent_resources;
-    if (it->second.second == DICTIONARY) return get_dictionary_data(it->second.first, 0);
-    if (it->second.second == INDIRECT_OBJECT)
-    {
-        size_t id = strict_stoul(it->second.first.substr(0, efind_first(it->second.first, " \r\n\t", 0)));
-        const pair<string, pdf_object_t> resource_pair = storage.get_object(id);
-        if (resource_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "/Resources indirect obj must be DICTIONARY");
-        return get_dictionary_data(resource_pair.first, 0);
-    }
-    throw pdf_error(FUNC_STRING + "wrong /Resources type " + to_string(it->second.second));
+    if (it == dictionary.end()) return parent_fonts;
+    const map<string, pair<string, pdf_object_t>> resources = get_dict_or_indirect_obj(it->second, storage);
+    it = resources.find("/Font");
+    if (it == resources.end()) return map<string, pair<string, pdf_object_t>>();
+    return get_dict_or_indirect_obj(it->second, storage);
 }
 
-map<unsigned int, map<string, pair<string, pdf_object_t>>> get_pages_id_resources(unsigned int catalog_pages_id,
-                                                                                  const ObjectStorage &storage)
+map<unsigned int, map<string, pair<string, pdf_object_t>>> get_pages_id_fonts(unsigned int catalog_pages_id,
+                                                                              const ObjectStorage &storage)
 {
     const pair<string, pdf_object_t> catalog_pair = storage.get_object(catalog_pages_id);
     if (catalog_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "catalog must be DICTIONARY");
@@ -589,15 +602,13 @@ map<unsigned int, map<string, pair<string, pdf_object_t>>> get_pages_id_resource
     {
         throw pdf_error("In root catalog type must be '/Type /Pages'");
     }
-    it = data.find("/Resources");
     //due to PDF official documentation /Resources is required;inheritable(Table 3.8) and must be dictionary
-    //Tolarate this rule: root /Resources always exists
-    const map<string, pair<string, pdf_object_t>> resources = (it != data.end() && it->second.second == DICTIONARY)?
-                                                              get_dictionary_data(it->second.first, 0) :
-                                                              map<string, pair<string, pdf_object_t>>();
-
+    //Tolerate this rule: root /Resources always exists
+    const map<string, pair<string, pdf_object_t>> fonts = get_fonts(data,
+                                                                    storage,
+                                                                    map<string, pair<string, pdf_object_t>>());
     map<unsigned int, map<string, pair<string, pdf_object_t>>> result;
-    get_pages_id_resources_int(data, resources, storage, result);
+    get_pages_id_fonts_int(data, fonts, storage, result);
 
     return result;
 }
@@ -658,8 +669,8 @@ string get_text(const string &buffer,
     if (pages_pair.second != INDIRECT_OBJECT) throw pdf_error(FUNC_STRING + "/Pages value must be INDRECT_OBJECT");
 
     unsigned int catalog_pages_id = get_id_gen(pages_pair.first).first;
-    map<unsigned int, map<string, pair<string, pdf_object_t>>> pages_id_resources = get_pages_id_resources(catalog_pages_id,
-                                                                                                           storage);
+    map<unsigned int, map<string, pair<string, pdf_object_t>>> pages_id_resources = get_pages_id_fonts(catalog_pages_id,
+                                                                                                       storage);
     string result;
     for (const pair<unsigned int, map<string, pair<string, pdf_object_t>>> &page_id_resource : pages_id_resources)
     {
@@ -787,7 +798,7 @@ pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st)
     return result;
 }
 
-string extract_text(const string &buffer, const map<string, pair<string, pdf_object_t>> &resources)
+string extract_text(const string &buffer, const map<string, pair<string, pdf_object_t>> &fonts)
 {
     const char **encoding = standard_encoding;
     string result;

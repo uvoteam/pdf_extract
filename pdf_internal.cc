@@ -192,10 +192,10 @@ size_t efind(const string &src, char c, size_t pos)
     return ret;
 }
 
-size_t skip_spaces(const string &buffer, size_t offset)
+size_t skip_spaces(const string &buffer, size_t offset, bool validate /*= true */)
 {
     while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
-    if (offset >= buffer.length()) throw pdf_error(FUNC_STRING + "no data after space");
+    if (validate && offset >= buffer.length()) throw pdf_error(FUNC_STRING + "no data after space");
     return offset;
 }
 

@@ -858,12 +858,6 @@ bool put2stack(vector<pair<pdf_object_t, string>> &st, const string &buffer, siz
     case '[':
         st.push_back(make_pair(ARRAY, get_array(buffer, i)));
         return true;
-    case '\r':
-    case '\n':
-    case ' ':
-    case '\t':
-        ++i;
-        return true;
     default:
         return false;
     }
@@ -877,6 +871,7 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
     bool in_text_block = false;
     for (size_t i = 0; i < buffer.length();)
     {
+        i = skip_spaces(buffer, i, false);
         if (in_text_block && put2stack(st, buffer, i)) continue;
         size_t end = buffer.find_first_of(" \r\n\t/[(<", i + 1);
         if (end == string::npos) end = buffer.length();

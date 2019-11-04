@@ -855,8 +855,11 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
         switch (buffer[i])
         {
         case '(':
-        case '<':
             st.push_back(make_pair(STRING, get_string(buffer, i)));
+            break;
+        case '<':
+            buffer.at(i + 1) == '<'? st.push_back(make_pair(DICTIONARY, get_dictionary(buffer, i))) :
+                                     st.push_back(make_pair(STRING, get_string(buffer, i)));
             break;
         case '[':
             st.push_back(make_pair(ARRAY, get_array(buffer, i)));

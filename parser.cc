@@ -869,11 +869,10 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
             break;
         default:
         {
-            size_t end = buffer.find_first_of(" \r\n\t", i);
+            size_t end = buffer.find_first_of(" \r\n\t/[(<", i + 1);
             if (end == string::npos) end = buffer.length();
             const string token = buffer.substr(i, end - i);
-
-            i = end + 1;
+            i = end;
             if (token == "BT")
             {
                 in_text_block = true;

@@ -90,6 +90,7 @@ size_t get_length(const string &buffer,
                   const map<string, pair<string, pdf_object_t>> &props);
 string get_content(const string &buffer, size_t len, size_t offset);
 vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props);
+bool is_data4stack(const vector<pair<pdf_object_t, string>> &stack, const string &buffer, size_t &i);
 string decode(const string &content, const map<string, pair<string, pdf_object_t>> &props);
 string output_content(const string &buffer,
                       const ObjectStorage &storage,
@@ -843,6 +844,31 @@ const char** get_font_encoding(const string &font,
     return get_font_encoding(encoding);
 }
 
+bool put2stack(vector<pair<pdf_object_t, string>> &st, const string &buffer, size_t &i)
+{
+    switch (buffer[i])
+    {
+    case '(':
+        st.push_back(make_pair(STRING, get_string(buffer, i)));
+        return true;
+    case '<':
+        buffer.at(i + 1) == '<'? st.push_back(make_pair(DICTIONARY, get_dictionary(buffer, i))) :
+                                 st.push_back(make_pair(STRING, get_string(buffer, i)));
+        return true;
+    case '[':
+        st.push_back(make_pair(ARRAY, get_array(buffer, i)));
+        return true;
+    case '\r':
+    case '\n':
+    case ' ':
+    case '\t':
+        ++i;
+        return true;
+    default:
+        return false;
+    }
+}
+
 string extract_text(const string &buffer, const map<string, pair<string, pdf_object_t>> &fonts, const ObjectStorage &storage)
 {
     const char **encoding = standard_encoding;
@@ -851,79 +877,56 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
     bool in_text_block = false;
     for (size_t i = 0; i < buffer.length();)
     {
-        size_t ssize = st.size();
-        switch (buffer[i])
+        if (in_text_block && put2stack(st, buffer, i)) continue;
+        size_t end = buffer.find_first_of(" \r\n\t/[(<", i + 1);
+        if (end == string::npos) end = buffer.length();
+        const string token = buffer.substr(i, end - i);
+        i = end;
+        if (token == "BT")
         {
-        case '(':
-            st.push_back(make_pair(STRING, get_string(buffer, i)));
-            break;
-        case '<':
-            buffer.at(i + 1) == '<'? st.push_back(make_pair(DICTIONARY, get_dictionary(buffer, i))) :
-                                     st.push_back(make_pair(STRING, get_string(buffer, i)));
-            break;
-        case '[':
-            st.push_back(make_pair(ARRAY, get_array(buffer, i)));
-            break;
-        case '\r':
-        case '\n':
-        case ' ':
-        case '\t':
-            ++i;
-            break;
-        default:
-        {
-            size_t end = buffer.find_first_of(" \r\n\t/[(<", i + 1);
-            if (end == string::npos) end = buffer.length();
-            const string token = buffer.substr(i, end - i);
-            i = end;
-            if (token == "BT")
-            {
-                in_text_block = true;
-                break;
-            }
-            if (token == "ET")
-            {
-                in_text_block = false;
-                break;
-            }
-            if (!in_text_block) break;
-            if (token == "Tj")
-            {
-                const pair<pdf_object_t, string> el = pop(st);
-                //wrong arg for Tj operator skipping..
-                if (el.first != STRING) break;
-                result += decode_string(el.second, encoding);
-            }
-            else if (token == "'" || token == "\"")
-            {
-                const pair<pdf_object_t, string> el = pop(st);
-                //wrong arg for '" operators skipping..
-                if (el.first != STRING) break;
-                result += '\n' + decode_string(el.second, encoding);
-            }
-            else if (token == "TJ")
-            {
-                const pair<pdf_object_t, string> el = pop(st);
-                //wrong arg for TJ operator skipping..
-                if (el.first != ARRAY) break;
-                result += '\n' + get_strings_from_array(el.second, encoding);
-            }
-            else if (token == "T*")
-            {
-                result += '\n';
-            }
-            else if (token == "Tf")
-            {
-                pop(st);
-                encoding = get_font_encoding(pop(st).second, fonts, encoding, storage);
-            }
-            else
-            {
-                st.push_back(make_pair(VALUE, token));
-            }
-            break;
+            in_text_block = true;
+            continue;
         }
-    }
+        if (token == "ET")
+        {
+            in_text_block = false;
+            continue;
+        }
+        if (!in_text_block) continue;
+        if (token == "Tj")
+        {
+            const pair<pdf_object_t, string> el = pop(st);
+            //wrong arg for Tj operator skipping..
+            if (el.first != STRING) continue;
+            result += decode_string(el.second, encoding);
+        }
+        else if (token == "'" || token == "\"")
+        {
+            const pair<pdf_object_t, string> el = pop(st);
+            //wrong arg for '" operators skipping..
+            if (el.first != STRING) continue;
+            result += '\n' + decode_string(el.second, encoding);
+        }
+        else if (token == "TJ")
+        {
+            const pair<pdf_object_t, string> el = pop(st);
+            //wrong arg for TJ operator skipping..
+            if (el.first != ARRAY) continue;
+            result += '\n' + get_strings_from_array(el.second, encoding);
+        }
+        else if (token == "T*")
+        {
+            result += '\n';
+        }
+        else if (token == "Tf")
+        {
+            pop(st);
+            encoding = get_font_encoding(pop(st).second, fonts, encoding, storage);
+        }
+        else
+        {
+            st.push_back(make_pair(VALUE, token));
+        }
     }
     return result;
 }

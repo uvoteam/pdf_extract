@@ -11,12 +11,13 @@
 #include <cctype>
 
 #include "pdf_internal.h"
+#include "font_encodings.h"
 
 using namespace std;
 
 namespace
 {
-    string get_octal_char(const string &str, size_t &i, const char **encoding = nullptr)
+    char get_octal_char(const string &str, size_t &i)
     {
         // PDF doc: The number ddd may consist of one, two, or three octal digits; high-order overflow shall be ignored.
         //          Three octal digits shall be used, with leading zeros as needed, if the next character of the string
@@ -34,10 +35,10 @@ namespace
             throw pdf_error(FUNC_STRING + "octal number " + to_string(result) + " is larger than 8 bit");
         }
         i += len - 1;
-        return encoding? encoding[result] : string(1, static_cast<char>(result));
+        return static_cast<char>(result);
     }
 
-    string get_unescaped_char(const string &str, size_t &i, const char **encoding = nullptr)
+    char get_unescaped_char(const string &str, size_t &i)
     {
         if (i == str.size() - 1) return char();
 //Table 3 –  Escape sequences in literal strings
@@ -45,45 +46,45 @@ namespace
         switch (str[i])
         {
         case 'n':
-            return encoding? encoding[static_cast<unsigned char>('n')] : string(1, '\n');
+            return '\n';
         case 'r':
-            return encoding? encoding[static_cast<unsigned char>('r')] : string(1, '\r');
+            return '\r';
         case 't':
-            return encoding? encoding[static_cast<unsigned char>('t')] : string(1, '\t');
+            return '\t';
         case 'b':
-            return encoding? encoding[static_cast<unsigned char>('b')] : string(1, '\b');
+            return '\b';
         case 'f':
-            return encoding? encoding[static_cast<unsigned char>('f')] : string(1, '\f');
+            return '\f';
         case ')':
         case '(':
         case '\\':
-            return encoding? encoding[static_cast<unsigned char>(str[i])] : string(1, str[i]);
+            return str[i];
         default:
             break;
         }
-        if (isdigit(str[i])) return get_octal_char(str, i, encoding);
-        return encoding? encoding[static_cast<unsigned char>(str[i])] : string(1, str[i]);
+        if (isdigit(str[i])) return get_octal_char(str, i);
+        return str[i];
     }
 
-    string unescape_string(const string &str, const char **encoding = nullptr)
+    string unescape_string(const string &str)
     {
         string result;
         for (size_t i = 0; i < str.size(); ++i)
         {
-            if (str[i] == '\\') result += get_unescaped_char(str, i, encoding);
+            if (str[i] == '\\') result += get_unescaped_char(str, i);
             else result += str[i];
         }
         return result;
     }
 
-    string hex_decode(const string &hex, const char **encoding = nullptr)
+    string hex_decode(const string &hex)
     {
         std::string result;
         for (size_t i = 0; i < hex.length(); i += 2)
         {
             long int d = strtol(hex.substr(i, 2).c_str(), nullptr, 16);
             if (errno != 0) throw pdf_error(FUNC_STRING + "wrong input: " + hex);
-            encoding? result.append(encoding[d]) : result.append(1, static_cast<char>(d));
+            result.append(1, static_cast<char>(d));
         }
 
         return result;
@@ -322,11 +323,11 @@ string get_string(const string &buffer, size_t &offset)
     }
 }
 
-string decode_string(const string &str, const char **encoding /*= nullptr */ )
+string decode_string(const string &str)
 {
     if (str.size() < 3) return string();
-    return (str[0] == '<')? hex_decode(str.substr(1, str.size() - 2), encoding) :
-                            unescape_string(str.substr(1, str.size() - 2), encoding);
+    return (str[0] == '<')? hex_decode(str.substr(1, str.size() - 2)) :
+                            unescape_string(str.substr(1, str.size() - 2));
 }
 
 

@@ -43,7 +43,7 @@ std::string get_name_object(const std::string &buffer, size_t &offset);
 std::string get_indirect_object(const std::string &buffer, size_t &offset);
 std::string get_string(const std::string &buffer, size_t &offset);
 std::string get_dictionary(const std::string &buffer, size_t &offset);
-std::string decode_string(const std::string &str, const char **encoding = nullptr);
+std::string decode_string(const std::string &str);
 size_t strict_stoul(const std::string &str);
 long int strict_stol(const std::string &str);
 std::string predictor_decode(const std::string &data,

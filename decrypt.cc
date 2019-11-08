@@ -218,12 +218,13 @@ namespace
         }
         case 4:
         {
-            if (decrypt_opts.count("/StdCF") == 0) return ENCRYPT_ALGORITHM_AESV2;
-            const map<string, pair<string, pdf_object_t>> stdCF_dict = get_dictionary_data(decrypt_opts.at("/StdCF").first,
-                                                                                           0);
+            if (decrypt_opts.count("/CF") == 0) return ENCRYPT_ALGORITHM_AESV2;
+            const map<string, pair<string, pdf_object_t>> CF_dict = get_dictionary_data(decrypt_opts.at("/CF").first, 0);
+            if (CF_dict.count("/StdCF") == 0) return ENCRYPT_ALGORITHM_AESV2;
+            const map<string, pair<string, pdf_object_t>> stdCF_dict = get_dictionary_data(CF_dict.at("/StdCF").first, 0);
             auto it = stdCF_dict.find("/CFM");
             if (it == stdCF_dict.end()) return ENCRYPT_ALGORITHM_AESV2;
-            if (it->second.first == "V2") return ENCRYPT_ALGORITHM_RC4V2;
+            if (it->second.first == "/V2") return ENCRYPT_ALGORITHM_RC4V2;
             return ENCRYPT_ALGORITHM_AESV2;
             break;
         }

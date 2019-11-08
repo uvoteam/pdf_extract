@@ -26,7 +26,7 @@ namespace
         ENCRYPT_ALGORITHM_RC4V1 = 1, ///< RC4 Version 1 encryption using a 40bit key
         ENCRYPT_ALGORITHM_RC4V2 = 2, ///< RC4 Version 2 encryption using a key with 40-128bit
         ENCRYPT_ALGORITHM_AESV2 = 4,  ///< AES encryption with a 128 bit key (PDF1.6)
-        ENCRYPT_ALGORITHM_AESV3 = 8 ///< AES encryption with a 256 bit key (PDF1.7 extension 3)
+        ENCRYPT_ALGORITHM_IDENTITY = 8 ///No encryption
     } encrypt_algorithm_t;
 
     typedef enum {
@@ -218,19 +218,16 @@ namespace
         }
         case 4:
         {
-            if (decrypt_opts.count("/CF") == 0) return ENCRYPT_ALGORITHM_AESV2;
+            if (decrypt_opts.count("/CF") == 0) return ENCRYPT_ALGORITHM_IDENTITY;
             const map<string, pair<string, pdf_object_t>> CF_dict = get_dictionary_data(decrypt_opts.at("/CF").first, 0);
-            if (CF_dict.count("/StdCF") == 0) return ENCRYPT_ALGORITHM_AESV2;
+            if (CF_dict.count("/StdCF") == 0) return ENCRYPT_ALGORITHM_IDENTITY;
             const map<string, pair<string, pdf_object_t>> stdCF_dict = get_dictionary_data(CF_dict.at("/StdCF").first, 0);
             auto it = stdCF_dict.find("/CFM");
-            if (it == stdCF_dict.end()) return ENCRYPT_ALGORITHM_AESV2;
+            if (it == stdCF_dict.end()) return ENCRYPT_ALGORITHM_IDENTITY;
+            //TODO: add /None support(custom decryption algorithm)
             if (it->second.first == "/V2") return ENCRYPT_ALGORITHM_RC4V2;
-            return ENCRYPT_ALGORITHM_AESV2;
-            break;
-        }
-        case 5:
-        {
-            return ENCRYPT_ALGORITHM_AESV3;
+            if (it->second.first == "/AESV2") ENCRYPT_ALGORITHM_AESV2;
+            throw pdf_error(FUNC_STRING + "wrong /CFM value:" + it->second.first);
             break;
         }
         default:
@@ -366,6 +363,8 @@ string decrypt(unsigned int n,
         break;
     case ENCRYPT_ALGORITHM_AESV2:
         return decrypt_aesv2(n, g, in_str, decrypt_opts);
+    case ENCRYPT_ALGORITHM_IDENTITY:
+        return in_str;
     default:
         throw pdf_error("Unknown algorithm: " + to_string(algorithm));
         break;

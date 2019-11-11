@@ -1,4 +1,6 @@
-const char *mac_expert_font_encoding[256] =
+#include <string>
+
+extern const std::string mac_expert_font_encoding[256] =
 {
   "",
   "",

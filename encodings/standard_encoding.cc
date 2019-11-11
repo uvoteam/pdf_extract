@@ -1,4 +1,6 @@
-const char *standard_font_encoding[256] =
+#include <string>
+
+extern const std::string standard_font_encoding[256] =
 {
     "",
     "",

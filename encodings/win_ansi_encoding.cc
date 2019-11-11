@@ -1,4 +1,6 @@
-const char *win_ansi_font_encoding[256] =
+#include <string>
+
+extern const std::string win_ansi_font_encoding[256] =
 {
   "",
   "",

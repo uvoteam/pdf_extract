@@ -1,4 +1,6 @@
-const char *mac_roman_font_encoding[256] =
+#include <string>
+
+extern const std::string mac_roman_font_encoding[256] =
 {
   "",
   "",

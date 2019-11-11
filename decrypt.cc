@@ -226,7 +226,7 @@ namespace
             if (it == stdCF_dict.end()) return ENCRYPT_ALGORITHM_IDENTITY;
             //TODO: add /None support(custom decryption algorithm)
             if (it->second.first == "/V2") return ENCRYPT_ALGORITHM_RC4V2;
-            if (it->second.first == "/AESV2") ENCRYPT_ALGORITHM_AESV2;
+            if (it->second.first == "/AESV2") return ENCRYPT_ALGORITHM_AESV2;
             throw pdf_error(FUNC_STRING + "wrong /CFM value:" + it->second.first);
             break;
         }

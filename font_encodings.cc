@@ -62,3 +62,5 @@ const get_char_t unigb_ucs2_h_encoding{get_utf, nullptr, "UTF-16be"};
 const get_char_t unigb_ucs2_v_encoding{get_utf, nullptr, "UTF-16be"};
 const get_char_t unigb_utf8_h_encoding{get_utf, nullptr, nullptr};
 const get_char_t unigb_utf8_v_encoding{get_utf, nullptr, nullptr};
+const get_char_t unigb_utf16_h_encoding{get_utf, nullptr, "UTF-16be"};
+const get_char_t unigb_utf16_v_encoding{get_utf, nullptr, "UTF-16be"};

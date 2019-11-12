@@ -41,3 +41,5 @@ const get_char_t unicns_ucs2_h_encoding{get_utf, nullptr, "UTF-16be"};
 const get_char_t unicns_ucs2_v_encoding{get_utf, nullptr, "UTF-16be"};
 const get_char_t gbk_euc_h_encoding{get_utf, nullptr, "GBK"};
 const get_char_t gbk_euc_v_encoding{get_utf, nullptr, "GBK"};
+const get_char_t gb_h_encoding{get_utf, nullptr, "ISO-2022-CN"};
+const get_char_t gb_v_encoding{get_utf, nullptr, "ISO-2022-CN"};

@@ -807,7 +807,9 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/UniCNS-UCS2-H", &unicns_ucs2_h_encoding},
         {"/UniCNS-UCS2-V", &unicns_ucs2_v_encoding},
         {"/GBK-EUC-H", &gbk_euc_h_encoding},
-        {"/GBK-EUC_V", &gbk_euc_v_encoding}
+        {"/GBK-EUC_V", &gbk_euc_v_encoding},
+        {"/GB_V", &gb_v_encoding},
+        {"/GB_H", &gb_h_encoding}
     };
 
     return encodings.at(encoding);

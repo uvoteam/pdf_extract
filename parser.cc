@@ -893,7 +893,11 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/78-H", &h78_encoding},
         {"/78-V", &v78_encoding},
         {"/78-RKSJ-H", &rksj78_h_encoding},
-        {"/78-RKSJ-V", &rksj78_v_encoding}
+        {"/78-RKSJ-V", &rksj78_v_encoding},
+        {"/78ms-RKSJ-H", &ms78_rksj_h_encoding},
+        {"/78ms-RKSJ-V", &ms78_rksj_v_encoding},
+        {"/78-EUC-H", &euc78_h_encoding},
+        {"/78-EUC-V", &euc78_v_encoding}
     };
 
     return encodings.at(encoding);

@@ -128,3 +128,7 @@ const get_char_t h78_encoding{get_utf, nullptr, "ISO-2022-JP"};
 const get_char_t v78_encoding{get_utf, nullptr, "ISO-2022-JP"};
 const get_char_t rksj78_h_encoding{get_utf, nullptr, "Shift-JIS"};
 const get_char_t rksj78_v_encoding{get_utf, nullptr, "Shift-JIS"};
+const get_char_t ms78_rksj_h_encoding{get_utf, nullptr, "Shift-JIS"};
+const get_char_t ms78_rksj_v_encoding{get_utf, nullptr, "Shift-JIS"};
+const get_char_t euc78_h_encoding{get_utf, nullptr, "EUC-JP"};
+const get_char_t euc78_v_encoding{get_utf, nullptr, "EUC-JP"};

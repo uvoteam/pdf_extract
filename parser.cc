@@ -944,6 +944,10 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/UniKS-UTF16-V", &uniks_utf16_v_encoding},
         {"/UniKS-UTF32-H", &uniks_utf32_h_encoding},
         {"/UniKS-UTF32-V", &uniks_utf32_v_encoding},
+        {"/UniKS-UTF32-H", &uniks_utf32_h_encoding},
+        {"/UniKS-UTF32-V", &uniks_utf32_v_encoding},
+        {"/Hojo-H", &hojo_h_encoding},
+        {"/Hojo-V", &hojo_v_encoding}
     };
 
     return encodings.at(encoding);

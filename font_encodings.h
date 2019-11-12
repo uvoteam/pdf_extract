@@ -156,5 +156,7 @@ extern const get_char_t uniks_utf16_h_encoding;
 extern const get_char_t uniks_utf16_v_encoding;
 extern const get_char_t uniks_utf32_h_encoding;
 extern const get_char_t uniks_utf32_v_encoding;
+extern const get_char_t hojo_h_encoding;
+extern const get_char_t hojo_v_encoding;
 
 #endif //FONT_ENCODINGS_H

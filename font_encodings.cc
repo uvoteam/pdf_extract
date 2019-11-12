@@ -178,3 +178,5 @@ const get_char_t uniks_utf16_h_encoding{get_utf, nullptr, "UTF-16be"};
 const get_char_t uniks_utf16_v_encoding{get_utf, nullptr, "UTF-16be"};
 const get_char_t uniks_utf32_h_encoding{get_utf, nullptr, "UTF-32be"};
 const get_char_t uniks_utf32_v_encoding{get_utf, nullptr, "UTF-32be"};
+const get_char_t hojo_h_encoding{get_utf, nullptr, "ISO-2022-JP-1"};
+const get_char_t hojo_v_encoding{get_utf, nullptr, "ISO-2022-JP-1"};

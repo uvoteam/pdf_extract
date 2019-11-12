@@ -935,7 +935,9 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/KSCms-EUC-HW-H", &kscms_euc_hw_h_encoding},
         {"/KSCms-EUC-HW-V", &kscms_euc_hw_v_encoding},
         {"/KSC-Johab-H", &ksc_johab_h_encoding},
-        {"/KSC-Johab-V", &ksc_johab_v_encoding}
+        {"/KSC-Johab-V", &ksc_johab_v_encoding},
+        {"/UniKS-UCS2-H", &uniks_ucs2_h_encoding},
+        {"/UniKS-UCS2-V", &uniks_ucs2_v_encoding}
     };
 
     return encodings.at(encoding);

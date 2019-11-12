@@ -148,5 +148,7 @@ extern const get_char_t kscms_euc_hw_h_encoding;
 extern const get_char_t kscms_euc_hw_v_encoding;
 extern const get_char_t ksc_johab_h_encoding;
 extern const get_char_t ksc_johab_v_encoding;
+extern const get_char_t uniks_ucs2_h_encoding;
+extern const get_char_t uniks_ucs2_v_encoding;
 
 #endif //FONT_ENCODINGS_H

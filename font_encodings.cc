@@ -170,3 +170,5 @@ const get_char_t kscms_euc_hw_h_encoding{get_utf, nullptr, "UHC"};
 const get_char_t kscms_euc_hw_v_encoding{get_utf, nullptr, "UHC"};
 const get_char_t ksc_johab_h_encoding{get_utf, nullptr, "UHC"};
 const get_char_t ksc_johab_v_encoding{get_utf, nullptr, "UHC"};
+const get_char_t uniks_ucs2_h_encoding{get_utf, nullptr, "UTF16-be"};
+const get_char_t uniks_ucs2_v_encoding{get_utf, nullptr, "UTF16-be"};

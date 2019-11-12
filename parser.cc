@@ -57,7 +57,6 @@ void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &res
 void get_object_offsets_new(const string &buffer, size_t offset, vector<size_t> &result);
 void get_object_offsets_old(const string &buffer, size_t offset, vector<size_t> &result);
 void validate_offsets(const string &buffer, const vector<size_t> &offsets);
-string font_decode(const string &s, const get_char_t *encoding);
 map<string, pair<string, pdf_object_t>> get_dict_or_indirect_dict(const pair<string, pdf_object_t> &data,
                                                                   const ObjectStorage &storage);
 vector<size_t> get_all_object_offsets(const string &buffer,
@@ -867,16 +866,6 @@ bool put2stack(vector<pair<pdf_object_t, string>> &st, const string &buffer, siz
     }
 }
 
-string font_decode(const string &s, const get_char_t *encoding)
-{
-    string result;
-    for (size_t i = 0; i < s.length();)
-    {
-        result += encoding->get_char(s, i, encoding->font_encoding);
-    }
-    return result;
-}
-
 string extract_text(const string &buffer, const map<string, pair<string, pdf_object_t>> &fonts, const ObjectStorage &storage)
 {
     const get_char_t *encoding = &standard_encoding;
@@ -907,21 +896,21 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for Tj operator skipping..
             if (el.first != STRING) continue;
-            result += font_decode(decode_string(el.second), encoding);
+            result += encoding->get_string(decode_string(el.second), encoding->encoding_table, encoding->charset);
         }
         else if (token == "'" || token == "\"")
         {
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for '" operators skipping..
             if (el.first != STRING) continue;
-            result += '\n' + font_decode(decode_string(el.second), encoding);
+            result += '\n' + encoding->get_string(decode_string(el.second), encoding->encoding_table, encoding->charset);
         }
         else if (token == "TJ")
         {
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for TJ operator skipping..
             if (el.first != ARRAY) continue;
-            result += '\n' + font_decode(get_strings_from_array(el.second), encoding);
+            result += '\n' + encoding->get_string(decode_string(el.second), encoding->encoding_table, encoding->charset);
         }
         else if (token == "T*")
         {

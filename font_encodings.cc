@@ -138,3 +138,5 @@ const get_char_t unijis_ucs2_hw_h_encoding{get_utf, nullptr, "UTF-16be"};
 const get_char_t unijis_ucs2_hw_v_encoding{get_utf, nullptr, "UTF-16be"};
 const get_char_t unijis_utf8_h_encoding{get_utf, nullptr, nullptr};
 const get_char_t unijis_utf8_v_encoding{get_utf, nullptr, nullptr};
+const get_char_t unijis_utf16_h_encoding{get_utf, nullptr, "UTF-16be"};
+const get_char_t unijis_utf16_v_encoding{get_utf, nullptr, "UTF-16be"};

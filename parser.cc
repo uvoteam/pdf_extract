@@ -876,6 +876,8 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/83pv-RKSJ-V", &pv83_rksj_v_encoding},
         {"/Add-H", &add_h_encoding},
         {"/Add-V", &add_v_encoding},
+        {"/Add-RKSJ-H", &add_rksj_h_encoding},
+        {"/Add-RKSJ-V", &add_rksj_v_encoding}
     };
 
     return encodings.at(encoding);

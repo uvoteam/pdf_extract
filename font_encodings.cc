@@ -110,3 +110,5 @@ const get_char_t pv83_rksj_h_encoding{get_utf, nullptr, "Shift-JIS"};
 const get_char_t pv83_rksj_v_encoding{get_utf, nullptr, "Shift-JIS"};
 const get_char_t add_h_encoding{get_utf, nullptr, "ISO-2022-JP"};
 const get_char_t add_v_encoding{get_utf, nullptr, "ISO-2022-JP"};
+const get_char_t add_rksj_h_encoding{get_utf, nullptr, "Shift-JIS"};
+const get_char_t add_rksj_v_encoding{get_utf, nullptr, "Shift-JIS"};

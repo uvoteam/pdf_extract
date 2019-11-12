@@ -70,3 +70,5 @@ const get_char_t b5_h_encoding{get_utf, nullptr, "Big5"};
 const get_char_t b5_v_encoding{get_utf, nullptr, "Big5"};
 const get_char_t b5pc_h_encoding{get_utf, nullptr, "Big5"};
 const get_char_t b5pc_v_encoding{get_utf, nullptr, "Big5"};
+const get_char_t eten_b5_h_encoding{get_utf, nullptr, "Big5"};
+const get_char_t eten_b5_v_encoding{get_utf, nullptr, "Big5"};

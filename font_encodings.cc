@@ -104,3 +104,5 @@ const get_char_t h_encoding{get_utf, nullptr, "ISO-2022-JP"};
 const get_char_t v_encoding{get_utf, nullptr, "ISO-2022-JP"};
 const get_char_t rksj_h_encoding{get_utf, nullptr, "Shift-JIS"};
 const get_char_t rksj_v_encoding{get_utf, nullptr, "Shift-JIS"};
+const get_char_t euc_h_encoding{get_utf, nullptr, "EUC-JP"};
+const get_char_t euc_v_encoding{get_utf, nullptr, "EUC-JP"};

@@ -136,5 +136,7 @@ extern const get_char_t uniakr_utf16_h_encoding;
 extern const get_char_t uniakr_utf16_v_encoding;
 extern const get_char_t uniakr_utf32_h_encoding;
 extern const get_char_t uniakr_utf32_v_encoding;
+extern const get_char_t ksc_h_encoding;
+extern const get_char_t ksc_v_encoding;
 
 #endif //FONT_ENCODINGS_H

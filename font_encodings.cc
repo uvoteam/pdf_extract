@@ -80,3 +80,5 @@ const get_char_t cns2_h_encoding{get_utf, nullptr, "ISO-2022-CN"};
 const get_char_t cns2_v_encoding{get_utf, nullptr, "ISO-2022-CN"};
 const get_char_t cns_euc_h_encoding{get_utf, nullptr, "EUC-TW"};
 const get_char_t cns_euc_v_encoding{get_utf, nullptr, "EUC-TW"};
+const get_char_t unicns_utf8_h_encoding{get_utf, nullptr, nullptr};
+const get_char_t unicns_utf8_v_encoding{get_utf, nullptr, nullptr};

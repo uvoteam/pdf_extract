@@ -8,7 +8,7 @@
 #include <openssl/evp.h>
 #include <openssl/md5.h>
 
-#include "pdf_internal.h"
+#include "common.h"
 
 
 

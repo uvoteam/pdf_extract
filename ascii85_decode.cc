@@ -1,7 +1,7 @@
 #include <string>
 #include <vector>
 
-#include "pdf_internal.h"
+#include "common.h"
 
 using namespace std;
 

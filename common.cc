@@ -10,7 +10,7 @@
 #include <regex>
 #include <cctype>
 
-#include "pdf_internal.h"
+#include "common.h"
 #include "font_encodings.h"
 
 using namespace std;

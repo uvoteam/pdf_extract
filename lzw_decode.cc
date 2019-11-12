@@ -2,7 +2,7 @@
 #include <vector>
 #include <cstdint>
 
-#include "pdf_internal.h"
+#include "common.h"
 
 using namespace std;
 namespace

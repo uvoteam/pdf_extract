@@ -799,14 +799,19 @@ pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st)
 
 const get_char_t* get_font_encoding(const string &encoding)
 {
-    if (encoding == "/WinAnsiEncoding") return &win_ansi_encoding;
-    if (encoding == "/MacRomanEncoding") return &mac_roman_encoding;
-    if (encoding == "/MacExpertEncoding") return &mac_expert_encoding;
-    if (encoding == "/Identity-H") return &identity_h_encoding;
-    if (encoding == "/Identity-V") return &identity_v_encoding;
-    if (encoding == "/UniCNS-UCS2-H") return &unicns_ucs2_h_encoding;
-    if (encoding == "/UniCNS-UCS2-V") return &unicns_ucs2_v_encoding;
-    throw pdf_error(FUNC_STRING + "wrong encoding value " + encoding);
+    static const map<string, const get_char_t*> encodings = {
+        {"/WinAnsiEncoding", &win_ansi_encoding},
+        {"/MacRomanEncoding", &mac_roman_encoding},
+        {"/MacExpertEncoding", &mac_expert_encoding},
+        {"/Identity-H", &identity_h_encoding},
+        {"/Identity-V", &identity_v_encoding},
+        {"/UniCNS-UCS2-H", &unicns_ucs2_h_encoding},
+        {"/UniCNS-UCS2-V", &unicns_ucs2_v_encoding},
+        {"/GBK-EUC-H", &gbk_euc_h_encoding},
+        {"/GBK-EUC_V", &gbk_euc_v_encoding}
+    };
+
+    return encodings.at(encoding);
 }
 
 const get_char_t* get_font_encoding(const string &font,

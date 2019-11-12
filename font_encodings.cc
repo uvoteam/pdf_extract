@@ -122,3 +122,5 @@ const get_char_t pv90_rksj_h_encoding{get_utf, nullptr, "Shift-JIS"};
 const get_char_t pv90_rksj_v_encoding{get_utf, nullptr, "Shift-JIS"};
 const get_char_t ms90_rksj_h_encoding{get_utf, nullptr, "Shift-JIS"};
 const get_char_t ms90_rksj_v_encoding{get_utf, nullptr, "Shift-JIS"};
+const get_char_t msp90_rksj_h_encoding{get_utf, nullptr, "Shift-JIS"};
+const get_char_t msp90_rksj_v_encoding{get_utf, nullptr, "Shift-JIS"};

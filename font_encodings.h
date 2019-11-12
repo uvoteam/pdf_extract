@@ -130,5 +130,11 @@ extern const get_char_t unijisx0213_utf32_h_encoding;
 extern const get_char_t unijisx0213_utf32_v_encoding;
 extern const get_char_t unijisx02132004_utf32_h_encoding;
 extern const get_char_t unijisx02132004_utf32_v_encoding;
+extern const get_char_t uniakr_utf8_h_encoding;
+extern const get_char_t uniakr_utf8_v_encoding;
+extern const get_char_t uniakr_utf16_h_encoding;
+extern const get_char_t uniakr_utf16_v_encoding;
+extern const get_char_t uniakr_utf32_h_encoding;
+extern const get_char_t uniakr_utf32_v_encoding;
 
 #endif //FONT_ENCODINGS_H

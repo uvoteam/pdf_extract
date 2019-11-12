@@ -917,7 +917,13 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/UniJISX0213-UTF32-H", &unijisx0213_utf32_h_encoding},
         {"/UniJISX0213-UTF32-V", &unijisx0213_utf32_v_encoding},
         {"/UniJISX02132004-UTF32-H", &unijisx02132004_utf32_h_encoding},
-        {"/UniJISX02132004-UTF32-V", &unijisx02132004_utf32_v_encoding}
+        {"/UniJISX02132004-UTF32-V", &unijisx02132004_utf32_v_encoding},
+        {"/UniAKR-UTF8-H", &uniakr_utf8_h_encoding},
+        {"/UniAKR-UTF8-V", &uniakr_utf8_v_encoding},
+        {"/UniAKR-UTF16-H", &uniakr_utf16_h_encoding},
+        {"/UniAKR-UTF16-V", &uniakr_utf16_v_encoding},
+        {"/UniAKR-UTF32-H", &uniakr_utf32_h_encoding},
+        {"/UniAKR-UTF32-V", &uniakr_utf32_v_encoding}
     };
 
     return encodings.at(encoding);

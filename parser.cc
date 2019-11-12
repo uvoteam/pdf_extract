@@ -929,7 +929,9 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/KSC-EUC-H", &ksc_euc_h_encoding},
         {"/KSC-EUC-V", &ksc_euc_v_encoding},
         {"/KSCpv-EUC-H", &kscpc_euc_h_encoding},
-        {"/KSCpv-EUC-V", &kscpc_euc_v_encoding}
+        {"/KSCpv-EUC-V", &kscpc_euc_v_encoding},
+        {"/KSCms-EUC-H", &kscms_euc_h_encoding},
+        {"/KSCms-EUC-V", &kscms_euc_v_encoding}
     };
 
     return encodings.at(encoding);

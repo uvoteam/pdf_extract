@@ -140,5 +140,7 @@ extern const get_char_t ksc_h_encoding;
 extern const get_char_t ksc_v_encoding;
 extern const get_char_t ksc_euc_h_encoding;
 extern const get_char_t ksc_euc_v_encoding;
+extern const get_char_t kscpc_euc_h_encoding;
+extern const get_char_t kscpc_euc_v_encoding;
 
 #endif //FONT_ENCODINGS_H

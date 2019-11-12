@@ -162,3 +162,5 @@ const get_char_t ksc_h_encoding{get_utf, nullptr, "ISO-2022-KR"};
 const get_char_t ksc_v_encoding{get_utf, nullptr, "ISO-2022-KR"};
 const get_char_t ksc_euc_h_encoding{get_utf, nullptr, "EUC-KR"};
 const get_char_t ksc_euc_v_encoding{get_utf, nullptr, "EUC-KR"};
+const get_char_t kscpc_euc_h_encoding{get_utf, nullptr, "EUC-KR"};
+const get_char_t kscpc_euc_v_encoding{get_utf, nullptr, "EUC-KR"};

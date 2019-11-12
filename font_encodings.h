@@ -158,5 +158,15 @@ extern const get_char_t uniks_utf32_h_encoding;
 extern const get_char_t uniks_utf32_v_encoding;
 extern const get_char_t hojo_h_encoding;
 extern const get_char_t hojo_v_encoding;
+extern const get_char_t hojo_euc_h_encoding;
+extern const get_char_t hojo_euc_v_encoding;
+extern const get_char_t unihojo_ucs2_h_encoding;
+extern const get_char_t unihojo_ucs2_v_encoding;
+extern const get_char_t unihojo_utf8_h_encoding;
+extern const get_char_t unihojo_utf8_v_encoding;
+extern const get_char_t unihojo_utf16_h_encoding;
+extern const get_char_t unihojo_utf16_v_encoding;
+extern const get_char_t unihojo_utf32_h_encoding;
+extern const get_char_t unihojo_utf32_v_encoding;
 
 #endif //FONT_ENCODINGS_H

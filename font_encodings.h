@@ -118,5 +118,8 @@ extern const get_char_t unijis_utf8_h_encoding;
 extern const get_char_t unijis_utf8_v_encoding;
 extern const get_char_t unijis_utf16_h_encoding;
 extern const get_char_t unijis_utf16_v_encoding;
+extern const get_char_t unijis_utf32_h_encoding;
+extern const get_char_t unijis_utf32_v_encoding;
+
 
 #endif //FONT_ENCODINGS_H

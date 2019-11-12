@@ -132,3 +132,5 @@ const get_char_t ms78_rksj_h_encoding{get_utf, nullptr, "Shift-JIS"};
 const get_char_t ms78_rksj_v_encoding{get_utf, nullptr, "Shift-JIS"};
 const get_char_t euc78_h_encoding{get_utf, nullptr, "EUC-JP"};
 const get_char_t euc78_v_encoding{get_utf, nullptr, "EUC-JP"};
+const get_char_t unijis_ucs2_h_encoding{get_utf, nullptr, "UTF-16be"};
+const get_char_t unijis_ucs2_v_encoding{get_utf, nullptr, "UTF-16be"};

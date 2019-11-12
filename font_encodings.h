@@ -110,6 +110,7 @@ extern const get_char_t ms78_rksj_h_encoding;
 extern const get_char_t ms78_rksj_v_encoding;
 extern const get_char_t euc78_h_encoding;
 extern const get_char_t euc78_v_encoding;
-
+extern const get_char_t unijis_ucs2_h_encoding;
+extern const get_char_t unijis_ucs2_v_encoding;
 
 #endif //FONT_ENCODINGS_H

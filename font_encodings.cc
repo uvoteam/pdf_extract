@@ -84,3 +84,5 @@ const get_char_t unicns_utf8_h_encoding{get_utf, nullptr, nullptr};
 const get_char_t unicns_utf8_v_encoding{get_utf, nullptr, nullptr};
 const get_char_t unicns_utf16_h_encoding{get_utf, nullptr, "UTF-16be"};
 const get_char_t unicns_utf16_v_encoding{get_utf, nullptr, "UTF-16be"};
+const get_char_t unicns_utf32_h_encoding{get_utf, nullptr, "UTF-32be"};
+const get_char_t unicns_utf32_v_encoding{get_utf, nullptr, "UTF-32be"};

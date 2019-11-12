@@ -901,7 +901,9 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/UniJIS-UCS2-H", &unijis_ucs2_h_encoding},
         {"/UniJIS-UCS2-V", &unijis_ucs2_v_encoding},
         {"/UniJIS-UCS2-HW-H", &unijis_ucs2_h_encoding},
-        {"/UniJIS-UCS2-HW-V", &unijis_ucs2_v_encoding}
+        {"/UniJIS-UCS2-HW-V", &unijis_ucs2_v_encoding},
+        {"/UniJIS-UTF8-H", &unijis_utf8_h_encoding},
+        {"/UniJIS-UTF8-V", &unijis_utf8_v_encoding}
     };
 
     return encodings.at(encoding);

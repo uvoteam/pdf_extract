@@ -22,6 +22,7 @@ namespace
 
     string get_utf(const string &s, const string *encoding_table, const char *charset)
     {
+        if (!charset) return s;
         return to_utf<char>(s, charset);
     }
 }
@@ -59,3 +60,5 @@ const get_char_t gbk2k_h_encoding{get_utf, nullptr, "GB18030"};
 const get_char_t gbk2k_v_encoding{get_utf, nullptr, "GB18030"};
 const get_char_t unigb_ucs2_h_encoding{get_utf, nullptr, "UTF-16be"};
 const get_char_t unigb_ucs2_v_encoding{get_utf, nullptr, "UTF-16be"};
+const get_char_t unigb_utf8_h_encoding{get_utf, nullptr, nullptr};
+const get_char_t unigb_utf8_v_encoding{get_utf, nullptr, nullptr};

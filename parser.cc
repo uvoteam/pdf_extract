@@ -833,7 +833,9 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/UniGB-UTF32-H", &unigb_utf32_h_encoding},
         {"/UniGB-UTF32-V", &unigb_utf32_v_encoding},
         {"/B5-H", &b5_h_encoding},
-        {"/B5-V", &b5_v_encoding}
+        {"/B5-V", &b5_v_encoding},
+        {"/B5pc-H", &b5pc_h_encoding},
+        {"/B5pc-V", &b5pc_v_encoding}
     };
 
     return encodings.at(encoding);

@@ -150,5 +150,11 @@ extern const get_char_t ksc_johab_h_encoding;
 extern const get_char_t ksc_johab_v_encoding;
 extern const get_char_t uniks_ucs2_h_encoding;
 extern const get_char_t uniks_ucs2_v_encoding;
+extern const get_char_t uniks_utf8_h_encoding;
+extern const get_char_t uniks_utf8_v_encoding;
+extern const get_char_t uniks_utf16_h_encoding;
+extern const get_char_t uniks_utf16_v_encoding;
+extern const get_char_t uniks_utf32_h_encoding;
+extern const get_char_t uniks_utf32_v_encoding;
 
 #endif //FONT_ENCODINGS_H

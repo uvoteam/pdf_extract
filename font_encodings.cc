@@ -53,3 +53,5 @@ const get_char_t gbt_euc_h_encoding{get_utf, nullptr, "EUC-CN"};
 const get_char_t gbt_euc_v_encoding{get_utf, nullptr, "EUC-CN"};
 const get_char_t gbtpc_euc_h_encoding{get_utf, nullptr, "EUC-CN"};
 const get_char_t gbtpc_euc_v_encoding{get_utf, nullptr, "EUC-CN"};
+const get_char_t gbkp_euc_h_encoding{get_utf, nullptr, "GBK"};
+const get_char_t gbkp_euc_v_encoding{get_utf, nullptr, "GBK"};

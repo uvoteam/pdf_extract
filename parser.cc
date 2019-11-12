@@ -855,7 +855,9 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/ETHK-B5-H", &ethk_b5_h_encoding},
         {"/ETHK-B5-V", &ethk_b5_v_encoding},
         {"/HKdla-B5-H", &hkdla_b5_h_encoding},
-        {"/HKdla-B5-V", &hkdla_b5_v_encoding}
+        {"/HKdla-B5-V", &hkdla_b5_v_encoding},
+        {"/HKdlb-B5-H", &hkdlb_b5_h_encoding},
+        {"/HKdlb-B5-V", &hkdlb_b5_v_encoding}
     };
 
     return encodings.at(encoding);

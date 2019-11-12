@@ -90,3 +90,5 @@ const get_char_t ethk_b5_h_encoding{get_utf, nullptr, "Big-5"};
 const get_char_t ethk_b5_v_encoding{get_utf, nullptr, "Big-5"};
 const get_char_t hkdla_b5_h_encoding{get_utf, nullptr, "Big-5"};
 const get_char_t hkdla_b5_v_encoding{get_utf, nullptr, "Big-5"};
+const get_char_t hkdlb_b5_h_encoding{get_utf, nullptr, "Big-5"};
+const get_char_t hkdlb_b5_v_encoding{get_utf, nullptr, "Big-5"};

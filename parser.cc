@@ -881,7 +881,9 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/Ext-H", &ext_h_encoding},
         {"/Ext-V", &ext_v_encoding},
         {"/Ext-RKSJ-H", &ext_rksj_h_encoding},
-        {"/Ext-RKSJ-V", &ext_rksj_v_encoding}
+        {"/Ext-RKSJ-V", &ext_rksj_v_encoding},
+        {"/NWP-H", &nwp_h_encoding},
+        {"/NWP-V", &nwp_v_encoding}
     };
 
     return encodings.at(encoding);

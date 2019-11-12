@@ -885,11 +885,13 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/NWP-H", &nwp_h_encoding},
         {"/NWP-V", &nwp_v_encoding},
         {"/90pv-RKSJ-H", &pv90_rksj_h_encoding},
-        {"/90pv-RKSJ-V", &pv90_rksj_v_encoding}
+        {"/90pv-RKSJ-V", &pv90_rksj_v_encoding},
         {"/90ms-RKSJ-H", &ms90_rksj_h_encoding},
         {"/90ms-RKSJ-V", &ms90_rksj_v_encoding},
         {"/90msp-RKSJ-H", &ms90_rksj_h_encoding},
-        {"/90msp-RKSJ-V", &ms90_rksj_v_encoding}
+        {"/90msp-RKSJ-V", &ms90_rksj_v_encoding},
+        {"/78-H", &h78_encoding},
+        {"/78-V", &v78_encoding}
     };
 
     return encodings.at(encoding);

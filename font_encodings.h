@@ -102,5 +102,7 @@ extern const get_char_t ms90_rksj_h_encoding;
 extern const get_char_t ms90_rksj_v_encoding;
 extern const get_char_t msp90_rksj_h_encoding;
 extern const get_char_t msp90_rksj_v_encoding;
+extern const get_char_t h78_encoding;
+extern const get_char_t v78_encoding;
 
 #endif //FONT_ENCODINGS_H

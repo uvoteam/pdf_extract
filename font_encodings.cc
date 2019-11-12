@@ -43,3 +43,5 @@ const get_char_t gbk_euc_h_encoding{get_utf, nullptr, "GBK"};
 const get_char_t gbk_euc_v_encoding{get_utf, nullptr, "GBK"};
 const get_char_t gb_h_encoding{get_utf, nullptr, "ISO-2022-CN"};
 const get_char_t gb_v_encoding{get_utf, nullptr, "ISO-2022-CN"};
+const get_char_t gb_euc_h_encoding{get_utf, nullptr, "EUC-CN"};
+const get_char_t gb_euc_v_encoding{get_utf, nullptr, "EUC-CN"};

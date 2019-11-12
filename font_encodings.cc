@@ -166,3 +166,5 @@ const get_char_t kscpc_euc_h_encoding{get_utf, nullptr, "EUC-KR"};
 const get_char_t kscpc_euc_v_encoding{get_utf, nullptr, "EUC-KR"};
 const get_char_t kscms_euc_h_encoding{get_utf, nullptr, "UHC"};
 const get_char_t kscms_euc_v_encoding{get_utf, nullptr, "UHC"};
+const get_char_t kscms_euc_hw_h_encoding{get_utf, nullptr, "UHC"};
+const get_char_t kscms_euc_hw_v_encoding{get_utf, nullptr, "UHC"};

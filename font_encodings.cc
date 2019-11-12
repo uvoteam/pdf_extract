@@ -150,3 +150,5 @@ const get_char_t unijis2004_utf32_h_encoding{get_utf, nullptr, "UTF-32be"};
 const get_char_t unijis2004_utf32_v_encoding{get_utf, nullptr, "UTF-32be"};
 const get_char_t unijisx0213_utf32_h_encoding{get_utf, nullptr, "UTF-32be"};
 const get_char_t unijisx0213_utf32_v_encoding{get_utf, nullptr, "UTF-32be"};
+const get_char_t unijisx02132004_utf32_h_encoding{get_utf, nullptr, "UTF-32be"};
+const get_char_t unijisx02132004_utf32_v_encoding{get_utf, nullptr, "UTF-32be"};

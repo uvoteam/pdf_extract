@@ -841,7 +841,9 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/ETenms-B5-H", &etenms_b5_h_encoding},
         {"/ETenms-B5-V", &etenms_b5_v_encoding},
         {"/CNS1-H", &cns1_h_encoding},
-        {"/CNS1-V", &cns1_v_encoding}
+        {"/CNS1-V", &cns1_v_encoding},
+        {"/CNS2-H", &cns2_h_encoding},
+        {"/CNS2-V", &cns2_v_encoding}
     };
 
     return encodings.at(encoding);

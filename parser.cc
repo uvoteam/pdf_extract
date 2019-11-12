@@ -861,7 +861,9 @@ const get_char_t* get_font_encoding(const string &encoding)
         {"/HKgccs-B5-H", &hkgccs_b5_h_encoding},
         {"/HKgccs-B5-V", &hkgccs_b5_v_encoding},
         {"/HKm314-B5-H", &hkm314_b5_h_encoding},
-        {"/HKm314-B5-V", &hkm314_b5_v_encoding}
+        {"/HKm314-B5-V", &hkm314_b5_v_encoding},
+        {"/HKm471-B5-H", &hkm471_b5_h_encoding},
+        {"/HKm471-B5-V", &hkm471_b5_v_encoding}
     };
 
     return encodings.at(encoding);

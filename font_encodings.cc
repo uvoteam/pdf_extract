@@ -88,3 +88,5 @@ const get_char_t unicns_utf32_h_encoding{get_utf, nullptr, "UTF-32be"};
 const get_char_t unicns_utf32_v_encoding{get_utf, nullptr, "UTF-32be"};
 const get_char_t ethk_b5_h_encoding{get_utf, nullptr, "Big-5"};
 const get_char_t ethk_b5_v_encoding{get_utf, nullptr, "Big-5"};
+const get_char_t hkdla_b5_h_encoding{get_utf, nullptr, "Big-5"};
+const get_char_t hkdla_b5_v_encoding{get_utf, nullptr, "Big-5"};

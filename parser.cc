@@ -12,7 +12,7 @@
 
 
 #include "common.h"
-#include "font_encodings.h"
+#include "charset_converter.h"
 
 using namespace std;
 using pages_id_resources_t = vector<pair<unsigned int, map<string, pair<string, pdf_object_t>>>>;
@@ -50,6 +50,11 @@ size_t get_cross_ref_offset(const string &buffer);
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end);
 void append_object(const string &buf, size_t offset, vector<size_t> &objects);
 char get_object_status(const string &buffer, size_t offset);
+CharsetConverter get_font_encoding(const string &doc,
+                                   const string &font,
+                                   const map<string, pair<string, pdf_object_t>> &fonts,
+                                   CharsetConverter &&current,
+                                   const ObjectStorage &storage);
 size_t get_xref_number(const string &buffer, size_t &offset);
 vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset);
 vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_t cross_ref_offset);
@@ -102,8 +107,9 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t end,
                                                          const map<size_t, size_t> &id2offsets);
 pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets);
-string get_strings_from_array(const string &array, const get_string_t *encoding);
-string extract_text(const string& buf,
+string get_strings_from_array(const string &array, const CharsetConverter &encoding);
+string extract_text(const string &doc,
+                    const string &page,
                     const map<string, pair<string, pdf_object_t>> &resource,
                     const ObjectStorage &storage);
 
@@ -678,7 +684,7 @@ string get_text(const string &buffer,
         {
             page_content += output_content(buffer, storage, id_gen, encrypt_data);
         }
-        result += extract_text(page_content, page_id_resource.second, storage);
+        result += extract_text(buffer, page_content, page_id_resource.second, storage);
     }
 
     return result;
@@ -777,14 +783,12 @@ vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<stri
     return result;
 }
 
-string get_strings_from_array(const string &array, const get_string_t *encoding)
+string get_strings_from_array(const string &array, const CharsetConverter &encoding)
 {
     string result;
     for (size_t offset = array.find_first_of("(<", 0); offset != string::npos; offset = array.find_first_of("(<", offset))
     {
-        result += encoding->get_string(decode_string(get_string(array, offset)),
-                                       encoding->encoding_table,
-                                       encoding->charset);
+        result += encoding.get_string(decode_string(get_string(array, offset)));
     }
     return result;
 }
@@ -797,193 +801,27 @@ pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st)
     return result;
 }
 
-const get_string_t* get_font_encoding(const string &encoding)
-{
-    static const map<string, const get_string_t*> encodings = {
-        {"/WinAnsiEncoding", &win_ansi_encoding},
-        {"/MacRomanEncoding", &mac_roman_encoding},
-        {"/MacExpertEncoding", &mac_expert_encoding},
-        {"/Identity-H", &identity_h_encoding},
-        {"/Identity-V", &identity_v_encoding},
-        {"/UniCNS-UCS2-H", &unicns_ucs2_h_encoding},
-        {"/UniCNS-UCS2-V", &unicns_ucs2_v_encoding},
-        {"/GBK-EUC-H", &gbk_euc_h_encoding},
-        {"/GBK-EUC_V", &gbk_euc_v_encoding},
-        {"/GB-H", &gb_h_encoding},
-        {"/GB-V", &gb_v_encoding},
-        {"/GB-EUC-H", &gb_euc_h_encoding},
-        {"/GB-EUC-V", &gb_euc_v_encoding},
-        {"/GBpc-EUC-H", &gbpc_euc_h_encoding},
-        {"/GBpc-EUC-V", &gbpc_euc_v_encoding},
-        {"/GBT-H", &gbt_h_encoding},
-        {"/GBT-V", &gbt_v_encoding},
-        {"/GBT-EUC-H", &gbt_euc_h_encoding},
-        {"/GBT-EUC-V", &gbt_euc_v_encoding},
-        {"/GBTpc-EUC-H", &gbtpc_euc_h_encoding},
-        {"/GBTpc-EUC-V", &gbtpc_euc_v_encoding},
-        {"/GBKp-EUC-H", &gbkp_euc_h_encoding},
-        {"/GBKp-EUC-V", &gbkp_euc_v_encoding},
-        {"/GBK2K-H", &gbk2k_h_encoding},
-        {"/GBK2K-V", &gbk2k_v_encoding},
-        {"/UniGB-UCS2-H", &unigb_ucs2_h_encoding},
-        {"/UniGB-UCS2-V", &unigb_ucs2_v_encoding},
-        {"/UniGB-UTF8-H", &unigb_utf8_h_encoding},
-        {"/UniGB-UTF8-V", &unigb_utf8_v_encoding},
-        {"/UniGB-UTF16-H", &unigb_utf16_h_encoding},
-        {"/UniGB-UTF16-V", &unigb_utf16_v_encoding},
-        {"/UniGB-UTF32-H", &unigb_utf32_h_encoding},
-        {"/UniGB-UTF32-V", &unigb_utf32_v_encoding},
-        {"/B5-H", &b5_h_encoding},
-        {"/B5-V", &b5_v_encoding},
-        {"/B5pc-H", &b5pc_h_encoding},
-        {"/B5pc-V", &b5pc_v_encoding},
-        {"/ETen-B5-H", &eten_b5_h_encoding},
-        {"/ETen-B5-V", &eten_b5_v_encoding},
-        {"/ETenms-B5-H", &etenms_b5_h_encoding},
-        {"/ETenms-B5-V", &etenms_b5_v_encoding},
-        {"/CNS1-H", &cns1_h_encoding},
-        {"/CNS1-V", &cns1_v_encoding},
-        {"/CNS2-H", &cns2_h_encoding},
-        {"/CNS2-V", &cns2_v_encoding},
-        {"/CNS-EUC-H", &cns2_h_encoding},
-        {"/CNS-EUC-V", &cns2_v_encoding},
-        {"/UniCNS-UTF8-H", &unicns_utf8_h_encoding},
-        {"/UniCNS-UTF8-V", &unicns_utf8_v_encoding},
-        {"/UniCNS-UTF16-H", &unicns_utf16_h_encoding},
-        {"/UniCNS-UTF16-V", &unicns_utf16_v_encoding},
-        {"/UniCNS-UTF32-H", &unicns_utf32_h_encoding},
-        {"/UniCNS-UTF32-V", &unicns_utf32_v_encoding},
-        {"/ETHK-B5-H", &ethk_b5_h_encoding},
-        {"/ETHK-B5-V", &ethk_b5_v_encoding},
-        {"/HKdla-B5-H", &hkdla_b5_h_encoding},
-        {"/HKdla-B5-V", &hkdla_b5_v_encoding},
-        {"/HKdlb-B5-H", &hkdlb_b5_h_encoding},
-        {"/HKdlb-B5-V", &hkdlb_b5_v_encoding},
-        {"/HKgccs-B5-H", &hkgccs_b5_h_encoding},
-        {"/HKgccs-B5-V", &hkgccs_b5_v_encoding},
-        {"/HKm314-B5-H", &hkm314_b5_h_encoding},
-        {"/HKm314-B5-V", &hkm314_b5_v_encoding},
-        {"/HKm471-B5-H", &hkm471_b5_h_encoding},
-        {"/HKm471-B5-V", &hkm471_b5_v_encoding},
-        {"/HKscs-B5-H", &hkscs_b5_h_encoding},
-        {"/HKscs-B5-V", &hkscs_b5_v_encoding},
-        {"/H", &h_encoding},
-        {"/V", &v_encoding},
-        {"/RKSJ-H", &rksj_h_encoding},
-        {"/RKSJ-V", &rksj_v_encoding},
-        {"/EUC-H", &euc_h_encoding},
-        {"/EUC-V", &euc_v_encoding},
-        {"/83pv-RKSJ-H", &pv83_rksj_h_encoding},
-        {"/83pv-RKSJ-V", &pv83_rksj_v_encoding},
-        {"/Add-H", &add_h_encoding},
-        {"/Add-V", &add_v_encoding},
-        {"/Add-RKSJ-H", &add_rksj_h_encoding},
-        {"/Add-RKSJ-V", &add_rksj_v_encoding},
-        {"/Ext-H", &ext_h_encoding},
-        {"/Ext-V", &ext_v_encoding},
-        {"/Ext-RKSJ-H", &ext_rksj_h_encoding},
-        {"/Ext-RKSJ-V", &ext_rksj_v_encoding},
-        {"/NWP-H", &nwp_h_encoding},
-        {"/NWP-V", &nwp_v_encoding},
-        {"/90pv-RKSJ-H", &pv90_rksj_h_encoding},
-        {"/90pv-RKSJ-V", &pv90_rksj_v_encoding},
-        {"/90ms-RKSJ-H", &ms90_rksj_h_encoding},
-        {"/90ms-RKSJ-V", &ms90_rksj_v_encoding},
-        {"/90msp-RKSJ-H", &ms90_rksj_h_encoding},
-        {"/90msp-RKSJ-V", &ms90_rksj_v_encoding},
-        {"/78-H", &h78_encoding},
-        {"/78-V", &v78_encoding},
-        {"/78-RKSJ-H", &rksj78_h_encoding},
-        {"/78-RKSJ-V", &rksj78_v_encoding},
-        {"/78ms-RKSJ-H", &ms78_rksj_h_encoding},
-        {"/78ms-RKSJ-V", &ms78_rksj_v_encoding},
-        {"/78-EUC-H", &euc78_h_encoding},
-        {"/78-EUC-V", &euc78_v_encoding},
-        {"/UniJIS-UCS2-H", &unijis_ucs2_h_encoding},
-        {"/UniJIS-UCS2-V", &unijis_ucs2_v_encoding},
-        {"/UniJIS-UCS2-HW-H", &unijis_ucs2_h_encoding},
-        {"/UniJIS-UCS2-HW-V", &unijis_ucs2_v_encoding},
-        {"/UniJIS-UTF8-H", &unijis_utf8_h_encoding},
-        {"/UniJIS-UTF8-V", &unijis_utf8_v_encoding},
-        {"/UniJIS-UTF16-H", &unijis_utf16_h_encoding},
-        {"/UniJIS-UTF16-V", &unijis_utf16_v_encoding},
-        {"/UniJIS-UTF32-H", &unijis_utf32_h_encoding},
-        {"/UniJIS-UTF32-V", &unijis_utf32_v_encoding},
-        {"/UniJIS2004-UTF8-H", &unijis2004_utf8_h_encoding},
-        {"/UniJIS2004-UTF8-V", &unijis2004_utf8_v_encoding},
-        {"/UniJIS2004-UTF16-H", &unijis2004_utf16_h_encoding},
-        {"/UniJIS2004-UTF16-V", &unijis2004_utf16_v_encoding},
-        {"/UniJIS2004-UTF32-H", &unijis2004_utf32_h_encoding},
-        {"/UniJIS2004-UTF32-V", &unijis2004_utf32_v_encoding},
-        {"/UniJISX0213-UTF32-H", &unijisx0213_utf32_h_encoding},
-        {"/UniJISX0213-UTF32-V", &unijisx0213_utf32_v_encoding},
-        {"/UniJISX02132004-UTF32-H", &unijisx02132004_utf32_h_encoding},
-        {"/UniJISX02132004-UTF32-V", &unijisx02132004_utf32_v_encoding},
-        {"/UniAKR-UTF8-H", &uniakr_utf8_h_encoding},
-        {"/UniAKR-UTF8-V", &uniakr_utf8_v_encoding},
-        {"/UniAKR-UTF16-H", &uniakr_utf16_h_encoding},
-        {"/UniAKR-UTF16-V", &uniakr_utf16_v_encoding},
-        {"/UniAKR-UTF32-H", &uniakr_utf32_h_encoding},
-        {"/UniAKR-UTF32-V", &uniakr_utf32_v_encoding},
-        {"/KSC-H", &ksc_h_encoding},
-        {"/KSC-V", &ksc_v_encoding},
-        {"/KSC-EUC-H", &ksc_euc_h_encoding},
-        {"/KSC-EUC-V", &ksc_euc_v_encoding},
-        {"/KSCpv-EUC-H", &kscpc_euc_h_encoding},
-        {"/KSCpv-EUC-V", &kscpc_euc_v_encoding},
-        {"/KSCms-EUC-H", &kscms_euc_h_encoding},
-        {"/KSCms-EUC-V", &kscms_euc_v_encoding},
-        {"/KSCms-EUC-HW-H", &kscms_euc_hw_h_encoding},
-        {"/KSCms-EUC-HW-V", &kscms_euc_hw_v_encoding},
-        {"/KSC-Johab-H", &ksc_johab_h_encoding},
-        {"/KSC-Johab-V", &ksc_johab_v_encoding},
-        {"/UniKS-UCS2-H", &uniks_ucs2_h_encoding},
-        {"/UniKS-UCS2-V", &uniks_ucs2_v_encoding},
-        {"/UniKS-UTF8-H", &uniks_utf8_h_encoding},
-        {"/UniKS-UTF8-V", &uniks_utf8_v_encoding},
-        {"/UniKS-UTF16-H", &uniks_utf16_h_encoding},
-        {"/UniKS-UTF16-V", &uniks_utf16_v_encoding},
-        {"/UniKS-UTF32-H", &uniks_utf32_h_encoding},
-        {"/UniKS-UTF32-V", &uniks_utf32_v_encoding},
-        {"/UniKS-UTF32-H", &uniks_utf32_h_encoding},
-        {"/UniKS-UTF32-V", &uniks_utf32_v_encoding},
-        {"/Hojo-H", &hojo_h_encoding},
-        {"/Hojo-V", &hojo_v_encoding},
-        {"/Hojo-EUC-H", &hojo_euc_h_encoding},
-        {"/Hojo-EUC-V", &hojo_euc_v_encoding},
-        {"/UniHojo-UCS2-H", &unihojo_ucs2_h_encoding},
-        {"/UniHojo-UCS2-V", &unihojo_ucs2_v_encoding},
-        {"/UniHojo-UTF8-H", &unihojo_utf8_h_encoding},
-        {"/UniHojo-UTF8-V", &unihojo_utf8_v_encoding},
-        {"/UniHojo-UTF16-H", &unihojo_utf16_h_encoding},
-        {"/UniHojo-UTF16-V", &unihojo_utf16_v_encoding},
-        {"/UniHojo-UTF32-H", &unihojo_utf32_h_encoding},
-        {"/UniHojo-UTF32-V", &unihojo_utf32_v_encoding},
-    };
-
-    return encodings.at(encoding);
-}
-
-const get_string_t* get_font_encoding(const string &font,
-                                    const map<string, pair<string, pdf_object_t>> &fonts,
-                                    const get_string_t *current,
-                                    const ObjectStorage &storage)
+CharsetConverter get_font_encoding(const string &doc,
+                                   const string &font,
+                                   const map<string, pair<string, pdf_object_t>> &fonts,
+                                   CharsetConverter &&current,
+                                   const ObjectStorage &storage)
 {
     auto it = fonts.find(font);
-    if (it == fonts.end()) return current;
+    if (it == fonts.end()) return std::move(current);
     map<string, pair<string, pdf_object_t>> font_dict = get_dict_or_indirect_dict(it->second, storage);
     it = font_dict.find("/Encoding");
-    if (it == font_dict.end()) return current;
+    if (it == font_dict.end()) return std::move(current);
     string encoding;
     switch (it->second.second)
     {
     //TODO custom mapping table
     case DICTIONARY:
-        return current;
+        return std::move(current);
     case INDIRECT_OBJECT:
     {
         //TODO handle dict and scalar
-        return current;
+        return std::move(current);
         break;
     }
     case NAME_OBJECT:
@@ -995,7 +833,7 @@ const get_string_t* get_font_encoding(const string &font,
         throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(it->second.second));
     }
 
-    return get_font_encoding(encoding);
+    return CharsetConverter(encoding);
 }
 
 bool put2stack(vector<pair<pdf_object_t, string>> &st, const string &buffer, size_t &i)
@@ -1017,19 +855,22 @@ bool put2stack(vector<pair<pdf_object_t, string>> &st, const string &buffer, siz
     }
 }
 
-string extract_text(const string &buffer, const map<string, pair<string, pdf_object_t>> &fonts, const ObjectStorage &storage)
+string extract_text(const string &doc,
+                    const string &page,
+                    const map<string, pair<string, pdf_object_t>> &fonts,
+                    const ObjectStorage &storage)
 {
-    const get_string_t *encoding = &standard_encoding;
+    CharsetConverter encoding(CharsetConverter::DEFAULT);
     string result;
     vector<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
-    for (size_t i = 0; i < buffer.length();)
+    for (size_t i = 0; i < page.length();)
     {
-        i = skip_spaces(buffer, i, false);
-        if (in_text_block && put2stack(st, buffer, i)) continue;
-        size_t end = buffer.find_first_of(" \r\n\t/[(<", i + 1);
-        if (end == string::npos) end = buffer.length();
-        const string token = buffer.substr(i, end - i);
+        i = skip_spaces(page, i, false);
+        if (in_text_block && put2stack(st, page, i)) continue;
+        size_t end = page.find_first_of(" \r\n\t/[(<", i + 1);
+        if (end == string::npos) end = page.length();
+        const string token = page.substr(i, end - i);
         i = end;
         if (token == "BT")
         {
@@ -1047,14 +888,14 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for Tj operator skipping..
             if (el.first != STRING) continue;
-            result += encoding->get_string(decode_string(el.second), encoding->encoding_table, encoding->charset);
+            result += encoding.get_string(decode_string(el.second));
         }
         else if (token == "'" || token == "\"")
         {
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for '" operators skipping..
             if (el.first != STRING) continue;
-            result += '\n' + encoding->get_string(decode_string(el.second), encoding->encoding_table, encoding->charset);
+            result += '\n' + encoding.get_string(decode_string(el.second));
         }
         else if (token == "TJ")
         {
@@ -1070,7 +911,7 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
         else if (token == "Tf")
         {
             pop(st);
-            encoding = get_font_encoding(pop(st).second, fonts, encoding, storage);
+            encoding = get_font_encoding(doc, pop(st).second, fonts, std::move(encoding), storage);
         }
         else
         {

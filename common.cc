@@ -11,7 +11,7 @@
 #include <cctype>
 
 #include "common.h"
-#include "font_encodings.h"
+#include "charset_converter.h"
 
 using namespace std;
 

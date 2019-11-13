@@ -102,7 +102,7 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t end,
                                                          const map<size_t, size_t> &id2offsets);
 pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets);
-string get_strings_from_array(const string &array);
+string get_strings_from_array(const string &array, const get_char_t *encoding);
 string extract_text(const string& buf,
                     const map<string, pair<string, pdf_object_t>> &resource,
                     const ObjectStorage &storage);
@@ -777,12 +777,14 @@ vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<stri
     return result;
 }
 
-string get_strings_from_array(const string &array)
+string get_strings_from_array(const string &array, const get_char_t *encoding)
 {
     string result;
     for (size_t offset = array.find_first_of("(<", 0); offset != string::npos; offset = array.find_first_of("(<", offset))
     {
-        result += decode_string(get_string(array, offset));
+        result += encoding->get_string(decode_string(get_string(array, offset)),
+                                       encoding->encoding_table,
+                                       encoding->charset);
     }
     return result;
 }
@@ -1059,7 +1061,7 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for TJ operator skipping..
             if (el.first != ARRAY) continue;
-            result += '\n' + encoding->get_string(decode_string(el.second), encoding->encoding_table, encoding->charset);
+            result += '\n' + get_strings_from_array(el.second, encoding);
         }
         else if (token == "T*" || token == "Td" || token == "TD" || token == "Tm")
         {

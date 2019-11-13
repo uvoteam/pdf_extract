@@ -1061,7 +1061,7 @@ string extract_text(const string &buffer, const map<string, pair<string, pdf_obj
             if (el.first != ARRAY) continue;
             result += '\n' + encoding->get_string(decode_string(el.second), encoding->encoding_table, encoding->charset);
         }
-        else if (token == "T*")
+        else if (token == "T*" || token == "Td" || token == "TD" || token == "Tm")
         {
             result += '\n';
         }
@@ -1170,6 +1170,7 @@ int main(int argc, char *argv[])
     std::string str((std::istreambuf_iterator<char>(t)),
                     std::istreambuf_iterator<char>());
     cout << pdf2txt(str);
+
     
     return 0;
 }

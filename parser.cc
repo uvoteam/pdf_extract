@@ -102,7 +102,7 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t end,
                                                          const map<size_t, size_t> &id2offsets);
 pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets);
-string get_strings_from_array(const string &array, const get_char_t *encoding);
+string get_strings_from_array(const string &array, const get_string_t *encoding);
 string extract_text(const string& buf,
                     const map<string, pair<string, pdf_object_t>> &resource,
                     const ObjectStorage &storage);
@@ -777,7 +777,7 @@ vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<stri
     return result;
 }
 
-string get_strings_from_array(const string &array, const get_char_t *encoding)
+string get_strings_from_array(const string &array, const get_string_t *encoding)
 {
     string result;
     for (size_t offset = array.find_first_of("(<", 0); offset != string::npos; offset = array.find_first_of("(<", offset))
@@ -797,9 +797,9 @@ pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st)
     return result;
 }
 
-const get_char_t* get_font_encoding(const string &encoding)
+const get_string_t* get_font_encoding(const string &encoding)
 {
-    static const map<string, const get_char_t*> encodings = {
+    static const map<string, const get_string_t*> encodings = {
         {"/WinAnsiEncoding", &win_ansi_encoding},
         {"/MacRomanEncoding", &mac_roman_encoding},
         {"/MacExpertEncoding", &mac_expert_encoding},
@@ -964,9 +964,9 @@ const get_char_t* get_font_encoding(const string &encoding)
     return encodings.at(encoding);
 }
 
-const get_char_t* get_font_encoding(const string &font,
+const get_string_t* get_font_encoding(const string &font,
                                     const map<string, pair<string, pdf_object_t>> &fonts,
-                                    const get_char_t *current,
+                                    const get_string_t *current,
                                     const ObjectStorage &storage)
 {
     auto it = fonts.find(font);
@@ -1019,7 +1019,7 @@ bool put2stack(vector<pair<pdf_object_t, string>> &st, const string &buffer, siz
 
 string extract_text(const string &buffer, const map<string, pair<string, pdf_object_t>> &fonts, const ObjectStorage &storage)
 {
-    const get_char_t *encoding = &standard_encoding;
+    const get_string_t *encoding = &standard_encoding;
     string result;
     vector<pair<pdf_object_t, string>> st;
     bool in_text_block = false;

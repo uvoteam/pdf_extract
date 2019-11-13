@@ -15,6 +15,7 @@
 #include "font_encodings.h"
 
 using namespace std;
+using pages_id_resources_t = vector<pair<unsigned int, map<string, pair<string, pdf_object_t>>>>;
 
 extern string flate_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
 extern string lzw_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
@@ -78,12 +79,11 @@ string get_text(const string &buffer,
                 size_t cross_ref_offset,
                 const ObjectStorage &storage,
                 map<string, pair<string, pdf_object_t>> &encrypt_data);
-map<unsigned int, map<string, pair<string, pdf_object_t>>> get_pages_id_fonts(unsigned int catalog_pages_id,
-                                                                              const ObjectStorage &storage);
+pages_id_resources_t get_pages_id_fonts(unsigned int catalog_pages_id, const ObjectStorage &storage);
 void get_pages_id_fonts_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
                             const map<string, pair<string, pdf_object_t>> &parent_fonts,
                             const ObjectStorage &storage,
-                            map<unsigned int, map<string, pair<string, pdf_object_t>>> &result);
+                            pages_id_resources_t &result);
 vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, pdf_object_t> &page_pair);
 
 size_t get_length(const string &buffer,
@@ -554,7 +554,7 @@ vector<pair<unsigned int, unsigned int>> get_set(const string &array)
 void get_pages_id_fonts_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
                             const map<string, pair<string, pdf_object_t>> &parent_fonts,
                             const ObjectStorage &storage,
-                            map<unsigned int, map<string, pair<string, pdf_object_t>>> &result)
+                            pages_id_resources_t &result)
 {
     auto it = parent_dict.find("/Type");
     if (it == parent_dict.end() || it->second.first != "/Pages") return;
@@ -565,13 +565,14 @@ void get_pages_id_fonts_int(const map<string, pair<string, pdf_object_t>> &paren
     {
         unsigned int id = page.first;
         //avoid infinite recursion for 'bad' pdf
-        if (result.count(id) == 0)
+        if (find_if(result.begin(), result.end(),
+                    [id](const pages_id_resources_t::value_type &v){ return id == v.first; }) == result.end())
         {
             const pair<string, pdf_object_t> page_dict = storage.get_object(id);
             if (page_dict.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
             const map<string, pair<string, pdf_object_t>> dict_data = get_dictionary_data(page_dict.first, 0);
             const map<string, pair<string, pdf_object_t>> fonts = get_fonts(dict_data, storage, parent_fonts);
-            result.insert(make_pair(id, fonts));
+            result.push_back(make_pair(id, fonts));
             get_pages_id_fonts_int(dict_data, fonts, storage, result);
         }
     }
@@ -589,8 +590,7 @@ map<string, pair<string, pdf_object_t>> get_fonts(const map<string, pair<string,
     return get_dict_or_indirect_dict(it->second, storage);
 }
 
-map<unsigned int, map<string, pair<string, pdf_object_t>>> get_pages_id_fonts(unsigned int catalog_pages_id,
-                                                                              const ObjectStorage &storage)
+pages_id_resources_t get_pages_id_fonts(unsigned int catalog_pages_id, const ObjectStorage &storage)
 {
     const pair<string, pdf_object_t> catalog_pair = storage.get_object(catalog_pages_id);
     if (catalog_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "catalog must be DICTIONARY");
@@ -605,7 +605,7 @@ map<unsigned int, map<string, pair<string, pdf_object_t>>> get_pages_id_fonts(un
     const map<string, pair<string, pdf_object_t>> fonts = get_fonts(data,
                                                                     storage,
                                                                     map<string, pair<string, pdf_object_t>>());
-    map<unsigned int, map<string, pair<string, pdf_object_t>>> result;
+    pages_id_resources_t result;
     get_pages_id_fonts_int(data, fonts, storage, result);
 
     return result;
@@ -667,10 +667,9 @@ string get_text(const string &buffer,
     if (pages_pair.second != INDIRECT_OBJECT) throw pdf_error(FUNC_STRING + "/Pages value must be INDRECT_OBJECT");
 
     unsigned int catalog_pages_id = get_id_gen(pages_pair.first).first;
-    map<unsigned int, map<string, pair<string, pdf_object_t>>> pages_id_resources = get_pages_id_fonts(catalog_pages_id,
-                                                                                                       storage);
+    const pages_id_resources_t pages_id_resources = get_pages_id_fonts(catalog_pages_id, storage);
     string result;
-    for (const pair<unsigned int, map<string, pair<string, pdf_object_t>>> &page_id_resource : pages_id_resources)
+    for (const pages_id_resources_t::value_type &page_id_resource : pages_id_resources)
     {
         unsigned int page_id = page_id_resource.first;
         vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(storage.get_object(page_id));
@@ -1171,7 +1170,6 @@ int main(int argc, char *argv[])
     std::string str((std::istreambuf_iterator<char>(t)),
                     std::istreambuf_iterator<char>());
     cout << pdf2txt(str);
-
     
     return 0;
 }

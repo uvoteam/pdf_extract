@@ -63,7 +63,7 @@ CharsetConverter::CharsetConverter(const string &encoding)
     }
     else
     {
-        const char* charset = encoding2charset.at(encoding);
+        charset = encoding2charset.at(encoding);
         PDFencode = charset? OTHER : UTF8;
     }
 }

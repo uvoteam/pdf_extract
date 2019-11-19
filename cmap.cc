@@ -158,30 +158,30 @@ namespace
     unordered_set<unsigned char> get_code_space_range(const string &line)
     {
         size_t offset = 0;
-        unordered_set<unsigned char> result;
-        unsigned char v = 0;
+        int base = 0;
+        unsigned char max = 0;
         for (size_t j = 0; j < CODE_SPACE_RANGE_TOKEN_NUM; ++j)
         {
             const token_t token = get_token(line, offset);
             switch (token.type)
             {
             case token_t::HEX:
-                if (token.val.length() % 2 != 0)
-                {
-                    throw pdf_error(FUNC_STRING + "number of bytes is not even. val= " + token.val + " line =" + line);
-                }
-                v = token.val.length() / 2;
-                if (v > sizeof(unsigned int)) throw pdf_error(FUNC_STRING + "wrong size number. val= " + token.val);
+                base = 16;
                 break;
             case token_t::DEC:
-                v = get_nbytes(strict_stoul(token.val));
-                if (v > sizeof(unsigned int)) throw pdf_error(FUNC_STRING + "wrong size number. val= " + token.val);
+                base = 10;
                 break;
             default:
                 throw pdf_error(FUNC_STRING + "wrong token type. line =" + line);
             }
+            unsigned char v = get_nbytes(strict_stoul(token.val, base));
+            if (v > sizeof(unsigned int)) throw pdf_error(FUNC_STRING + "wrong size number. val= " + token.val);
+            if (v > max) max = v;
         }
-        for (unsigned char i = 1; i <= v; ++i) result.insert(i);
+
+        unordered_set<unsigned char> result;
+        for (unsigned char i = 1; i <= max; ++i) result.insert(i);
+
         return result;
     }
 }

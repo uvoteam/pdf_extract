@@ -4,9 +4,43 @@
 #include <boost/locale/encoding.hpp>
 
 #include "charset_converter.h"
+#include "cmap.h"
+
 
 using namespace std;
 using namespace boost::locale::conv;
+
+namespace
+{
+    unsigned int convert2uint(const string &s)
+    {
+        if (s.length() > sizeof(unsigned int) || s.empty()) throw pdf_error(FUNC_STRING + "wrong length. s= " + s);
+        union convert_t
+        {
+            unsigned int v;
+            unsigned char a[sizeof(unsigned int)];
+        } v{0};
+
+        for (int i = s.length() - 1, j = 0; i >= 0; --i, ++j) v.a[j] = s[i];
+        return v.v;
+    }
+
+}
+
+string CharsetConverter::custom_decode_symbol(const string &s, size_t &i) const
+{
+    for (unsigned char n : custom_encoding.sizes)
+    {
+        size_t left = s.length() - i;
+        if (left < n) break;
+        auto it = custom_encoding.utf16_map.find(convert2uint(s.substr(i, n)));
+        if (it == custom_encoding.utf16_map.end()) continue;
+        i += n;
+        return it->second;
+    }
+    ++i;
+    return string();
+}
 
 string CharsetConverter::get_string(const string &s) const
 {
@@ -32,14 +66,21 @@ string CharsetConverter::get_string(const string &s) const
     }
     case OTHER:
         return to_utf<char>(s, charset);
+    case CUSTOM:
+    {
+        string decoded;
+        for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
+        return to_utf<char>(decoded, "UTF-16le");
+    }
     }
 }
 
-CharsetConverter::CharsetConverter(PDFEncode_t PDFencode_arg) : PDFencode(PDFencode_arg), charset(nullptr)
+CharsetConverter::CharsetConverter(PDFEncode_t PDFencode_arg, const cmap_t &cmap_arg /*= cmap_t() */) :
+                                   PDFencode(PDFencode_arg), charset(nullptr), custom_encoding(cmap_arg)
 {
 }
 
-CharsetConverter::CharsetConverter(const string &encoding)
+CharsetConverter::CharsetConverter(const string &encoding) : custom_encoding(cmap_t())
 {
     if (encoding == "/WinAnsiEncoding")
     {

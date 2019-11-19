@@ -1,6 +1,3 @@
-#include <stdlib.h>
-#include <errno.h>
-
 #include <limits>
 #include <exception>
 #include <string>
@@ -9,11 +6,22 @@
 #include <stack>
 #include <regex>
 #include <cctype>
+#include <utility>
 
 #include "common.h"
 #include "charset_converter.h"
+#include "object_storage.h"
 
 using namespace std;
+
+extern string decrypt(unsigned int n,
+                      unsigned int g,
+                      const string &in,
+                      const map<string, pair<string, pdf_object_t>> &decrypt_opts);
+extern string flate_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
+extern string lzw_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
+extern string ascii85_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
+extern string ascii_hex_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
 
 namespace
 {
@@ -28,8 +36,7 @@ namespace
         size_t len = j - i;
         if (len > 3) len = (str[i] == 0)? 4 : 3; //leading zero as oct mark
 
-        long int result = strtol(str.substr(i, len).c_str(), nullptr, 8);
-        if (errno != 0) throw pdf_error(FUNC_STRING + "wrong octal number: " + str.substr(i, len));
+        size_t result = strict_stoul(str.substr(i, len).c_str(), 8);
         if (result > numeric_limits<unsigned char>::max())
         {
             throw pdf_error(FUNC_STRING + "octal number " + to_string(result) + " is larger than 8 bit");
@@ -80,12 +87,7 @@ namespace
     string hex_decode(const string &hex)
     {
         std::string result;
-        for (size_t i = 0; i < hex.length(); i += 2)
-        {
-            long int d = strtol(hex.substr(i, 2).c_str(), nullptr, 16);
-            if (errno != 0) throw pdf_error(FUNC_STRING + "wrong input: " + hex);
-            result.append(1, static_cast<char>(d));
-        }
+        for (size_t i = 0; i < hex.length(); i += 2) result.append(1, static_cast<char>(strict_stoul(hex.substr(i, 2), 16)));
 
         return result;
     }
@@ -121,6 +123,60 @@ namespace
         if (result == string::npos) throw pdf_error(FUNC_STRING + " can`t find end delimiter for value");
         return result;
     }
+
+    vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
+    {
+        const pair<string, pdf_object_t> filters = props.at("/Filter");
+        if (filters.second == NAME_OBJECT) return vector<string>{filters.first};
+        if (filters.second != ARRAY) throw pdf_error(FUNC_STRING + "wrong filter type: " + to_string(filters.second));
+        vector<string> result;
+        const string &body = filters.first;
+        if (body.at(0) != '[') throw pdf_error(FUNC_STRING + "filter body array must start with '['. Input: " + body);
+        size_t offset = 1;
+        while (true)
+        {
+            offset = skip_spaces(body, offset);
+            if (body[offset] == ']') return result;
+            size_t end_offset = efind_first(body, "\r\n\t ]", offset);
+            result.push_back(body.substr(offset, end_offset - offset));
+            offset = end_offset;
+        }
+    }
+
+    vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,
+                                                                      size_t filters)
+    {
+        auto it = src.find("/DecodeParms");
+        //default decode params for all filters
+        if (it == src.end()) return vector<map<string, pair<string, pdf_object_t>>>(filters);
+        const string &params_data = it->second.first;
+        if (it->second.second == DICTIONARY)
+        {
+            return vector<map<string, pair<string, pdf_object_t>>>{get_dictionary_data(params_data, 0)};
+        }
+        if (it->second.second != ARRAY) throw pdf_error(FUNC_STRING + "wrong type for /DecodeParms");
+        vector<map<string, pair<string, pdf_object_t>>> result;
+        size_t offset = 0;
+        while (true)
+        {
+            offset = params_data.find("<<");
+            if (offset == string::npos)
+            {
+                //7.3.8.2.Stream Extent
+                if (result.empty()) throw pdf_error(FUNC_STRING + "/DecodeParms must be dictionary or an array of dictionaries");
+                return result;
+            }
+            result.push_back(get_dictionary_data(get_dictionary(params_data, offset), 0));
+        }
+        return result;
+    }
+
+    const map<string, string (&)(const string&, const map<string, pair<string, pdf_object_t>>&)> FILTER2FUNC =
+                                                           {{"/FlateDecode", flate_decode},
+                                                            {"/LZWDecode", lzw_decode},
+                                                            {"/ASCII85Decode", ascii85_decode},
+                                                            {"/ASCIIHexDecode", ascii_hex_decode}};
+
 }
 
 const map<pdf_object_t, string (&)(const string&, size_t&)> TYPE2FUNC = {{DICTIONARY, get_dictionary},
@@ -481,7 +537,7 @@ string predictor_decode(const string &data, const map<string, pair<string, pdf_o
     return result;
 }
 
-size_t strict_stoul(const string &str)
+size_t strict_stoul(const string &str, int base /*= 10*/)
 {
     if (str.empty()) throw pdf_error(FUNC_STRING + "string is empty");
     size_t pos;
@@ -489,7 +545,7 @@ size_t strict_stoul(const string &str)
     size_t val;
     try
     {
-        val = stoul(str, &pos);
+        val = stoul(str, &pos, base);
     }
     catch (const std::exception &e)
     {
@@ -501,21 +557,113 @@ size_t strict_stoul(const string &str)
     return val;
 }
 
-long int strict_stol(const string &str)
+vector<pair<unsigned int, unsigned int>> get_set(const string &array)
 {
-    if (str.empty()) throw pdf_error(FUNC_STRING + "string is empty");
-    size_t pos;
-    size_t val;
-    try
+    vector<pair<unsigned int, unsigned int>> result;
+    for (size_t offset = find_number(array, 0); offset < array.length(); offset = find_number(array, offset))
     {
-        val = stol(str, &pos);
+        size_t end_offset = efind_first(array, "  \r\n\t", offset);
+        unsigned int id = strict_stoul(array.substr(offset, end_offset - offset));
+        offset = efind_number(array, end_offset);
+        end_offset = efind_first(array, "  \r\n\t", offset);
+        unsigned int gen = strict_stoul(array.substr(offset, end_offset - offset));
+        result.push_back(make_pair(id, gen));
+        offset = efind(array, 'R', end_offset);
     }
-    catch (const std::exception &e)
+    return result;
+}
+
+pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets)
+{
+    size_t offset = id2offsets.at(id);
+    offset = skip_comments(buffer, offset);
+    offset = efind(buffer, "obj", id2offsets.at(id));
+    offset += LEN("obj");
+    offset = skip_comments(buffer, offset);
+    pdf_object_t type = get_object_type(buffer, offset);
+    return make_pair(TYPE2FUNC.at(type)(buffer, offset), type);
+}
+
+string get_stream(const string &doc,
+                  const pair<unsigned int, unsigned int> &id_gen,
+                  const ObjectStorage &storage,
+                  const map<string, pair<string, pdf_object_t>> &decrypt_data)
+{
+    const pair<string, pdf_object_t> stream_pair = storage.get_object(id_gen.first);
+    if (stream_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "stream must be a dictionary");
+    const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(stream_pair.first, 0);
+    const map<size_t, size_t> &id2offsets = storage.get_id2offsets();
+    string content = get_content(doc, get_length(doc, id2offsets, props), id2offsets.at(id_gen.first));
+    content = decrypt(id_gen.first, id_gen.second, content, decrypt_data);
+
+    return decode(content, props);
+}
+
+string get_content(const string &buffer, size_t len, size_t offset)
+{
+    offset = efind(buffer, "stream", offset);
+    offset += LEN("stream");
+    if (buffer[offset] == '\r') ++offset;
+    if (buffer[offset] == '\n') ++offset;
+    return buffer.substr(offset, len);
+}
+
+string decode(const string &content, const map<string, pair<string, pdf_object_t>> &props)
+{
+    if (!props.count("/Filter")) return content;
+    vector<string> filters = get_filters(props);
+    vector<map<string, pair<string, pdf_object_t>>> decode_params = get_decode_params(props, filters.size());
+    if (filters.size() != decode_params.size())
     {
-        throw pdf_error(FUNC_STRING + str + " is not number");
+        throw pdf_error(FUNC_STRING + "different sizes for filters and decode_params");
     }
+    string result = content;
+    for (size_t i = 0; i < filters.size(); ++i) result = FILTER2FUNC.at(filters[i])(result, decode_params[i]);
+    return result;
+}
 
-    if (pos != str.size()) throw pdf_error(FUNC_STRING + str + " is not number");
+size_t find_number(const string &buffer, size_t offset)
+{
+    while (offset < buffer.length() && (strchr("0123456789", buffer[offset]) == NULL)) ++offset;
+    return offset;
+}
 
-    return val;
+size_t efind_number(const string &buffer, size_t offset)
+{
+    size_t result = find_number(buffer, offset);
+    if (result >= buffer.length()) throw pdf_error(FUNC_STRING + "can`t find number");
+    return result;
+}
+
+size_t get_length(const string &buffer,
+                  const map<size_t, size_t> &id2offsets,
+                  const map<string, pair<string, pdf_object_t>> &props)
+{
+    const pair<string, pdf_object_t> &r = props.at("/Length");
+    if (r.second == VALUE)
+    {
+        return strict_stoul(r.first);
+    }
+    else if (r.second == INDIRECT_OBJECT)
+    {
+        size_t id = strict_stoul(r.first.substr(0, efind_first(r.first, " \r\n\t", 0)));
+        const pair<string, pdf_object_t> content_len_pair = get_object(buffer, id, id2offsets);
+        if (content_len_pair.second != VALUE) throw pdf_error(FUNC_STRING + "length indirect obj must be VALUE");
+        return strict_stoul(content_len_pair.first);
+    }
+    else
+    {
+        throw pdf_error(FUNC_STRING + " wrong type for /Length");
+    }
+}
+
+pair<unsigned int, unsigned int> get_id_gen(const string &data)
+{
+    size_t offset = 0;
+    size_t end_offset = efind_first(data, "\r\t\n ", offset);
+    unsigned int id = strict_stoul(data.substr(offset, end_offset - offset));
+    offset = efind_number(data, end_offset);
+    end_offset = efind_first(data, "\r\t\n ", offset);
+    unsigned int gen = strict_stoul(data.substr(offset, end_offset - offset));
+    return make_pair(id, gen);
 }

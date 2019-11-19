@@ -5,6 +5,7 @@
 #include <vector>
 #include <cstdint>
 #include <algorithm>
+#include <memory>
 
 //for test
 #include <fstream>
@@ -13,18 +14,11 @@
 
 #include "common.h"
 #include "charset_converter.h"
+#include "object_storage.h"
+#include "cmap.h"
 
 using namespace std;
 using pages_id_resources_t = vector<pair<unsigned int, map<string, pair<string, pdf_object_t>>>>;
-
-extern string flate_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
-extern string lzw_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
-extern string ascii85_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
-extern string ascii_hex_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
-extern string decrypt(unsigned int n,
-                      unsigned int g,
-                      const string &in,
-                      const map<string, pair<string, pdf_object_t>> &decrypt_opts);
 
 
 enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what-is-the-smallest-possible-valid-pdf*/,
@@ -33,28 +27,25 @@ enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what
       GENERATION_NUMBER_LEN = 5 /* length for generation number */
 };
 
-class ObjectStorage;
-
 bool is_prefix(const char *str, const char *pre);
 uint64_t get_uint64(const string &src);
 array<uint64_t, 3> get_cross_reference_entry(const string &stream, size_t &offset, const array<unsigned int, 3> &w);
-pair<unsigned int, unsigned int> get_id_gen(const string &data);
 pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st);
 void get_offsets_internal_new(const string &stream,
                               const map<string, pair<string, pdf_object_t>> dictionary_data,
                               vector<size_t> &result);
-
-vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,
-                                                                  size_t filters);
 size_t get_cross_ref_offset(const string &buffer);
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end);
 void append_object(const string &buf, size_t offset, vector<size_t> &objects);
 char get_object_status(const string &buffer, size_t offset);
-CharsetConverter get_font_encoding(const string &doc,
-                                   const string &font,
-                                   const map<string, pair<string, pdf_object_t>> &fonts,
-                                   CharsetConverter &&current,
-                                   const ObjectStorage &storage);
+unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
+                                               const string &font,
+                                               const map<string, pair<string, pdf_object_t>> &fonts,
+                                               unique_ptr<CharsetConverter> &&current,
+                                               const ObjectStorage &storage,
+                                               map<unsigned int, CharsetConverter> &id2charset_converter,
+                                               const map<string, pair<string, pdf_object_t>> &decrypt_data,
+                                               map<unsigned int, cmap_t> &cmap_storage);
 size_t get_xref_number(const string &buffer, size_t &offset);
 vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset);
 vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_t cross_ref_offset);
@@ -74,9 +65,6 @@ map<string, pair<string, pdf_object_t>> get_fonts(const map<string, pair<string,
 map<size_t, size_t> get_id2offsets(const string &buffer,
                                    size_t cross_ref_offset,
                                    const vector<pair<size_t, size_t>> &trailer_offsets);
-size_t find_number(const string &buffer, size_t offset);
-size_t efind_number(const string &buffer, size_t offset);
-vector<pair<unsigned int, unsigned int>> get_set(const string &array);
 unsigned int get_cross_ref_entries(const map<string, pair<string, pdf_object_t>> dictionary_data,
                                    const array<unsigned int, 3> &w, size_t length);
 array<unsigned int, 3> get_w(const map<string, pair<string, pdf_object_t>> &dictionary_data);
@@ -90,14 +78,7 @@ void get_pages_id_fonts_int(const map<string, pair<string, pdf_object_t>> &paren
                             const ObjectStorage &storage,
                             pages_id_resources_t &result);
 vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, pdf_object_t> &page_pair);
-
-size_t get_length(const string &buffer,
-                  const map<size_t, size_t> &id2offsets,
-                  const map<string, pair<string, pdf_object_t>> &props);
-string get_content(const string &buffer, size_t len, size_t offset);
-vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props);
 bool is_data4stack(const vector<pair<pdf_object_t, string>> &stack, const string &buffer, size_t &i);
-string decode(const string &content, const map<string, pair<string, pdf_object_t>> &props);
 string output_content(const string &buffer,
                       const ObjectStorage &storage,
                       const pair<unsigned int, unsigned int> &id_gen,
@@ -107,121 +88,19 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t end,
                                                          const map<size_t, size_t> &id2offsets);
 pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets);
-string get_strings_from_array(const string &array, const CharsetConverter &encoding);
+string get_strings_from_array(const string &array, const unique_ptr<CharsetConverter> &encoding);
 string extract_text(const string &doc,
                     const string &page,
-                    const map<string, pair<string, pdf_object_t>> &resource,
-                    const ObjectStorage &storage);
+                    const map<string, pair<string, pdf_object_t>> &fonts,
+                    const ObjectStorage &storage,
+                    map<unsigned int, CharsetConverter> &id2charset_converter,
+                    const map<string, pair<string, pdf_object_t>> &decrypt_data,
+                    map<unsigned int, cmap_t> &cmap_storage);
 
-
-const map<string, string (&)(const string&, const map<string, pair<string, pdf_object_t>>&)> FILTER2FUNC =
-                                                           {{"/FlateDecode", flate_decode},
-                                                            {"/LZWDecode", lzw_decode},
-                                                            {"/ASCII85Decode", ascii85_decode},
-                                                            {"/ASCIIHexDecode", ascii_hex_decode}};
-
-class ObjectStorage
-{
-public:
-    ObjectStorage(const string &doc_arg,
-                  map<size_t, size_t> &&id2offsets_arg,
-                  const map<string, pair<string, pdf_object_t>> &encrypt_data) :
-                  doc(doc_arg), id2offsets(move(id2offsets_arg))
-    {
-        for (const pair<size_t, size_t> &p : id2offsets) insert_obj_stream(p.first, encrypt_data);
-    }
-
-    pair<string, pdf_object_t> get_object(size_t id) const
-    {
-        auto it = id2offsets.find(id);
-        //object is located inside object stream
-        if (it == id2offsets.end()) return id2obj_stm.at(id);
-        return ::get_object(doc, id, id2offsets);
-    }
-
-    const map<size_t, size_t>& get_id2offsets() const
-    {
-        return id2offsets;
-    }
-private:
-    size_t get_gen_id(size_t offset)
-    {
-        offset = efind_first(doc, " \r\t\n", offset);
-        offset = efind_number(doc, offset);
-        size_t end_offset = efind_first(doc, " \r\t\n", offset);
-        return strict_stoul(doc.substr(offset, end_offset - offset));
-    }
-
-    void insert_obj_stream(size_t id, const map<string, pair<string, pdf_object_t>> &encrypt_data)
-    {
-        size_t offset = id2offsets.at(id);
-        offset = skip_comments(doc, offset);
-        size_t gen_id = get_gen_id(offset);
-        offset = skip_comments(doc, offset);
-        offset = efind(doc, "obj", offset);
-        offset += LEN("obj");
-        if (get_object_type(doc, offset) != DICTIONARY) return;
-        map<string, pair<string, pdf_object_t>> dictionary = get_dictionary_data(get_dictionary(doc, offset), 0);
-        auto it = dictionary.find("/Type");
-        if (it == dictionary.end() || it->second.first != "/ObjStm") return;
-        unsigned int len = get_length(doc, id2offsets, dictionary);
-        string content = get_content(doc, len, offset);
-        content = decrypt(id, gen_id, content, encrypt_data);
-        content = decode(content, dictionary);
-
-        vector<pair<size_t, size_t>> id2offsets_obj_stm = get_id2offsets_obj_stm(content, dictionary);
-        offset = strict_stoul(dictionary.at("/First").first);
-        for (const pair<size_t, size_t> &p : id2offsets_obj_stm)
-        {
-            size_t obj_offset = offset + p.second;
-            pdf_object_t type = get_object_type(content, obj_offset);
-            id2obj_stm.insert(make_pair(p.first, make_pair(TYPE2FUNC.at(type)(content, obj_offset), type)));
-        }
-    }
-
-    vector<pair<size_t, size_t>> get_id2offsets_obj_stm(const string &content,
-                                                        const map<string, pair<string, pdf_object_t>> &dictionary)
-
-    {
-        vector<pair<size_t, size_t>> result;
-        size_t offset = 0;
-        unsigned int n = strict_stoul(dictionary.at("/N").first);
-        for (unsigned int i = 0; i < n; ++i)
-        {
-            offset = efind_number(content, offset);
-            size_t end_offset = efind_first_not(content, "0123456789", offset);
-            unsigned int id = strict_stoul(content.substr(offset, end_offset - offset));
-            offset = efind_number(content, end_offset);
-            end_offset = efind_first_not(content, "0123456789", offset);
-            unsigned int obj_off = strict_stoul(content.substr(offset, end_offset - offset));
-            result.push_back(make_pair(id, obj_off));
-            offset = end_offset;
-        }
-
-        return result;
-    }
-
-private:
-    map<size_t, size_t> id2offsets;
-    //7.5.7. Object Streams
-    map<size_t, pair<string, pdf_object_t>> id2obj_stm;
-    const string &doc;
-};
 
 bool is_prefix(const char *str, const char *pre)
 {
     return strncmp(str, pre, strlen(pre)) == 0;
-}
-
-pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets)
-{
-    size_t offset = id2offsets.at(id);
-    offset = skip_comments(buffer, offset);
-    offset = efind(buffer, "obj", id2offsets.at(id));
-    offset += LEN("obj");
-    offset = skip_comments(buffer, offset);
-    pdf_object_t type = get_object_type(buffer, offset);
-    return make_pair(TYPE2FUNC.at(type)(buffer, offset), type);
 }
 
 size_t get_cross_ref_offset(const string &buffer)
@@ -385,10 +264,14 @@ array<unsigned int, 3> get_w(const map<string, pair<string, pdf_object_t>> &dict
 
 uint64_t get_uint64(const string &src)
 {
-    uint64_t val = 0;
-    uint8_t *p = reinterpret_cast<uint8_t*>(&val);
-    for (int j = src.length() - 1; j >= 0; --j, ++p) *p = static_cast<unsigned char>(src[j]);
-    return val;
+    union
+    {
+        uint64_t v;
+        uint8_t a[sizeof(uint64_t)];
+    } v{0};
+
+    for (int j = src.length() - 1, i = 0; j >= 0; --j, ++i) v.a[i] = static_cast<unsigned char>(src[j]);
+    return v.v;
 }
 
 array<uint64_t, 3> get_cross_reference_entry(const string &stream, size_t &offset, const array<unsigned int, 3> &w)
@@ -528,35 +411,6 @@ map<size_t, size_t> get_id2offsets(const string &buffer,
     return id2offsets;
 }
 
-size_t efind_number(const string &buffer, size_t offset)
-{
-    size_t result = find_number(buffer, offset);
-    if (result >= buffer.length()) throw pdf_error(FUNC_STRING + "can`t find number");
-    return result;
-}
-
-size_t find_number(const string &buffer, size_t offset)
-{
-    while (offset < buffer.length() && (strchr("0123456789", buffer[offset]) == NULL)) ++offset;
-    return offset;
-}
-
-vector<pair<unsigned int, unsigned int>> get_set(const string &array)
-{
-    vector<pair<unsigned int, unsigned int>> result;
-    for (size_t offset = find_number(array, 0); offset < array.length(); offset = find_number(array, offset))
-    {
-        size_t end_offset = efind_first(array, "  \r\n\t", offset);
-        unsigned int id = strict_stoul(array.substr(offset, end_offset - offset));
-        offset = efind_number(array, end_offset);
-        end_offset = efind_first(array, "  \r\n\t", offset);
-        unsigned int gen = strict_stoul(array.substr(offset, end_offset - offset));
-        result.push_back(make_pair(id, gen));
-        offset = efind(array, 'R', end_offset);
-    }
-    return result;
-}
-
 void get_pages_id_fonts_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
                             const map<string, pair<string, pdf_object_t>> &parent_fonts,
                             const ObjectStorage &storage,
@@ -617,17 +471,6 @@ pages_id_resources_t get_pages_id_fonts(unsigned int catalog_pages_id, const Obj
     return result;
 }
 
-pair<unsigned int, unsigned int> get_id_gen(const string &data)
-{
-    size_t offset = 0;
-    size_t end_offset = efind_first(data, "\r\t\n ", offset);
-    unsigned int id = strict_stoul(data.substr(offset, end_offset - offset));
-    offset = efind_number(data, end_offset);
-    end_offset = efind_first(data, "\r\t\n ", offset);
-    unsigned int gen = strict_stoul(data.substr(offset, end_offset - offset));
-    return make_pair(id, gen);
-}
-
 vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, pdf_object_t> &page_pair)
 {
     if (page_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
@@ -654,7 +497,7 @@ vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, 
 string get_text(const string &buffer,
                 size_t cross_ref_offset,
                 const ObjectStorage &storage,
-                map<string, pair<string, pdf_object_t>> &encrypt_data)
+                map<string, pair<string, pdf_object_t>> &decrypt_data)
 {
     size_t trailer_offset = cross_ref_offset;
     if (is_prefix(buffer.data() + cross_ref_offset, "xref"))
@@ -675,6 +518,8 @@ string get_text(const string &buffer,
     unsigned int catalog_pages_id = get_id_gen(pages_pair.first).first;
     const pages_id_resources_t pages_id_resources = get_pages_id_fonts(catalog_pages_id, storage);
     string result;
+    map<unsigned int, CharsetConverter> id2charset_converter;
+    map<unsigned int, cmap_t> cmap_storage;
     for (const pages_id_resources_t::value_type &page_id_resource : pages_id_resources)
     {
         unsigned int page_id = page_id_resource.first;
@@ -682,113 +527,26 @@ string get_text(const string &buffer,
         string page_content;
         for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen)
         {
-            page_content += output_content(buffer, storage, id_gen, encrypt_data);
+            page_content += output_content(buffer, storage, id_gen, decrypt_data);
         }
-        result += extract_text(buffer, page_content, page_id_resource.second, storage);
+        result += extract_text(buffer,
+                               page_content,
+                               page_id_resource.second,
+                               storage,
+                               id2charset_converter,
+                               decrypt_data,
+                               cmap_storage);
     }
 
     return result;
 }
 
-
-size_t get_length(const string &buffer,
-                  const map<size_t, size_t> &id2offsets,
-                  const map<string, pair<string, pdf_object_t>> &props)
-{
-    const pair<string, pdf_object_t> &r = props.at("/Length");
-    if (r.second == VALUE)
-    {
-        return strict_stoul(r.first);
-    }
-    else if (r.second == INDIRECT_OBJECT)
-    {
-        size_t id = strict_stoul(r.first.substr(0, efind_first(r.first, " \r\n\t", 0)));
-        const pair<string, pdf_object_t> content_len_pair = get_object(buffer, id, id2offsets);
-        if (content_len_pair.second != VALUE) throw pdf_error(FUNC_STRING + "length indirect obj must be VALUE");
-        return strict_stoul(content_len_pair.first);
-    }
-    else
-    {
-        throw pdf_error(FUNC_STRING + " wrong type for /Length");
-    }
-}
-
-string get_content(const string &buffer, size_t len, size_t offset)
-{
-    offset = efind(buffer, "stream", offset);
-    offset += LEN("stream");
-    if (buffer[offset] == '\r') ++offset;
-    if (buffer[offset] == '\n') ++offset;
-    return buffer.substr(offset, len);
-}
-
-vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
-{
-    const pair<string, pdf_object_t> filters = props.at("/Filter");
-    if (filters.second == NAME_OBJECT) return vector<string>{filters.first};
-    if (filters.second != ARRAY) throw pdf_error(FUNC_STRING + "wrong filter type: " + to_string(filters.second));
-    vector<string> result;
-    const string &body = filters.first;
-    if (body.at(0) != '[') throw pdf_error(FUNC_STRING + "filter body array must start with '['. Input: " + body);
-    size_t offset = 1;
-    while (true)
-    {
-        offset = skip_spaces(body, offset);
-        if (body[offset] == ']') return result;
-        size_t end_offset = efind_first(body, "\r\n\t ]", offset);
-        result.push_back(body.substr(offset, end_offset - offset));
-        offset = end_offset;
-    }
-}
-
-string decode(const string &content, const map<string, pair<string, pdf_object_t>> &props)
-{
-    if (!props.count("/Filter")) return content;
-    vector<string> filters = get_filters(props);
-    vector<map<string, pair<string, pdf_object_t>>> decode_params = get_decode_params(props, filters.size());
-    if (filters.size() != decode_params.size())
-    {
-        throw pdf_error(FUNC_STRING + "different sizes for filters and decode_params");
-    }
-    string result = content;
-    for (size_t i = 0; i < filters.size(); ++i) result = FILTER2FUNC.at(filters[i])(result, decode_params[i]);
-    return result;
-}
-
-vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,
-                                                                  size_t filters)
-{
-    auto it = src.find("/DecodeParms");
-    //default decode params for all filters
-    if (it == src.end()) return vector<map<string, pair<string, pdf_object_t>>>(filters);
-    const string &params_data = it->second.first;
-    if (it->second.second == DICTIONARY)
-    {
-        return vector<map<string, pair<string, pdf_object_t>>>{get_dictionary_data(params_data, 0)};
-    }
-    if (it->second.second != ARRAY) throw pdf_error(FUNC_STRING + "wrong type for /DecodeParms");
-    vector<map<string, pair<string, pdf_object_t>>> result;
-    size_t offset = 0;
-    while (true)
-    {
-        offset = params_data.find("<<");
-        if (offset == string::npos)
-        {
-            //7.3.8.2.Stream Extent
-            if (result.empty()) throw pdf_error(FUNC_STRING + "/DecodeParms must be dictionary or an array of dictionaries");
-            return result;
-        }
-        result.push_back(get_dictionary_data(get_dictionary(params_data, offset), 0));
-    }
-    return result;
-}
-
-string get_strings_from_array(const string &array, const CharsetConverter &encoding)
+string get_strings_from_array(const string &array, const unique_ptr<CharsetConverter> &encoding)
 {
     string result;
     for (size_t offset = array.find_first_of("(<", 0); offset != string::npos; offset = array.find_first_of("(<", offset))
     {
-        result += encoding.get_string(decode_string(get_string(array, offset)));
+        result += encoding->get_string(decode_string(get_string(array, offset)));
     }
     return result;
 }
@@ -801,17 +559,31 @@ pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st)
     return result;
 }
 
-CharsetConverter get_font_encoding(const string &doc,
-                                   const string &font,
-                                   const map<string, pair<string, pdf_object_t>> &fonts,
-                                   CharsetConverter &&current,
-                                   const ObjectStorage &storage)
+unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
+                                               const string &font,
+                                               const map<string, pair<string, pdf_object_t>> &fonts,
+                                               unique_ptr<CharsetConverter> &&current,
+                                               const ObjectStorage &storage,
+                                               map<unsigned int, CharsetConverter> &id2charset_converter,
+                                               const map<string, pair<string, pdf_object_t>> &decrypt_data,
+                                               map<unsigned int, cmap_t> &cmap_storage)
 {
     auto it = fonts.find(font);
     if (it == fonts.end()) return std::move(current);
     map<string, pair<string, pdf_object_t>> font_dict = get_dict_or_indirect_dict(it->second, storage);
+    it = font_dict.find("/ToUnicode");
+    if (it != font_dict.end())
+    {
+        const pair<unsigned int, unsigned int> cmap_id_gen = get_id_gen(it->second.first);
+        if (cmap_storage.count(cmap_id_gen.first) == 0)
+        {
+            cmap_storage.insert(make_pair(cmap_id_gen.first, get_cmap(doc, storage, cmap_id_gen, decrypt_data)));
+        }
+        return unique_ptr<CharsetConverter>(new CharsetConverter(CharsetConverter::CUSTOM,
+                                                                 cmap_storage[cmap_id_gen.first]));
+    }
     it = font_dict.find("/Encoding");
-    if (it == font_dict.end()) return std::move(current);
+        if (it == font_dict.end()) return std::move(current);
     string encoding;
     switch (it->second.second)
     {
@@ -833,7 +605,7 @@ CharsetConverter get_font_encoding(const string &doc,
         throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(it->second.second));
     }
 
-    return CharsetConverter(encoding);
+    return unique_ptr<CharsetConverter>(new CharsetConverter(encoding));
 }
 
 bool put2stack(vector<pair<pdf_object_t, string>> &st, const string &buffer, size_t &i)
@@ -858,9 +630,12 @@ bool put2stack(vector<pair<pdf_object_t, string>> &st, const string &buffer, siz
 string extract_text(const string &doc,
                     const string &page,
                     const map<string, pair<string, pdf_object_t>> &fonts,
-                    const ObjectStorage &storage)
+                    const ObjectStorage &storage,
+                    map<unsigned int, CharsetConverter> &id2charset_converter,
+                    const map<string, pair<string, pdf_object_t>> &decrypt_data,
+                    map<unsigned int, cmap_t> &cmap_storage)
 {
-    CharsetConverter encoding(CharsetConverter::DEFAULT);
+    unique_ptr<CharsetConverter> encoding(new CharsetConverter(CharsetConverter::DEFAULT));
     string result;
     vector<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
@@ -888,14 +663,14 @@ string extract_text(const string &doc,
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for Tj operator skipping..
             if (el.first != STRING) continue;
-            result += encoding.get_string(decode_string(el.second));
+            result += encoding->get_string(decode_string(el.second));
         }
         else if (token == "'" || token == "\"")
         {
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for '" operators skipping..
             if (el.first != STRING) continue;
-            result += '\n' + encoding.get_string(decode_string(el.second));
+            result += '\n' + encoding->get_string(decode_string(el.second));
         }
         else if (token == "TJ")
         {
@@ -911,7 +686,14 @@ string extract_text(const string &doc,
         else if (token == "Tf")
         {
             pop(st);
-            encoding = get_font_encoding(doc, pop(st).second, fonts, std::move(encoding), storage);
+            encoding = get_font_encoding(doc,
+                                         pop(st).second,
+                                         fonts,
+                                         std::move(encoding),
+                                         storage,
+                                         id2charset_converter,
+                                         decrypt_data,
+                                         cmap_storage);
         }
         else
         {
@@ -924,7 +706,7 @@ string extract_text(const string &doc,
 string output_content(const string &buffer,
                       const ObjectStorage &storage,
                       const pair<unsigned int, unsigned int> &id_gen,
-                      const map<string, pair<string, pdf_object_t>> &encrypt_data)
+                      const map<string, pair<string, pdf_object_t>> &decrypt_data)
 {
     const pair<string, pdf_object_t> content_pair = storage.get_object(id_gen.first);
     if (content_pair.second == ARRAY)
@@ -933,16 +715,11 @@ string output_content(const string &buffer,
         string result;
         for (const pair<unsigned int, unsigned int> &p : contents)
         {
-            result += output_content(buffer, storage, p, encrypt_data);
+            result += output_content(buffer, storage, p, decrypt_data);
         }
         return result;
     }
-    if (content_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "content must be dictionary");
-    const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(content_pair.first, 0);
-    const map<size_t, size_t> &id2offsets = storage.get_id2offsets();
-    string content = get_content(buffer, get_length(buffer, id2offsets, props), id2offsets.at(id_gen.first));
-    content = decrypt(id_gen.first, id_gen.second, content, encrypt_data);
-    return decode(content, props);
+    return get_stream(buffer, id_gen, storage, decrypt_data);
 }
 
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end)
@@ -1013,7 +790,6 @@ int main(int argc, char *argv[])
     std::string str((std::istreambuf_iterator<char>(t)),
                     std::istreambuf_iterator<char>());
     cout << pdf2txt(str);
-
     
     return 0;
 }

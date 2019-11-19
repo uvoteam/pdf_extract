@@ -1,10 +1,11 @@
-#ifndef PDF_INTERNAL_H
-#define PDF_INTERNAL_H
+#ifndef COMMON_H
+#define COMMON_H
 
 #include <string>
 #include <map>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 #define LEN(S) (sizeof(S) - 1)
 
@@ -12,6 +13,7 @@ enum pdf_object_t {DICTIONARY = 1, ARRAY = 2, STRING = 3, VALUE = 4, INDIRECT_OB
 
 #define FUNC_STRING (std::string(__func__) + ": ")
 extern const std::map<pdf_object_t, std::string (&)(const std::string&, size_t&)> TYPE2FUNC;
+class ObjectStorage;
 
 class pdf_error : public std::runtime_error
 {
@@ -44,10 +46,25 @@ std::string get_indirect_object(const std::string &buffer, size_t &offset);
 std::string get_string(const std::string &buffer, size_t &offset);
 std::string get_dictionary(const std::string &buffer, size_t &offset);
 std::string decode_string(const std::string &str);
-size_t strict_stoul(const std::string &str);
-long int strict_stol(const std::string &str);
+size_t strict_stoul(const std::string &str, int base = 10);
 std::string predictor_decode(const std::string &data,
                              const std::map<std::string,
                              std::pair<std::string, pdf_object_t>> &opts);
 std::map<std::string, std::pair<std::string, pdf_object_t>> get_dictionary_data(const std::string &buffer, size_t offset);
-#endif //PDF_INTERNAL
+std::vector<std::pair<unsigned int, unsigned int>> get_set(const std::string &array);
+std::pair<std::string, pdf_object_t> get_object(const std::string &buffer,
+                                                size_t id,
+                                                const std::map<size_t, size_t> &id2offsets);
+std::string get_stream(const std::string &doc,
+                       const std::pair<unsigned int, unsigned int> &id_gen,
+                       const ObjectStorage &storage,
+                       const std::map<std::string, std::pair<std::string, pdf_object_t>> &encrypt_data);
+std::string get_content(const std::string &buffer, size_t len, size_t offset);
+std::string decode(const std::string &content, const std::map<std::string, std::pair<std::string, pdf_object_t>> &props);
+size_t find_number(const std::string &buffer, size_t offset);
+size_t efind_number(const std::string &buffer, size_t offset);
+size_t get_length(const std::string &buffer,
+                  const std::map<size_t, size_t> &id2offsets,
+                  const std::map<std::string, std::pair<std::string, pdf_object_t>> &props);
+std::pair<unsigned int, unsigned int> get_id_gen(const std::string &data);
+#endif //COMMON

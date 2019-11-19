@@ -21,8 +21,7 @@ using namespace std;
 using pages_id_resources_t = vector<pair<unsigned int, map<string, pair<string, pdf_object_t>>>>;
 
 
-enum {SMALLEST_PDF_SIZE = 67 /*https://stackoverflow.com/questions/17279712/what-is-the-smallest-possible-valid-pdf*/,
-      CROSS_REFERENCE_LINE_SIZE = 20,
+enum {CROSS_REFERENCE_LINE_SIZE = 20,
       BYTE_OFFSET_LEN = 10, /* length for byte offset in cross reference record */
       GENERATION_NUMBER_LEN = 5 /* length for generation number */
 };
@@ -772,7 +771,6 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
 
 string pdf2txt(const string &buffer)
 {
-    if (buffer.size() < SMALLEST_PDF_SIZE) throw pdf_error(FUNC_STRING + "pdf buffer is too small");
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     vector<pair<size_t, size_t>> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
     map<size_t, size_t> id2offsets = get_id2offsets(buffer, cross_ref_offset, trailer_offsets);
@@ -790,6 +788,6 @@ int main(int argc, char *argv[])
     std::string str((std::istreambuf_iterator<char>(t)),
                     std::istreambuf_iterator<char>());
     cout << pdf2txt(str);
-    
+
     return 0;
 }

@@ -21,12 +21,12 @@ public:
     enum PDFEncode_t {DEFAULT, MAC_EXPERT, MAC_ROMAN, WIN, OTHER, UTF8, IDENTITY, CUSTOM};
 public:
     CharsetConverter(const std::string &encoding);
-    CharsetConverter(PDFEncode_t PDFencode_arg, const cmap_t &cmap_arg = cmap_t());
+    CharsetConverter(PDFEncode_t PDFencode_arg, const cmap_t *cmap_arg = nullptr);
     std::string get_string(const std::string &s) const;
 private:
     std::string custom_decode_symbol(const std::string &s, std::size_t &i) const;
 private:
-    const cmap_t &custom_encoding;
+    const cmap_t *custom_encoding;
     const char *charset;
     PDFEncode_t PDFencode;
     static const std::unordered_map<unsigned int, std::string> standard_encoding;

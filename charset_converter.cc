@@ -29,12 +29,12 @@ namespace
 
 string CharsetConverter::custom_decode_symbol(const string &s, size_t &i) const
 {
-    for (unsigned char n : custom_encoding.sizes)
+    for (unsigned char n : custom_encoding->sizes)
     {
         size_t left = s.length() - i;
         if (left < n) break;
-        auto it = custom_encoding.utf16_map.find(convert2uint(s.substr(i, n)));
-        if (it == custom_encoding.utf16_map.end()) continue;
+        auto it = custom_encoding->utf16_map.find(convert2uint(s.substr(i, n)));
+        if (it == custom_encoding->utf16_map.end()) continue;
         i += n;
         return it->second;
     }
@@ -75,12 +75,12 @@ string CharsetConverter::get_string(const string &s) const
     }
 }
 
-CharsetConverter::CharsetConverter(PDFEncode_t PDFencode_arg, const cmap_t &cmap_arg /*= cmap_t() */) :
+CharsetConverter::CharsetConverter(PDFEncode_t PDFencode_arg, const cmap_t *cmap_arg /*= nullptr */) :
                                    PDFencode(PDFencode_arg), charset(nullptr), custom_encoding(cmap_arg)
 {
 }
 
-CharsetConverter::CharsetConverter(const string &encoding) : custom_encoding(cmap_t())
+CharsetConverter::CharsetConverter(const string &encoding) : custom_encoding(nullptr)
 {
     if (encoding == "/WinAnsiEncoding")
     {

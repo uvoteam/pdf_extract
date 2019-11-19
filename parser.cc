@@ -5,7 +5,6 @@
 #include <vector>
 #include <cstdint>
 #include <algorithm>
-#include <memory>
 
 //for test
 #include <fstream>
@@ -37,14 +36,12 @@ size_t get_cross_ref_offset(const string &buffer);
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end);
 void append_object(const string &buf, size_t offset, vector<size_t> &objects);
 char get_object_status(const string &buffer, size_t offset);
-unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
-                                               const string &font,
-                                               const map<string, pair<string, pdf_object_t>> &fonts,
-                                               unique_ptr<CharsetConverter> &&current,
-                                               const ObjectStorage &storage,
-                                               map<unsigned int, CharsetConverter> &id2charset_converter,
-                                               const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                                               map<unsigned int, cmap_t> &cmap_storage);
+CharsetConverter get_font_encoding(const string &doc,
+                                   const string &font,
+                                   const map<string, pair<string, pdf_object_t>> &fonts,
+                                   const ObjectStorage &storage,
+                                   const map<string, pair<string, pdf_object_t>> &decrypt_data,
+                                   map<unsigned int, cmap_t> &cmap_storage);
 size_t get_xref_number(const string &buffer, size_t &offset);
 vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset);
 vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_t cross_ref_offset);
@@ -87,12 +84,11 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t end,
                                                          const map<size_t, size_t> &id2offsets);
 pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets);
-string get_strings_from_array(const string &array, const unique_ptr<CharsetConverter> &encoding);
+string get_strings_from_array(const string &array, const CharsetConverter &encoding);
 string extract_text(const string &doc,
                     const string &page,
                     const map<string, pair<string, pdf_object_t>> &fonts,
                     const ObjectStorage &storage,
-                    map<unsigned int, CharsetConverter> &id2charset_converter,
                     const map<string, pair<string, pdf_object_t>> &decrypt_data,
                     map<unsigned int, cmap_t> &cmap_storage);
 
@@ -517,7 +513,6 @@ string get_text(const string &buffer,
     unsigned int catalog_pages_id = get_id_gen(pages_pair.first).first;
     const pages_id_resources_t pages_id_resources = get_pages_id_fonts(catalog_pages_id, storage);
     string result;
-    map<unsigned int, CharsetConverter> id2charset_converter;
     map<unsigned int, cmap_t> cmap_storage;
     for (const pages_id_resources_t::value_type &page_id_resource : pages_id_resources)
     {
@@ -528,24 +523,18 @@ string get_text(const string &buffer,
         {
             page_content += output_content(buffer, storage, id_gen, decrypt_data);
         }
-        result += extract_text(buffer,
-                               page_content,
-                               page_id_resource.second,
-                               storage,
-                               id2charset_converter,
-                               decrypt_data,
-                               cmap_storage);
+        result += extract_text(buffer, page_content, page_id_resource.second, storage, decrypt_data, cmap_storage);
     }
 
     return result;
 }
 
-string get_strings_from_array(const string &array, const unique_ptr<CharsetConverter> &encoding)
+string get_strings_from_array(const string &array, const CharsetConverter &encoding)
 {
     string result;
     for (size_t offset = array.find_first_of("(<", 0); offset != string::npos; offset = array.find_first_of("(<", offset))
     {
-        result += encoding->get_string(decode_string(get_string(array, offset)));
+        result += encoding.get_string(decode_string(get_string(array, offset)));
     }
     return result;
 }
@@ -558,17 +547,15 @@ pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st)
     return result;
 }
 
-unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
-                                               const string &font,
-                                               const map<string, pair<string, pdf_object_t>> &fonts,
-                                               unique_ptr<CharsetConverter> &&current,
-                                               const ObjectStorage &storage,
-                                               map<unsigned int, CharsetConverter> &id2charset_converter,
-                                               const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                                               map<unsigned int, cmap_t> &cmap_storage)
+CharsetConverter get_font_encoding(const string &doc,
+                                   const string &font,
+                                   const map<string, pair<string, pdf_object_t>> &fonts,
+                                   const ObjectStorage &storage,
+                                   const map<string, pair<string, pdf_object_t>> &decrypt_data,
+                                   map<unsigned int, cmap_t> &cmap_storage)
 {
     auto it = fonts.find(font);
-    if (it == fonts.end()) return std::move(current);
+    if (it == fonts.end()) return CharsetConverter(CharsetConverter::DEFAULT);
     map<string, pair<string, pdf_object_t>> font_dict = get_dict_or_indirect_dict(it->second, storage);
     it = font_dict.find("/ToUnicode");
     if (it != font_dict.end())
@@ -578,21 +565,20 @@ unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
         {
             cmap_storage.insert(make_pair(cmap_id_gen.first, get_cmap(doc, storage, cmap_id_gen, decrypt_data)));
         }
-        return unique_ptr<CharsetConverter>(new CharsetConverter(CharsetConverter::CUSTOM,
-                                                                 cmap_storage[cmap_id_gen.first]));
+        return CharsetConverter(CharsetConverter::CUSTOM, &cmap_storage[cmap_id_gen.first]);
     }
     it = font_dict.find("/Encoding");
-        if (it == font_dict.end()) return std::move(current);
+    if (it == font_dict.end()) return CharsetConverter(CharsetConverter::DEFAULT);
     string encoding;
     switch (it->second.second)
     {
     //TODO custom mapping table
     case DICTIONARY:
-        return std::move(current);
+        throw pdf_error(FUNC_STRING + "DICTIONARY is not implemented");
     case INDIRECT_OBJECT:
     {
         //TODO handle dict and scalar
-        return std::move(current);
+        throw pdf_error(FUNC_STRING + "INDIRECT_OBJECT is not implemented");
         break;
     }
     case NAME_OBJECT:
@@ -604,7 +590,7 @@ unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
         throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(it->second.second));
     }
 
-    return unique_ptr<CharsetConverter>(new CharsetConverter(encoding));
+    return CharsetConverter(encoding);
 }
 
 bool put2stack(vector<pair<pdf_object_t, string>> &st, const string &buffer, size_t &i)
@@ -630,11 +616,10 @@ string extract_text(const string &doc,
                     const string &page,
                     const map<string, pair<string, pdf_object_t>> &fonts,
                     const ObjectStorage &storage,
-                    map<unsigned int, CharsetConverter> &id2charset_converter,
                     const map<string, pair<string, pdf_object_t>> &decrypt_data,
                     map<unsigned int, cmap_t> &cmap_storage)
 {
-    unique_ptr<CharsetConverter> encoding(new CharsetConverter(CharsetConverter::DEFAULT));
+    CharsetConverter encoding(CharsetConverter::DEFAULT);
     string result;
     vector<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
@@ -662,14 +647,14 @@ string extract_text(const string &doc,
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for Tj operator skipping..
             if (el.first != STRING) continue;
-            result += encoding->get_string(decode_string(el.second));
+            result += encoding.get_string(decode_string(el.second));
         }
         else if (token == "'" || token == "\"")
         {
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for '" operators skipping..
             if (el.first != STRING) continue;
-            result += '\n' + encoding->get_string(decode_string(el.second));
+            result += '\n' + encoding.get_string(decode_string(el.second));
         }
         else if (token == "TJ")
         {
@@ -685,14 +670,7 @@ string extract_text(const string &doc,
         else if (token == "Tf")
         {
             pop(st);
-            encoding = get_font_encoding(doc,
-                                         pop(st).second,
-                                         fonts,
-                                         std::move(encoding),
-                                         storage,
-                                         id2charset_converter,
-                                         decrypt_data,
-                                         cmap_storage);
+            encoding = get_font_encoding(doc, pop(st).second, fonts, storage, decrypt_data, cmap_storage);
         }
         else
         {

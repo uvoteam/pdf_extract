@@ -6,7 +6,6 @@
 #include "charset_converter.h"
 #include "cmap.h"
 
-
 using namespace std;
 using namespace boost::locale::conv;
 

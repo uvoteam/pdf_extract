@@ -3,17 +3,18 @@
 #include <regex>
 #include <utility>
 #include <unordered_map>
-#include <array>
+#include <unordered_set>
 
 #include "object_storage.h"
 #include "common.h"
 #include "cmap.h"
 
-#include <iostream> //temp
+
 using namespace std;
 
 namespace
 {
+    enum { CODE_SPACE_RANGE_TOKEN_NUM = 2 };
     struct token_t
     {
         enum token_type_t { DEC, HEX, ARRAY};
@@ -154,37 +155,33 @@ namespace
     }
 
 //return sizes in bytes for code space range
-    array<unsigned char, 2> get_code_space_range(const string &line)
+    unordered_set<unsigned char> get_code_space_range(const string &line)
     {
         size_t offset = 0;
-        array<unsigned char, 2> result;
-        for (size_t i = 0; i < result.size(); ++i)
+        unordered_set<unsigned char> result;
+        unsigned char v = 0;
+        for (size_t j = 0; j < CODE_SPACE_RANGE_TOKEN_NUM; ++j)
         {
             const token_t token = get_token(line, offset);
             switch (token.type)
             {
             case token_t::HEX:
-            {
                 if (token.val.length() % 2 != 0)
                 {
                     throw pdf_error(FUNC_STRING + "number of bytes is not even. val= " + token.val + " line =" + line);
                 }
-                unsigned char v = token.val.length() / 2;
+                v = token.val.length() / 2;
                 if (v > sizeof(unsigned int)) throw pdf_error(FUNC_STRING + "wrong size number. val= " + token.val);
-                result[i] = token.val.length() / 2;
                 break;
-            }
             case token_t::DEC:
-            {
-                unsigned char v = get_nbytes(strict_stoul(token.val));
+                v = get_nbytes(strict_stoul(token.val));
                 if (v > sizeof(unsigned int)) throw pdf_error(FUNC_STRING + "wrong size number. val= " + token.val);
-                result[i] = v;
                 break;
-            }
             default:
                 throw pdf_error(FUNC_STRING + "wrong token type. line =" + line);
             }
         }
+        for (unsigned char i = 1; i <= v; ++i) result.insert(i);
         return result;
     }
 }
@@ -197,9 +194,6 @@ cmap_t get_cmap(const string &doc,
     enum state_t { NONE, BFCHAR, BFRANGE, CODE_SPACE_RANGE};
     state_t state = NONE;
     const string stream = get_stream(doc, cmap_id_gen, storage, decrypt_data);
-//    cout << stream;
-    //  cout << "----------------------------------------------------------------------------------------------------" << endl;
-    
     cmap_t result;
     for (size_t end = stream.find('\n', 0), start = 0;
          start < stream.length();
@@ -249,19 +243,5 @@ cmap_t get_cmap(const string &doc,
             break;
         }
     }
-/*    cout << "sizes:" << endl;
-    for (unsigned char v : result.sizes) cout << static_cast<unsigned int>(v) << endl;
-    cout << "map:" << endl;
-    for (const pair<unsigned int, string> &p : result.utf16_map)
-    {
-        cout << p.first << '=';
-        for (size_t i = 0; i < p.second.length(); ++i)
-        {
-            cout << hex << (p.second[i] & 0xFF);
-            if (i % 2 != 0) cout << ' ';
-        }
-        cout << endl;
-    }
-    cout << "----------------------------------------------------------------------" << endl;*/
     return result;
 }

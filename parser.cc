@@ -5,6 +5,7 @@
 #include <vector>
 #include <cstdint>
 #include <algorithm>
+#include <memory>
 
 //for test
 #include <fstream>
@@ -36,12 +37,12 @@ size_t get_cross_ref_offset(const string &buffer);
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end);
 void append_object(const string &buf, size_t offset, vector<size_t> &objects);
 char get_object_status(const string &buffer, size_t offset);
-CharsetConverter get_font_encoding(const string &doc,
-                                   const string &font,
-                                   const map<string, pair<string, pdf_object_t>> &fonts,
-                                   const ObjectStorage &storage,
-                                   const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                                   map<unsigned int, cmap_t> &cmap_storage);
+unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
+                                               const string &font,
+                                               const map<string, pair<string, pdf_object_t>> &fonts,
+                                               const ObjectStorage &storage,
+                                               const map<string, pair<string, pdf_object_t>> &decrypt_data,
+                                               map<unsigned int, cmap_t> &cmap_storage);
 size_t get_xref_number(const string &buffer, size_t &offset);
 vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset);
 vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_t cross_ref_offset);
@@ -84,14 +85,13 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t end,
                                                          const map<size_t, size_t> &id2offsets);
 pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets);
-string get_strings_from_array(const string &array, const CharsetConverter &encoding);
+string get_strings_from_array(const string &array, const unique_ptr<CharsetConverter> &encoding);
 string extract_text(const string &doc,
                     const string &page,
                     const map<string, pair<string, pdf_object_t>> &fonts,
                     const ObjectStorage &storage,
                     const map<string, pair<string, pdf_object_t>> &decrypt_data,
                     map<unsigned int, cmap_t> &cmap_storage);
-
 
 bool is_prefix(const char *str, const char *pre)
 {
@@ -118,20 +118,12 @@ size_t get_cross_ref_offset(const string &buffer)
 map<string, pair<string, pdf_object_t>> get_dict_or_indirect_dict(const pair<string, pdf_object_t> &data,
                                                                   const ObjectStorage &storage)
 {
-    size_t id;
-    pair<string, pdf_object_t> p;
     switch (data.second)
     {
     case DICTIONARY:
         return get_dictionary_data(data.first, 0);
     case INDIRECT_OBJECT:
-        id = strict_stoul(data.first.substr(0, efind_first(data.first, " \r\n\t", 0)));
-        p = storage.get_object(id);
-        if (p.second != DICTIONARY)
-        {
-            throw pdf_error(FUNC_STRING + "Indirect obj must be DICTIONARY. Type: " + to_string(p.second));
-        }
-        return get_dictionary_data(p.first, 0);
+        return get_dictionary_data(get_dictionary_from_indirect_object(data.first, storage), 0);
     default:
         throw pdf_error(FUNC_STRING + "wrong object type " + to_string(data.second));
     }
@@ -529,12 +521,12 @@ string get_text(const string &buffer,
     return result;
 }
 
-string get_strings_from_array(const string &array, const CharsetConverter &encoding)
+string get_strings_from_array(const string &array, const unique_ptr<CharsetConverter> &encoding)
 {
     string result;
     for (size_t offset = array.find_first_of("(<", 0); offset != string::npos; offset = array.find_first_of("(<", offset))
     {
-        result += encoding.get_string(decode_string(get_string(array, offset)));
+        result += encoding->get_string(decode_string(get_string(array, offset)));
     }
     return result;
 }
@@ -547,15 +539,15 @@ pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st)
     return result;
 }
 
-CharsetConverter get_font_encoding(const string &doc,
-                                   const string &font,
-                                   const map<string, pair<string, pdf_object_t>> &fonts,
-                                   const ObjectStorage &storage,
-                                   const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                                   map<unsigned int, cmap_t> &cmap_storage)
+unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
+                                               const string &font,
+                                               const map<string, pair<string, pdf_object_t>> &fonts,
+                                               const ObjectStorage &storage,
+                                               const map<string, pair<string, pdf_object_t>> &decrypt_data,
+                                               map<unsigned int, cmap_t> &cmap_storage)
 {
     auto it = fonts.find(font);
-    if (it == fonts.end()) return CharsetConverter(CharsetConverter::DEFAULT);
+    if (it == fonts.end()) return unique_ptr<CharsetConverter>(new CharsetConverter());
     map<string, pair<string, pdf_object_t>> font_dict = get_dict_or_indirect_dict(it->second, storage);
     it = font_dict.find("/ToUnicode");
     if (it != font_dict.end())
@@ -565,32 +557,21 @@ CharsetConverter get_font_encoding(const string &doc,
         {
             cmap_storage.insert(make_pair(cmap_id_gen.first, get_cmap(doc, storage, cmap_id_gen, decrypt_data)));
         }
-        return CharsetConverter(CharsetConverter::CUSTOM, &cmap_storage[cmap_id_gen.first]);
+        return unique_ptr<CharsetConverter>(new CharsetConverter(&cmap_storage[cmap_id_gen.first]));
     }
     it = font_dict.find("/Encoding");
-    if (it == font_dict.end()) return CharsetConverter(CharsetConverter::DEFAULT);
+    if (it == font_dict.end()) return unique_ptr<CharsetConverter>(new CharsetConverter());
     string encoding;
     switch (it->second.second)
     {
-    //TODO custom mapping table
     case DICTIONARY:
-        throw pdf_error(FUNC_STRING + "DICTIONARY is not implemented");
     case INDIRECT_OBJECT:
-    {
-        //TODO handle dict and scalar
-        throw pdf_error(FUNC_STRING + "INDIRECT_OBJECT is not implemented");
-        break;
-    }
+        return CharsetConverter::get_from_dictionary(get_dict_or_indirect_dict(it->second, storage));
     case NAME_OBJECT:
-    {
-        encoding = it->second.first;
-        break;
-    }
+        return unique_ptr<CharsetConverter>(new CharsetConverter(it->second.first));
     default:
         throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(it->second.second));
     }
-
-    return CharsetConverter(encoding);
 }
 
 bool put2stack(vector<pair<pdf_object_t, string>> &st, const string &buffer, size_t &i)
@@ -619,7 +600,7 @@ string extract_text(const string &doc,
                     const map<string, pair<string, pdf_object_t>> &decrypt_data,
                     map<unsigned int, cmap_t> &cmap_storage)
 {
-    CharsetConverter encoding(CharsetConverter::DEFAULT);
+    unique_ptr<CharsetConverter> encoding(new CharsetConverter());
     string result;
     vector<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
@@ -647,14 +628,14 @@ string extract_text(const string &doc,
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for Tj operator skipping..
             if (el.first != STRING) continue;
-            result += encoding.get_string(decode_string(el.second));
+            result += encoding->get_string(decode_string(el.second));
         }
         else if (token == "'" || token == "\"")
         {
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for '" operators skipping..
             if (el.first != STRING) continue;
-            result += '\n' + encoding.get_string(decode_string(el.second));
+            result += '\n' + encoding->get_string(decode_string(el.second));
         }
         else if (token == "TJ")
         {

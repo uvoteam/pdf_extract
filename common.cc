@@ -667,3 +667,14 @@ pair<unsigned int, unsigned int> get_id_gen(const string &data)
     unsigned int gen = strict_stoul(data.substr(offset, end_offset - offset));
     return make_pair(id, gen);
 }
+
+string get_dictionary_from_indirect_object(const string &indirect_object, const ObjectStorage &storage)
+{
+    size_t id = strict_stoul(indirect_object.substr(0, efind_first(indirect_object, " \r\n\t", 0)));
+    const pair<string, pdf_object_t> p = storage.get_object(id);
+    if (p.second != DICTIONARY)
+    {
+        throw pdf_error(FUNC_STRING + "Indirect obj must be DICTIONARY. Type: " + to_string(p.second));
+    }
+    return p.first;
+}

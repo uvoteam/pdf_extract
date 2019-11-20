@@ -1,12 +1,19 @@
 #include <string>
 #include <unordered_map>
+#include <map>
+#include <vector>
+#include <utility>
+#include <memory>
 
 #include <boost/locale/encoding.hpp>
+#include <boost/optional.hpp>
 
 #include "charset_converter.h"
 #include "cmap.h"
+#include "common.h"
 
 using namespace std;
+using namespace boost;
 using namespace boost::locale::conv;
 
 namespace
@@ -63,9 +70,17 @@ string CharsetConverter::get_string(const string &s) const
         }
         return result;
     }
+    case DIFFERENCE_MAP:
+        result.reserve(s.length());
+        for (char c : s)
+        {
+            auto it = difference_map.find(static_cast<unsigned char>(c));
+            if (it != difference_map.end()) result.append(it->second);
+        }
+        return result;
     case OTHER:
         return to_utf<char>(s, charset);
-    case CUSTOM:
+    case TO_UNICODE:
     {
         string decoded;
         for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
@@ -74,12 +89,32 @@ string CharsetConverter::get_string(const string &s) const
     }
 }
 
-CharsetConverter::CharsetConverter(PDFEncode_t PDFencode_arg, const cmap_t *cmap_arg /*= nullptr */) :
-                                   PDFencode(PDFencode_arg), charset(nullptr), custom_encoding(cmap_arg)
+CharsetConverter::CharsetConverter() noexcept :
+                                  custom_encoding(nullptr),
+                                  charset(nullptr),
+                                  PDFencode(DEFAULT),
+                                  difference_map(unordered_map<unsigned int, string>())
 {
 }
 
-CharsetConverter::CharsetConverter(const string &encoding) : custom_encoding(nullptr)
+CharsetConverter::CharsetConverter(const cmap_t *cmap_arg) :
+                                   custom_encoding(cmap_arg),
+                                   charset(nullptr),
+                                   PDFencode(TO_UNICODE),
+                                   difference_map(unordered_map<unsigned int, string>())
+{
+}
+
+CharsetConverter::CharsetConverter(unordered_map<unsigned int, string> &&difference_map) :
+                                   custom_encoding(nullptr),
+                                   charset(nullptr),
+                                   PDFencode(DIFFERENCE_MAP),
+                                   difference_map(std::move(difference_map))
+{
+}
+
+CharsetConverter::CharsetConverter(const string &encoding) :
+                                   custom_encoding(nullptr), difference_map(unordered_map<unsigned int, string>())
 {
     if (encoding == "/WinAnsiEncoding")
     {
@@ -106,6 +141,76 @@ CharsetConverter::CharsetConverter(const string &encoding) : custom_encoding(nul
         charset = encoding2charset.at(encoding);
         PDFencode = charset? OTHER : UTF8;
     }
+}
+
+unique_ptr<CharsetConverter> CharsetConverter::get_from_dictionary(const map<string, pair<string, pdf_object_t>> &dictionary)
+{
+    auto it = dictionary.find("/BaseEncoding");
+    PDFEncode_t encoding;
+    if (it == dictionary.end()) encoding = DEFAULT;
+    else if (it->second.first == "/MacRomanEncoding") encoding = MAC_ROMAN;
+    else if (it->second.first == "/MacExpertEncoding") encoding = MAC_EXPERT;
+    else if (it->second.first == "/WinAnsiEncoding") encoding = WIN;
+    else throw pdf_error(FUNC_STRING + "wrong /BaseEncoding value:" + it->second.first);
+    it = dictionary.find("/Differences");
+    if (it->second.second != ARRAY)
+    {
+        throw pdf_error(FUNC_STRING + "/Differences is not array. Type=" + to_string(it->second.second));
+    }
+    return CharsetConverter::get_diff_map_converter(encoding, it->second.first);
+}
+
+optional<string> CharsetConverter::get_symbol(const string &array, size_t &offset)
+{
+    for (;offset < array.length(); ++offset)
+    {
+        switch (array[offset])
+        {
+        case '/':
+        {
+            size_t end_offset = efind_first(array, "  \r\n\t/]", offset + 1);
+            string symbol = symbol_table.at(array.substr(offset, end_offset - offset));
+            offset = end_offset;
+            return symbol;
+        }
+        case ' ':
+        case '\t':
+        case '\r':
+        case '\n':
+            continue;
+        case ']':
+            return boost::none;
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            return boost::none;
+        default:
+            throw pdf_error(FUNC_STRING + "wrong symbol '" + array[offset] + "'. array:" + array);
+        }
+    }
+    return boost::none;
+}
+
+unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_t encoding, const std::string &array)
+{
+    unordered_map<unsigned int, string> code2symbol = standard_encodings.at(encoding);
+    for (size_t offset = efind_number(array, 0); offset < array.length(); offset = find_number(array, offset))
+    {
+        vector<string> symbols;
+        size_t end_offset = efind_first(array, "  \r\n\t/", offset);
+        unsigned int code = strict_stoul(array.substr(offset, end_offset - offset));
+        offset = end_offset;
+        while (optional<string> symbol = get_symbol(array, offset)) symbols.push_back(*symbol);
+        for (unsigned int n = code, i = 0; i < symbols.size(); ++i, ++n) code2symbol[n] = symbols[i];
+    }
+    return unique_ptr<CharsetConverter>(new CharsetConverter(std::move(code2symbol)));
 }
 
 const unordered_map<unsigned int, string> CharsetConverter::standard_encoding = {{32, " "},
@@ -1027,10 +1132,13 @@ const std::unordered_map<string, const char*> CharsetConverter::encoding2charset
     {"/UniHojo-UTF32-H", "UTF-32be"},
     {"/UniHojo-UTF32-V", "UTF-32be"}};
 
-const std::unordered_map<CharsetConverter::PDFEncode_t,
-                         const std::unordered_map<unsigned int, string>&,
-                         EnumClassHash> CharsetConverter::standard_encodings = {
+const std::map<CharsetConverter::PDFEncode_t,
+               const std::unordered_map<unsigned int, string>&> CharsetConverter::standard_encodings = {
     {DEFAULT, standard_encoding},
     {MAC_EXPERT, mac_expert_encoding},
     {MAC_ROMAN, mac_roman_encoding},
     {WIN, win_ansi_encoding}};
+
+const std::unordered_map<std::string, std::string> CharsetConverter::symbol_table = {
+    #include "symbol_table.h"
+};

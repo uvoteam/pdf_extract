@@ -67,4 +67,5 @@ size_t get_length(const std::string &buffer,
                   const std::map<size_t, size_t> &id2offsets,
                   const std::map<std::string, std::pair<std::string, pdf_object_t>> &props);
 std::pair<unsigned int, unsigned int> get_id_gen(const std::string &data);
+std::string get_dictionary_from_indirect_object(const std::string &indirect_object, const ObjectStorage &storage);
 #endif //COMMON

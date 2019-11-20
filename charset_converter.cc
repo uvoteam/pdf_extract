@@ -169,9 +169,9 @@ optional<string> CharsetConverter::get_symbol(const string &array, size_t &offse
         case '/':
         {
             size_t end_offset = efind_first(array, "  \r\n\t/]", offset + 1);
-            string symbol = symbol_table.at(array.substr(offset, end_offset - offset));
+            auto it = symbol_table.find(array.substr(offset, end_offset - offset));
             offset = end_offset;
-            return symbol;
+            return it == symbol_table.end()? " " : it->second;
         }
         case ' ':
         case '\t':

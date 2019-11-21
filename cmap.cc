@@ -77,16 +77,17 @@ namespace
             throw pdf_error(FUNC_STRING + "wrong token type. val =" + token.val);
         }
     }
-
+    //convert to utf16-le symbol
     string num2string(unsigned int n)
     {
-        if (n == 0) return string(1, 0);
+        if (n == 0) return string(2, 0);
         string result;
         while (n)
         {
             result.push_back(n & 0xFF);
             n >>= 8;
         }
+        if (result.length() == 1) result.push_back(0);
         return result;
     }
 
@@ -108,7 +109,7 @@ namespace
             string result;
             for(size_t i = efind_first(token.val, hex_digits, 0), end = token.val.find_first_of(" \t", i);
                 i != string::npos;
-                i = token.val.find(hex_digits, end), end = token.val.find_first_of(" \t", i))
+                i = token.val.find_first_of(hex_digits, end), end = token.val.find_first_of(" \t", i))
             {
                 if (end == string::npos) end = token.val.length();
                 result.append(get_hex_val(token.val.substr(i, end - i)));

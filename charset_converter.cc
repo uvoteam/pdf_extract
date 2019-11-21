@@ -12,7 +12,6 @@
 #include "cmap.h"
 #include "common.h"
 
-
 using namespace std;
 using namespace boost;
 using namespace boost::locale::conv;

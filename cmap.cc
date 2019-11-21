@@ -90,6 +90,15 @@ namespace
         return result;
     }
 
+    //get utf16le symbols from hex
+    string get_hex_val(const string &hex_str)
+    {
+        size_t n = hex_str.length() / 2 + (hex_str.length() % 2);
+        string result(n, 0);
+        for (int j = result.length() - 1, i = 0; j >= 0; --j, i += 2) result[j] = strict_stoul(hex_str.substr(i, 2), 16);
+        return result;
+    }
+
     string convert2string(const token_t &token)
     {
         switch (token.type)
@@ -102,8 +111,7 @@ namespace
                 i = token.val.find(hex_digits, end), end = token.val.find_first_of(" \t", i))
             {
                 if (end == string::npos) end = token.val.length();
-                const string hex_str = token.val.substr(i, end - i);
-                for (size_t j = 0; j < hex_str.length(); ++j) result.push_back(strict_stoul(hex_str.substr(j, 2), 16));
+                result.append(get_hex_val(token.val.substr(i, end - i)));
             }
             return result;
         }

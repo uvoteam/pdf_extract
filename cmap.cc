@@ -15,6 +15,7 @@ using namespace std;
 namespace
 {
     enum { CODE_SPACE_RANGE_TOKEN_NUM = 2 };
+    const char *hex_digits = "01234567890abcdefABCDEF";
     struct token_t
     {
         enum token_type_t { DEC, HEX, ARRAY};
@@ -95,11 +96,14 @@ namespace
         {
         case token_t::HEX:
         {
-            if (token.val.length() % 2 != 0) throw pdf_error(FUNC_STRING + "token hex val is not even. val = " + token.val);
-            string result(token.val.length() / 2, 0);
-            for(size_t i = 0, j = result.length() - 1; i < token.val.length(); i += 2, --j)
+            string result;
+            for(size_t i = efind_first(token.val, hex_digits, 0), end = token.val.find_first_of(" \t", i);
+                i != string::npos;
+                i = token.val.find(hex_digits, end), end = token.val.find_first_of(" \t", i))
             {
-                result[j] = strict_stoul(token.val.substr(i, 2), 16);
+                if (end == string::npos) end = token.val.length();
+                const string hex_str = token.val.substr(i, end - i);
+                for (size_t j = 0; j < hex_str.length(); ++j) result.push_back(strict_stoul(hex_str.substr(j, 2), 16));
             }
             return result;
         }

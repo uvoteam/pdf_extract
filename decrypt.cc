@@ -104,7 +104,7 @@ namespace
     array<unsigned char, 4> get_ext(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
     {
         array<unsigned char, 4> ext;
-        unsigned int p_value = strict_stoul(decrypt_opts.at("/P").first);
+        long int p_value = strict_stol(decrypt_opts.at("/P").first);
         ext[0] = static_cast<unsigned char>(p_value & 0xff);
         ext[1] = static_cast<unsigned char>((p_value >>  8) & 0xff);
         ext[2] = static_cast<unsigned char>((p_value >> 16) & 0xff);

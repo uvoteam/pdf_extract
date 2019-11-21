@@ -47,6 +47,7 @@ std::string get_string(const std::string &buffer, size_t &offset);
 std::string get_dictionary(const std::string &buffer, size_t &offset);
 std::string decode_string(const std::string &str);
 size_t strict_stoul(const std::string &str, int base = 10);
+long int strict_stol(const std::string &str, int base = 10);
 std::string predictor_decode(const std::string &data,
                              const std::map<std::string,
                              std::pair<std::string, pdf_object_t>> &opts);

@@ -557,6 +557,25 @@ size_t strict_stoul(const string &str, int base /*= 10*/)
     return val;
 }
 
+long int strict_stol(const string &str, int base /*= 10*/)
+{
+    if (str.empty()) throw pdf_error(FUNC_STRING + "string is empty");
+    size_t pos;
+    size_t val;
+    try
+    {
+        val = stol(str, &pos, base);
+    }
+    catch (const std::exception &e)
+    {
+        throw pdf_error(FUNC_STRING + str + " is not number");
+    }
+
+    if (pos != str.size()) throw pdf_error(FUNC_STRING + str + " is not number");
+
+    return val;
+}
+
 vector<pair<unsigned int, unsigned int>> get_set(const string &array)
 {
     vector<pair<unsigned int, unsigned int>> result;

@@ -5,16 +5,20 @@
 #include <unordered_map>
 #include <unordered_set>
 
+#include <boost/optional.hpp>
+
 #include "object_storage.h"
 #include "common.h"
 #include "cmap.h"
 
 
 using namespace std;
+using namespace boost;
 
 namespace
 {
     enum { CODE_SPACE_RANGE_TOKEN_NUM = 2 };
+    enum State_t { NONE, BFCHAR, BFRANGE, CODE_SPACE_RANGE};
     const char *hex_digits = "01234567890abcdefABCDEF";
     struct token_t
     {
@@ -123,12 +127,11 @@ namespace
         }
     }
 
-    void get_bfrange(const string &line, unordered_map<unsigned int, string> &utf16_map)
+    size_t get_bfrange(const string &stream, size_t offset, unordered_map<unsigned int, string> &utf16_map)
     {
-        size_t offset = 0;
-        unsigned int first = convert2number(get_token(line, offset));
-        unsigned int second = convert2number(get_token(line, offset));
-        token_t third_token = get_token(line, offset);
+        unsigned int first = convert2number(get_token(stream, offset));
+        unsigned int second = convert2number(get_token(stream, offset));
+        token_t third_token = get_token(stream, offset);
         switch (third_token.type)
         {
         case token_t::HEX:
@@ -140,22 +143,23 @@ namespace
         }
         case token_t::ARRAY:
         {
-            size_t offset = 0;
+            size_t token_offset = 0;
             for (unsigned int n = first; n <= second; ++n)
             {
-                utf16_map.insert(make_pair(n, num2string(convert2number(get_token(third_token.val, offset)))));
+                utf16_map.insert(make_pair(n, num2string(convert2number(get_token(third_token.val, token_offset)))));
             }
             break;
         }
         }
+        return offset + 1;
     }
-    
-    pair<unsigned int, string> get_bfchar(const string &line)
+
+    size_t get_bfchar(const string &stream, size_t offset, unordered_map<unsigned int, string> &utf16_map)
     {
-        size_t offset = 0;
-        unsigned int num = convert2number(get_token(line, offset));
-        const string str = convert2string(get_token(line, offset));
-        return make_pair(num, str);
+        unsigned int num = convert2number(get_token(stream, offset));
+        const string str = convert2string(get_token(stream, offset));
+        utf16_map.insert(make_pair(num, str));
+        return offset + 1;
     }
 
     unsigned char get_nbytes(unsigned int a)
@@ -168,14 +172,13 @@ namespace
     }
 
 //return sizes in bytes for code space range
-    unordered_set<unsigned char> get_code_space_range(const string &line)
+    size_t get_code_space_range(const string &stream, size_t offset, unordered_set<unsigned char> &sizes)
     {
-        size_t offset = 0;
         int base = 0;
         unsigned char max = 0;
         for (size_t j = 0; j < CODE_SPACE_RANGE_TOKEN_NUM; ++j)
         {
-            const token_t token = get_token(line, offset);
+            const token_t token = get_token(stream, offset);
             switch (token.type)
             {
             case token_t::HEX:
@@ -185,17 +188,37 @@ namespace
                 base = 10;
                 break;
             default:
-                throw pdf_error(FUNC_STRING + "wrong token type. line =" + line);
+                throw pdf_error(FUNC_STRING + "wrong token type.");
             }
             unsigned char v = get_nbytes(strict_stoul(token.val, base));
             if (v > sizeof(unsigned int)) throw pdf_error(FUNC_STRING + "wrong size number. val= " + token.val);
             if (v > max) max = v;
         }
 
-        unordered_set<unsigned char> result;
-        for (unsigned char i = 1; i <= max; ++i) result.insert(i);
+        for (unsigned char i = 1; i <= max; ++i) sizes.insert(i);
 
-        return result;
+        return offset + 1;
+    }
+
+    bool is_line_empty(const string &s)
+    {
+        for (char c : s)
+        {
+            if (c != ' ' && c != '\t' && c != '\r' && c != '\n') return false;
+        }
+        return true;
+    }
+
+    optional<State_t> get_state(const string &line)
+    {
+        if (regex_search(line, regex("^[\t ]*[0-9]+[\t ]+beginbfchar[ \t\n]"))) return BFCHAR;
+        if (regex_search(line, regex("^[\t ]*[0-9]+[\t ]+beginbfrange[ \t\n]"))) return BFRANGE;
+        if (regex_search(line, regex("^[\t ]*[0-9]+[\t ]+begincodespacerange[ \t\n]"))) return CODE_SPACE_RANGE;
+        if (regex_search(line, regex("^[\t ]*endbfchar[ \t\n]")) ||
+            regex_search(line, regex("^[\t ]*endbfrange[ \t\n]")) ||
+            regex_search(line, regex("^[\t ]*endcodespacerange[ \t\n]"))) return NONE;
+
+        return boost::none;
     }
 }
 
@@ -204,8 +227,7 @@ cmap_t get_cmap(const string &doc,
                 const pair<unsigned int, unsigned int> &cmap_id_gen,
                 const map<string, pair<string, pdf_object_t>> &decrypt_data)
 {
-    enum state_t { NONE, BFCHAR, BFRANGE, CODE_SPACE_RANGE};
-    state_t state = NONE;
+    State_t state = NONE;
     const string stream = get_stream(doc, cmap_id_gen, storage, decrypt_data);
     cmap_t result;
     for (size_t end = stream.find('\n', 0), start = 0;
@@ -217,42 +239,25 @@ cmap_t get_cmap(const string &doc,
         size_t comment_position = line.find('%');
         if (comment_position == 0) continue;
         if (comment_position != string::npos) line = line.substr(0, comment_position);
-        if (regex_search(line, regex("^[\t ]*[0-9]+[\t ]+beginbfchar[ \t\n]")))
+        if (is_line_empty(line)) continue;
+        optional<State_t> r = get_state(line);
+        if (r)
         {
-            state = BFCHAR;
+            state = *r;
             continue;
         }
-        if (regex_search(line, regex("^[\t ]*[0-9]+[\t ]+beginbfrange[ \t\n]")))
-        {
-            state = BFRANGE;
-            continue;
-        }
-        if (regex_search(line, regex("^[\t ]*[0-9]+[\t ]+begincodespacerange[ \t\n]")))
-        {
-            state = CODE_SPACE_RANGE;
-            continue;
-        }
-
-        if (regex_search(line, regex("^[\t ]*endbfchar[ \t\n]")) ||
-            regex_search(line, regex("^[\t ]*endbfrange[ \t\n]")) ||
-            regex_search(line, regex("^[\t ]*endcodespacerange[ \t\n]")))
-        {
-            state = NONE;
-            continue;
-        }
-
         switch (state)
         {
         case NONE:
             continue;
         case BFCHAR:
-            result.utf16_map.insert(get_bfchar(line));
+            end = get_bfchar(stream, start, result.utf16_map);
             break;
         case BFRANGE:
-            get_bfrange(line, result.utf16_map);
+            end = get_bfrange(stream, start, result.utf16_map);
             break;
         case CODE_SPACE_RANGE:
-            for (unsigned char v : get_code_space_range(line)) result.sizes.insert(v);
+            end = get_code_space_range(stream, start, result.sizes);
             break;
         }
     }

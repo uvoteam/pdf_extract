@@ -117,7 +117,7 @@ namespace
 
     size_t find_value_end_delimiter(const string &buffer, size_t offset)
     {
-        size_t result = buffer.find_first_of("\r\t\n /", offset);
+        size_t result = buffer.find_first_of("\r\t\n /](<", offset);
         size_t dict_end_offset = buffer.find(">>", offset);
         if (result == string::npos || dict_end_offset < result) result = dict_end_offset;
         if (result == string::npos) throw pdf_error(FUNC_STRING + " can`t find end delimiter for value");
@@ -446,6 +446,22 @@ map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer
     }
 }
 
+vector<pair<string, pdf_object_t>> get_array_data(const string &buffer, size_t offset)
+{
+    offset = efind(buffer, '[', offset);
+    ++offset;
+    vector<pair<string, pdf_object_t>> result;
+    while (true)
+    {
+        offset = skip_comments(buffer, offset);
+        if (buffer.at(offset) == ']') return result;
+        pdf_object_t type = get_object_type(buffer, offset);
+        const string val = TYPE2FUNC.at(type)(buffer, offset);
+        result.push_back(make_pair(val, type));
+    }
+    return result;
+}
+
 string predictor_decode(const string &data, const map<string, pair<string, pdf_object_t>> &opts)
 {
     unsigned int predictor = get_decode_key(opts, "/Predictor", 1);
@@ -687,13 +703,24 @@ pair<unsigned int, unsigned int> get_id_gen(const string &data)
     return make_pair(id, gen);
 }
 
-string get_dictionary_from_indirect_object(const string &indirect_object, const ObjectStorage &storage)
+string get_indirect_dictionary(const string &indirect_object, const ObjectStorage &storage)
 {
     size_t id = strict_stoul(indirect_object.substr(0, efind_first(indirect_object, " \r\n\t", 0)));
     const pair<string, pdf_object_t> p = storage.get_object(id);
     if (p.second != DICTIONARY)
     {
         throw pdf_error(FUNC_STRING + "Indirect obj must be DICTIONARY. Type: " + to_string(p.second));
+    }
+    return p.first;
+}
+
+string get_indirect_array(const string &indirect_object, const ObjectStorage &storage)
+{
+    size_t id = strict_stoul(indirect_object.substr(0, efind_first(indirect_object, " \r\n\t", 0)));
+    const pair<string, pdf_object_t> p = storage.get_object(id);
+    if (p.second != ARRAY)
+    {
+        throw pdf_error(FUNC_STRING + "Indirect obj must be ARRAY. Type: " + to_string(p.second));
     }
     return p.first;
 }

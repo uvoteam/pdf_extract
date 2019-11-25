@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <algorithm>
 #include <memory>
+#include <stack>
 
 //for test
 #include <fstream>
@@ -75,7 +76,6 @@ void get_pages_id_fonts_int(const map<string, pair<string, pdf_object_t>> &paren
                             const ObjectStorage &storage,
                             pages_id_resources_t &result);
 vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, pdf_object_t> &page_pair);
-bool is_data4stack(const vector<pair<pdf_object_t, string>> &stack, const string &buffer, size_t &i);
 string output_content(const string &buffer,
                       const ObjectStorage &storage,
                       const pair<unsigned int, unsigned int> &id_gen,
@@ -85,7 +85,6 @@ map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
                                                          size_t end,
                                                          const map<size_t, size_t> &id2offsets);
 pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets);
-string get_strings_from_array(const string &array, const unique_ptr<CharsetConverter> &encoding);
 string extract_text(const string &doc,
                     const string &page,
                     const map<string, pair<string, pdf_object_t>> &fonts,
@@ -123,7 +122,7 @@ map<string, pair<string, pdf_object_t>> get_dict_or_indirect_dict(const pair<str
     case DICTIONARY:
         return get_dictionary_data(data.first, 0);
     case INDIRECT_OBJECT:
-        return get_dictionary_data(get_dictionary_from_indirect_object(data.first, storage), 0);
+        return get_dictionary_data(get_indirect_dictionary(data.first, storage), 0);
     default:
         throw pdf_error(FUNC_STRING + "wrong object type " + to_string(data.second));
     }
@@ -521,21 +520,11 @@ string get_text(const string &buffer,
     return result;
 }
 
-string get_strings_from_array(const string &array, const unique_ptr<CharsetConverter> &encoding)
-{
-    string result;
-    for (size_t offset = array.find_first_of("(<", 0); offset != string::npos; offset = array.find_first_of("(<", offset))
-    {
-        result += encoding->get_string(decode_string(get_string(array, offset)));
-    }
-    return result;
-}
-
-pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st)
+pair<pdf_object_t, string> pop(stack<pair<pdf_object_t, string>> &st)
 {
     if (st.empty()) throw pdf_error(FUNC_STRING + "stack is empty");
-    pair<pdf_object_t, string> result = st.back();
-    st.pop_back();
+    pair<pdf_object_t, string> result = st.top();
+    st.pop();
     return result;
 }
 
@@ -549,6 +538,7 @@ unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
     auto it = fonts.find(font);
     if (it == fonts.end()) return unique_ptr<CharsetConverter>(new CharsetConverter());
     map<string, pair<string, pdf_object_t>> font_dict = get_dict_or_indirect_dict(it->second, storage);
+
     it = font_dict.find("/ToUnicode");
     if (it != font_dict.end())
     {
@@ -557,7 +547,8 @@ unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
         {
             cmap_storage.insert(make_pair(cmap_id_gen.first, get_cmap(doc, storage, cmap_id_gen, decrypt_data)));
         }
-        return unique_ptr<CharsetConverter>(new CharsetConverter(&cmap_storage[cmap_id_gen.first]));
+        return unique_ptr<CharsetConverter>(new CharsetConverter(&cmap_storage[cmap_id_gen.first],
+                                                                 CharsetConverter::get_space_width(storage, font_dict)));
     }
     it = font_dict.find("/Encoding");
     if (it == font_dict.end()) return unique_ptr<CharsetConverter>(new CharsetConverter());
@@ -566,27 +557,29 @@ unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
     {
     case DICTIONARY:
     case INDIRECT_OBJECT:
-        return CharsetConverter::get_from_dictionary(get_dict_or_indirect_dict(it->second, storage));
+        return CharsetConverter::get_from_dictionary(get_dict_or_indirect_dict(it->second, storage),
+                                                     CharsetConverter::get_space_width(storage, font_dict));
     case NAME_OBJECT:
-        return unique_ptr<CharsetConverter>(new CharsetConverter(it->second.first));
+        return unique_ptr<CharsetConverter>(new CharsetConverter(it->second.first,
+                                                                 CharsetConverter::get_space_width(storage, font_dict)));
     default:
         throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(it->second.second));
     }
 }
 
-bool put2stack(vector<pair<pdf_object_t, string>> &st, const string &buffer, size_t &i)
+bool put2stack(stack<pair<pdf_object_t, string>> &st, const string &buffer, size_t &i)
 {
     switch (buffer[i])
     {
     case '(':
-        st.push_back(make_pair(STRING, get_string(buffer, i)));
+        st.push(make_pair(STRING, get_string(buffer, i)));
         return true;
     case '<':
-        buffer.at(i + 1) == '<'? st.push_back(make_pair(DICTIONARY, get_dictionary(buffer, i))) :
-                                 st.push_back(make_pair(STRING, get_string(buffer, i)));
+        buffer.at(i + 1) == '<'? st.push(make_pair(DICTIONARY, get_dictionary(buffer, i))) :
+                                 st.push(make_pair(STRING, get_string(buffer, i)));
         return true;
     case '[':
-        st.push_back(make_pair(ARRAY, get_array(buffer, i)));
+        st.push(make_pair(ARRAY, get_array(buffer, i)));
         return true;
     default:
         return false;
@@ -602,7 +595,7 @@ string extract_text(const string &doc,
 {
     unique_ptr<CharsetConverter> encoding(new CharsetConverter());
     string result;
-    vector<pair<pdf_object_t, string>> st;
+    stack<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
     for (size_t i = 0; i < page.length();)
     {
@@ -642,7 +635,7 @@ string extract_text(const string &doc,
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for TJ operator skipping..
             if (el.first != ARRAY) continue;
-            result += '\n' + get_strings_from_array(el.second, encoding);
+            result += '\n' + encoding->get_strings_from_array(el.second);
         }
         else if (token == "T*" || token == "Td" || token == "TD" || token == "Tm")
         {
@@ -655,7 +648,7 @@ string extract_text(const string &doc,
         }
         else
         {
-            st.push_back(make_pair(VALUE, token));
+            st.push(make_pair(VALUE, token));
         }
     }
     return result;
@@ -747,6 +740,5 @@ int main(int argc, char *argv[])
     std::string str((std::istreambuf_iterator<char>(t)),
                     std::istreambuf_iterator<char>());
     cout << pdf2txt(str);
-
     return 0;
 }

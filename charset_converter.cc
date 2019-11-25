@@ -16,8 +16,22 @@ using namespace std;
 using namespace boost;
 using namespace boost::locale::conv;
 
+#define RETURN_SPACE_WIDTH_VALUE(DICT, KEY) do \
+    {\
+        auto it = DICT.find(KEY);\
+        if (it != DICT.end())\
+        {\
+            if (it->second.second != VALUE) throw pdf_error(FUNC_STRING + KEY + " must have VALUE value"); \
+            return strict_stoul(it->second.first);\
+        }\
+    }\
+    while(false)
+
 namespace
 {
+    enum { SPACE_WIDTH_FRACTION = 2,
+           NO_SPACE_WIDTH = 0,
+           DEFAULT_SPACE_WIDTH = 200};
     unsigned int convert2uint(const string &s)
     {
         if (s.length() > sizeof(unsigned int) || s.empty()) throw pdf_error(FUNC_STRING + "wrong length. s= " + s);
@@ -31,6 +45,82 @@ namespace
         return v.v;
     }
 
+    unsigned int get_space_width_from_font_descriptor(const ObjectStorage &storage, const pair<string, pdf_object_t> &dict)
+    {
+        if (dict.second != INDIRECT_OBJECT) throw pdf_error(FUNC_STRING + "/FontDescriptor must be indirect object");
+        const pair<unsigned int, unsigned int> desc_id_gen = get_id_gen(dict.first);
+        const pair<string, pdf_object_t> desc = storage.get_object(desc_id_gen.first);
+        if (desc.second != DICTIONARY) throw pdf_error(FUNC_STRING + "/FontDescriptor must be dictionary");
+        const map<string, pair<string, pdf_object_t>> desc_dict = get_dictionary_data(desc.first, 0);
+        RETURN_SPACE_WIDTH_VALUE(desc_dict, "/AvgWidth");
+        RETURN_SPACE_WIDTH_VALUE(desc_dict, "/MissingWidth");
+        return NO_SPACE_WIDTH;
+    }
+
+    unsigned int get_space_width_from_widths(const ObjectStorage &storage, const pair<string, pdf_object_t> &array_arg)
+    {
+        unsigned int sum = 0, n = 0;
+        const string array = (array_arg.second == ARRAY)? array_arg.first : get_indirect_array(array_arg.first, storage);
+        const vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
+        for (const pair<string, pdf_object_t> &p : result)
+        {
+            ++n;
+            sum += strict_stoul(p.first);
+        }
+        return (n == 0)? NO_SPACE_WIDTH : (sum / n);
+    }
+
+    //https://www.adobe.com/content/dam/acom/en/devnet/pdf/pdfs/pdf_reference_archives/PDFReference.pdf
+    // p. 340
+    unsigned int get_space_width_from_w(const ObjectStorage &storage, const pair<string, pdf_object_t> &array_arg)
+    {
+        unsigned int sum = 0, n = 0;
+        const string array = (array_arg.second == ARRAY)? array_arg.first :
+                                                          get_indirect_array(array_arg.first, storage);
+        const vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
+        for (size_t i = 0; i < result.size(); i += 3)
+        {
+            switch (result.at(i + 2).second)
+            {
+            case VALUE:
+            {
+                unsigned int n_chars = strict_stoul(result[i + 1].first) - strict_stoul(result[i].first) + 1;
+                n += n_chars;
+                sum += n_chars * strict_stoul(result[i + 2].first);
+                break;
+            }
+            case ARRAY:
+            {
+                const vector<pair<string, pdf_object_t>> w_array = get_array_data(result[i + 2].first, 0);
+                for (const pair<string, pdf_object_t> &p : w_array)
+                {
+                    ++n;
+                    sum += strict_stoul(p.first);
+                }
+                break;
+            }
+            default:
+                throw pdf_error(FUNC_STRING + "wrong type for val " + result[i + 2].first +
+                                " type=" + to_string(result[i + 2].second));
+            }
+        }
+        return (n == 0)? NO_SPACE_WIDTH : (sum / n);
+    }
+}
+
+//https://stackoverflow.com/questions/55147999/pdf-tj-operator/55180478
+unsigned int CharsetConverter::get_space_width(const ObjectStorage &storage,
+                                               const map<string, pair<string, pdf_object_t>> &font_dict)
+{
+    auto it = font_dict.find("/Widths");
+    if (it != font_dict.end()) return get_space_width_from_widths(storage, it->second);
+    it = font_dict.find("/W");
+    if (it != font_dict.end()) return get_space_width_from_w(storage, it->second);
+    RETURN_SPACE_WIDTH_VALUE(font_dict, "/DW");
+    it = font_dict.find("/FontDescriptor");
+    if (it != font_dict.end()) return get_space_width_from_font_descriptor(storage, it->second);
+
+    return NO_SPACE_WIDTH;
 }
 
 string CharsetConverter::custom_decode_symbol(const string &s, size_t &i) const
@@ -46,6 +136,32 @@ string CharsetConverter::custom_decode_symbol(const string &s, size_t &i) const
     }
     ++i;
     return string();
+}
+
+string CharsetConverter::get_strings_from_array(const string &array) const
+{
+    string result;
+    for (const pair<string, pdf_object_t> &p : get_array_data(array, 0))
+    {
+        switch (p.second)
+        {
+        case VALUE:
+        {
+            long int n = strict_stol(p.first);
+            if (n > 0) continue;
+            n = -n;
+            if (n > get_space_width()) result += ' ';
+            break;
+        }
+        case STRING:
+            result += get_string(decode_string(p.first));
+            break;
+        default:
+            throw pdf_error(FUNC_STRING + "wrong type " + to_string(p.second) + " val=" + p.first);
+        }
+    }
+
+    return result;
 }
 
 string CharsetConverter::get_string(const string &s) const
@@ -93,28 +209,33 @@ CharsetConverter::CharsetConverter() noexcept :
                                   custom_encoding(nullptr),
                                   charset(nullptr),
                                   PDFencode(DEFAULT),
-                                  difference_map(unordered_map<unsigned int, string>())
+                                  difference_map(unordered_map<unsigned int, string>()),
+                                  space_width(NO_SPACE_WIDTH)
 {
 }
 
-CharsetConverter::CharsetConverter(const cmap_t *cmap_arg) :
+CharsetConverter::CharsetConverter(const cmap_t *cmap_arg, unsigned int space_width_arg) :
                                    custom_encoding(cmap_arg),
                                    charset(nullptr),
                                    PDFencode(TO_UNICODE),
-                                   difference_map(unordered_map<unsigned int, string>())
+                                   difference_map(unordered_map<unsigned int, string>()),
+                                   space_width(space_width_arg / SPACE_WIDTH_FRACTION)
 {
 }
 
-CharsetConverter::CharsetConverter(unordered_map<unsigned int, string> &&difference_map) :
+CharsetConverter::CharsetConverter(unordered_map<unsigned int, string> &&difference_map, unsigned int space_width_arg) :
                                    custom_encoding(nullptr),
                                    charset(nullptr),
                                    PDFencode(DIFFERENCE_MAP),
-                                   difference_map(std::move(difference_map))
+                                   difference_map(std::move(difference_map)),
+                                   space_width(space_width_arg / SPACE_WIDTH_FRACTION)
 {
 }
 
-CharsetConverter::CharsetConverter(const string &encoding) :
-                                   custom_encoding(nullptr), difference_map(unordered_map<unsigned int, string>())
+CharsetConverter::CharsetConverter(const string &encoding, unsigned int space_width_arg) :
+                                   custom_encoding(nullptr),
+                                   difference_map(unordered_map<unsigned int, string>()),
+                                   space_width(space_width_arg / SPACE_WIDTH_FRACTION)
 {
     if (encoding == "/WinAnsiEncoding")
     {
@@ -143,7 +264,9 @@ CharsetConverter::CharsetConverter(const string &encoding) :
     }
 }
 
-unique_ptr<CharsetConverter> CharsetConverter::get_from_dictionary(const map<string, pair<string, pdf_object_t>> &dictionary)
+unique_ptr<CharsetConverter> CharsetConverter::get_from_dictionary(const map<string,
+                                                                   pair<string, pdf_object_t>> &dictionary,
+                                                                   unsigned int space_width)
 {
     auto it = dictionary.find("/BaseEncoding");
     PDFEncode_t encoding;
@@ -157,7 +280,7 @@ unique_ptr<CharsetConverter> CharsetConverter::get_from_dictionary(const map<str
     {
         throw pdf_error(FUNC_STRING + "/Differences is not array. Type=" + to_string(it->second.second));
     }
-    return CharsetConverter::get_diff_map_converter(encoding, it->second.first);
+    return CharsetConverter::get_diff_map_converter(encoding, it->second.first, space_width);
 }
 
 optional<string> CharsetConverter::get_symbol(const string &array, size_t &offset)
@@ -198,7 +321,9 @@ optional<string> CharsetConverter::get_symbol(const string &array, size_t &offse
     return boost::none;
 }
 
-unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_t encoding, const std::string &array)
+unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_t encoding,
+                                                                      const std::string &array,
+                                                                      unsigned int space_width)
 {
     unordered_map<unsigned int, string> code2symbol = standard_encodings.at(encoding);
     for (size_t offset = efind_number(array, 0); offset < array.length(); offset = find_number(array, offset))
@@ -210,7 +335,12 @@ unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_
         while (optional<string> symbol = get_symbol(array, offset)) symbols.push_back(*symbol);
         for (unsigned int n = code, i = 0; i < symbols.size(); ++i, ++n) code2symbol[n] = symbols[i];
     }
-    return unique_ptr<CharsetConverter>(new CharsetConverter(std::move(code2symbol)));
+    return unique_ptr<CharsetConverter>(new CharsetConverter(std::move(code2symbol), space_width));
+}
+
+unsigned int CharsetConverter::get_space_width() const
+{
+    return (space_width == NO_SPACE_WIDTH)? DEFAULT_SPACE_WIDTH : space_width;
 }
 
 const unordered_map<unsigned int, string> CharsetConverter::standard_encoding = {{32, " "},

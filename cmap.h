@@ -2,7 +2,7 @@
 #define CMAP_H
 
 #include <unordered_map>
-#include <unordered_set>
+#include <vector>
 #include <string>
 #include <utility>
 
@@ -13,7 +13,7 @@ struct cmap_t
     cmap_t() = default;
     std::unordered_map<unsigned int, std::string> utf16_map;
 //how many bytes to read(see codespacerange)
-    std::unordered_set<unsigned char> sizes;
+    std::vector<unsigned char> sizes;
 };
 
 extern cmap_t get_cmap(const std::string &doc,

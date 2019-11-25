@@ -161,7 +161,6 @@ string CharsetConverter::get_strings_from_array(const string &array) const
             throw pdf_error(FUNC_STRING + "wrong type " + to_string(p.second) + " val=" + p.first);
         }
     }
-
     return result;
 }
 

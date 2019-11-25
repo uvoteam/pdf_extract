@@ -3,7 +3,7 @@
 #include <regex>
 #include <utility>
 #include <unordered_map>
-#include <unordered_set>
+#include <algorithm>
 
 #include <boost/optional.hpp>
 
@@ -172,7 +172,7 @@ namespace
     }
 
 //return sizes in bytes for code space range
-    size_t get_code_space_range(const string &stream, size_t offset, unordered_set<unsigned char> &sizes)
+    size_t get_code_space_range(const string &stream, size_t offset, vector<unsigned char> &sizes)
     {
         int base = 0;
         unsigned char max = 0;
@@ -195,7 +195,7 @@ namespace
             if (v > max) max = v;
         }
 
-        for (unsigned char i = 1; i <= max; ++i) sizes.insert(i);
+        for (unsigned char i = 1; i <= max; ++i) sizes.push_back(i);
 
         return offset + 1;
     }
@@ -261,5 +261,8 @@ cmap_t get_cmap(const string &doc,
             break;
         }
     }
+    sort(result.sizes.begin(), result.sizes.end());
+    result.sizes.erase(unique(result.sizes.begin(), result.sizes.end()), result.sizes.end());
+
     return result;
 }

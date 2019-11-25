@@ -637,9 +637,16 @@ string extract_text(const string &doc,
             if (el.first != ARRAY) continue;
             result += '\n' + encoding->get_strings_from_array(el.second);
         }
-        else if (token == "T*" || token == "Td" || token == "TD" || token == "Tm")
+        else if (token == "T*")
         {
             result += '\n';
+        }
+        else if (token == "Td" || token == "TD")
+        {
+            string number_str = pop(st).second;
+            size_t dot_offset = number_str.find('.');
+            if (dot_offset != string::npos) number_str = number_str.substr(0, dot_offset);
+            if (strict_stol(number_str) > 0) result += '\n';
         }
         else if (token == "Tf")
         {

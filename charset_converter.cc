@@ -147,8 +147,7 @@ string CharsetConverter::get_strings_from_array(const string &array) const
         {
         case VALUE:
         {
-            size_t off = p.first.find('.');
-            long int n = (off == string::npos)? strict_stol(p.first) : strict_stol(p.first.substr(0, off));
+            long int n = strict_stol(get_int(p.first));
             if (n > 0) continue;
             n = -n;
             if (n > get_space_width()) result += ' ';

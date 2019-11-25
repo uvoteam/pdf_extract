@@ -724,3 +724,11 @@ string get_indirect_array(const string &indirect_object, const ObjectStorage &st
     }
     return p.first;
 }
+
+string get_int(const string &s)
+{
+    size_t off = s.find('.');
+    if (off == string::npos) return s;
+    if (off == 0 || (off == 1 && s[0] == '-')) return "0";
+    return s.substr(0, off);
+}

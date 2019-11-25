@@ -71,4 +71,5 @@ std::pair<unsigned int, unsigned int> get_id_gen(const std::string &data);
 std::string get_indirect_dictionary(const std::string &indirect_object, const ObjectStorage &storage);
 std::string get_indirect_array(const std::string &indirect_object, const ObjectStorage &storage);
 std::vector<std::pair<std::string, pdf_object_t>> get_array_data(const std::string &buffer, size_t offset);
+std::string get_int(const std::string &s);
 #endif //COMMON

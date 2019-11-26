@@ -43,7 +43,8 @@ unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
                                                const map<string, pair<string, pdf_object_t>> &fonts,
                                                const ObjectStorage &storage,
                                                const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                                               map<unsigned int, cmap_t> &cmap_storage);
+                                               map<unsigned int, cmap_t> &cmap_storage,
+                                               map<string, unsigned int> &width_storage);
 size_t get_xref_number(const string &buffer, size_t &offset);
 vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset);
 vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_t cross_ref_offset);
@@ -90,7 +91,8 @@ string extract_text(const string &doc,
                     const map<string, pair<string, pdf_object_t>> &fonts,
                     const ObjectStorage &storage,
                     const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                    map<unsigned int, cmap_t> &cmap_storage);
+                    map<unsigned int, cmap_t> &cmap_storage,
+                    map<string, unsigned int> &width_storage);
 
 bool is_prefix(const char *str, const char *pre)
 {
@@ -505,6 +507,7 @@ string get_text(const string &buffer,
     const pages_id_resources_t pages_id_resources = get_pages_id_fonts(catalog_pages_id, storage);
     string result;
     map<unsigned int, cmap_t> cmap_storage;
+    map<string, unsigned int> width_storage;
     for (const pages_id_resources_t::value_type &page_id_resource : pages_id_resources)
     {
         unsigned int page_id = page_id_resource.first;
@@ -514,7 +517,12 @@ string get_text(const string &buffer,
         {
             page_content += output_content(buffer, storage, id_gen, decrypt_data);
         }
-        result += extract_text(buffer, page_content, page_id_resource.second, storage, decrypt_data, cmap_storage);
+        result += extract_text(buffer,
+                               page_content,
+                               page_id_resource.second,
+                               storage, decrypt_data,
+                               cmap_storage,
+                               width_storage);
     }
 
     return result;
@@ -533,11 +541,24 @@ unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
                                                const map<string, pair<string, pdf_object_t>> &fonts,
                                                const ObjectStorage &storage,
                                                const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                                               map<unsigned int, cmap_t> &cmap_storage)
+                                               map<unsigned int, cmap_t> &cmap_storage,
+                                               map<string, unsigned int> &width_storage)
 {
     auto it = fonts.find(font);
     if (it == fonts.end()) return unique_ptr<CharsetConverter>(new CharsetConverter());
+
     map<string, pair<string, pdf_object_t>> font_dict = get_dict_or_indirect_dict(it->second, storage);
+    auto it2 = width_storage.find(font);
+    unsigned int width;
+    if (it2 == width_storage.end())
+    {
+        width = CharsetConverter::get_space_width(storage, font_dict);
+        width_storage.insert(make_pair(font, width));
+    }
+    else
+    {
+        width = it2->second;
+    }
 
     it = font_dict.find("/ToUnicode");
     if (it != font_dict.end())
@@ -547,8 +568,7 @@ unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
         {
             cmap_storage.insert(make_pair(cmap_id_gen.first, get_cmap(doc, storage, cmap_id_gen, decrypt_data)));
         }
-        return unique_ptr<CharsetConverter>(new CharsetConverter(&cmap_storage[cmap_id_gen.first],
-                                                                 CharsetConverter::get_space_width(storage, font_dict)));
+        return unique_ptr<CharsetConverter>(new CharsetConverter(&cmap_storage[cmap_id_gen.first], width));
     }
     it = font_dict.find("/Encoding");
     if (it == font_dict.end()) return unique_ptr<CharsetConverter>(new CharsetConverter());
@@ -557,11 +577,9 @@ unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
     {
     case DICTIONARY:
     case INDIRECT_OBJECT:
-        return CharsetConverter::get_from_dictionary(get_dict_or_indirect_dict(it->second, storage),
-                                                     CharsetConverter::get_space_width(storage, font_dict));
+        return CharsetConverter::get_from_dictionary(get_dict_or_indirect_dict(it->second, storage), width);
     case NAME_OBJECT:
-        return unique_ptr<CharsetConverter>(new CharsetConverter(it->second.first,
-                                                                 CharsetConverter::get_space_width(storage, font_dict)));
+        return unique_ptr<CharsetConverter>(new CharsetConverter(it->second.first, width));
     default:
         throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(it->second.second));
     }
@@ -591,7 +609,8 @@ string extract_text(const string &doc,
                     const map<string, pair<string, pdf_object_t>> &fonts,
                     const ObjectStorage &storage,
                     const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                    map<unsigned int, cmap_t> &cmap_storage)
+                    map<unsigned int, cmap_t> &cmap_storage,
+                    map<string, unsigned int> &width_storage)
 {
     unique_ptr<CharsetConverter> encoding(new CharsetConverter());
     string result;
@@ -649,7 +668,7 @@ string extract_text(const string &doc,
         else if (token == "Tf")
         {
             pop(st);
-            encoding = get_font_encoding(doc, pop(st).second, fonts, storage, decrypt_data, cmap_storage);
+            encoding = get_font_encoding(doc, pop(st).second, fonts, storage, decrypt_data, cmap_storage, width_storage);
         }
         else
         {

@@ -270,6 +270,7 @@ unique_ptr<CharsetConverter> CharsetConverter::get_from_dictionary(const map<str
     auto it = dictionary.find("/BaseEncoding");
     PDFEncode_t encoding;
     if (it == dictionary.end()) encoding = DEFAULT;
+    else if (it->second.first == "/StandardEncoding") encoding = DEFAULT;
     else if (it->second.first == "/MacRomanEncoding") encoding = MAC_ROMAN;
     else if (it->second.first == "/MacExpertEncoding") encoding = MAC_EXPERT;
     else if (it->second.first == "/WinAnsiEncoding") encoding = WIN;

@@ -31,7 +31,7 @@ namespace
 {
     enum { SPACE_WIDTH_FRACTION = 2,
            NO_SPACE_WIDTH = 0,
-           DEFAULT_SPACE_WIDTH = 200};
+           DEFAULT_SPACE_WIDTH = 100};
     unsigned int convert2uint(const string &s)
     {
         if (s.length() > sizeof(unsigned int) || s.empty()) throw pdf_error(FUNC_STRING + "wrong length. s= " + s);

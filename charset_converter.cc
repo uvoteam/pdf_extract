@@ -22,7 +22,7 @@ using namespace boost::locale::conv;
         if (it != DICT.end())\
         {\
             if (it->second.second != VALUE) throw pdf_error(FUNC_STRING + KEY + " must have VALUE value"); \
-            return strict_stoul(it->second.first);\
+            return strict_stoul(get_int(it->second.first));             \
         }\
     }\
     while(false)
@@ -65,7 +65,7 @@ namespace
         for (const pair<string, pdf_object_t> &p : result)
         {
             ++n;
-            sum += strict_stoul(p.first);
+            sum += strict_stoul(get_int(p.first));
         }
         return (n == 0)? NO_SPACE_WIDTH : (sum / n);
     }
@@ -86,7 +86,7 @@ namespace
             {
                 unsigned int n_chars = strict_stoul(result[i + 1].first) - strict_stoul(result[i].first) + 1;
                 n += n_chars;
-                sum += n_chars * strict_stoul(result[i + 2].first);
+                sum += n_chars * strict_stoul(get_int(result[i + 2].first));
                 break;
             }
             case ARRAY:
@@ -95,7 +95,7 @@ namespace
                 for (const pair<string, pdf_object_t> &p : w_array)
                 {
                     ++n;
-                    sum += strict_stoul(p.first);
+                    sum += strict_stoul(get_int(p.first));
                 }
                 break;
             }

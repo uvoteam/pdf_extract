@@ -1,6 +1,5 @@
 #include <string>
 #include <map>
-#include <regex>
 #include <utility>
 #include <unordered_map>
 #include <algorithm>
@@ -200,23 +199,12 @@ namespace
         return offset + 1;
     }
 
-    bool is_line_empty(const string &s)
+    optional<State_t> get_state(const string &token)
     {
-        for (char c : s)
-        {
-            if (c != ' ' && c != '\t' && c != '\r' && c != '\n') return false;
-        }
-        return true;
-    }
-
-    optional<State_t> get_state(const string &line)
-    {
-        if (regex_search(line, regex("^[\t ]*[0-9]+[\t ]+beginbfchar[ \t\n]"))) return BFCHAR;
-        if (regex_search(line, regex("^[\t ]*[0-9]+[\t ]+beginbfrange[ \t\n]"))) return BFRANGE;
-        if (regex_search(line, regex("^[\t ]*[0-9]+[\t ]+begincodespacerange[ \t\n]"))) return CODE_SPACE_RANGE;
-        if (regex_search(line, regex("^[\t ]*endbfchar[ \t\n]")) ||
-            regex_search(line, regex("^[\t ]*endbfrange[ \t\n]")) ||
-            regex_search(line, regex("^[\t ]*endcodespacerange[ \t\n]"))) return NONE;
+        if (token == "beginbfchar") return BFCHAR;
+        if (token == "beginbfrange") return BFRANGE;
+        if (token == "begincodespacerange") return CODE_SPACE_RANGE;
+        if (token == "endbfchar" || token == "endbfrange" || token == "endcodespacerange") return NONE;
 
         return boost::none;
     }
@@ -230,17 +218,18 @@ cmap_t get_cmap(const string &doc,
     State_t state = NONE;
     const string stream = get_stream(doc, cmap_id_gen, storage, decrypt_data);
     cmap_t result;
-    for (size_t end = stream.find('\n', 0), start = 0;
-         start < stream.length();
-         start = end + 1, end = stream.find('\n', start))
+    for (size_t start = stream.find_first_not_of(" \t\n\r"), end = stream.find_first_of(" \t\n\r", start);
+         start != string::npos;
+         start = stream.find_first_not_of(" \t\n\r", end), end = stream.find_first_of(" \t\n\r", start))
     {
-        if (end == string::npos) end = stream.length() - 1;
-        string line = stream.substr(start, end - start + 1);
-        size_t comment_position = line.find('%');
-        if (comment_position == 0) continue;
-        if (comment_position != string::npos) line = line.substr(0, comment_position);
-        if (is_line_empty(line)) continue;
-        optional<State_t> r = get_state(line);
+        if (end == string::npos) end = stream.length();
+        if (stream[start] == '%')
+        {
+            end = stream.find('\n', start);
+            if (end == string::npos) break;
+        }
+        string token = stream.substr(start, end - start);
+        optional<State_t> r = get_state(token);
         if (r)
         {
             state = *r;
@@ -260,9 +249,11 @@ cmap_t get_cmap(const string &doc,
             end = get_code_space_range(stream, start, result.sizes);
             break;
         }
+        if (end == string::npos || end > (stream.length() - 2)) break;
+        start = end + 1;
     }
+    if (result.sizes.empty()) throw pdf_error(FUNC_STRING + "no codespacerange in cmap");
     sort(result.sizes.begin(), result.sizes.end());
     result.sizes.erase(unique(result.sizes.begin(), result.sizes.end()), result.sizes.end());
-
     return result;
 }

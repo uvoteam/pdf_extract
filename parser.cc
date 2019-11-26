@@ -745,5 +745,6 @@ int main(int argc, char *argv[])
     std::string str((std::istreambuf_iterator<char>(t)),
                     std::istreambuf_iterator<char>());
     cout << pdf2txt(str);
+
     return 0;
 }

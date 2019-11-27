@@ -60,8 +60,9 @@ namespace
         const vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
         for (const pair<string, pdf_object_t> &p : result)
         {
+            const string val = (p.second == INDIRECT_OBJECT)? get_indirect_object_data(p.first, storage).first : p.first;
             ++n;
-            sum += strict_stoul(get_int(p.first));
+            sum += strict_stoul(get_int(val));
         }
         return (n == 0)? CharsetConverter::NO_SPACE_WIDTH : (sum / n);
     }

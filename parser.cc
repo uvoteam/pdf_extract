@@ -313,17 +313,16 @@ unsigned int get_cross_ref_entries(const map<string, pair<string, pdf_object_t>>
         if (val.second != VALUE) throw pdf_error(FUNC_STRING + "/Size must have VALUE type");
         return strict_stoul(val.first);
     }
-    const string &array = it->second.first;
     if (it->second.second != ARRAY) throw pdf_error("/Index must be ARRAY");
-    if (count(array.begin(), array.end(), ']') != 1) throw pdf_error("/Index must be one dimensional array");
     unsigned int entries = 0;
-    for (size_t offset = find_number(array, 0); offset < array.length(); offset = find_number(array, offset))
+    vector<pair<string, pdf_object_t>> array_data = get_array_data(it->second.first, 0);
+    if (array_data.empty()) throw pdf_error(FUNC_STRING + "/Index array is empty");
+    for (size_t i = 0; i < array_data.size() - 1; i += 2)
     {
-        offset = efind_number(array, efind_first(array, " \r\t\n", offset));
-        size_t end_offset = efind_first(array, " \r\t\n]", offset);
-        entries += strict_stoul(array.substr(offset, end_offset - offset));
-        if (array[end_offset] == ']') return entries;
-        offset = end_offset;
+        if (array_data[i + 1].second != VALUE) throw pdf_error(FUNC_STRING + "wrong type for /Index. type=" +
+                                                               to_string(array_data[i + 1].second) +
+                                                               " val=" + array_data[i + 1].first);
+        entries += strict_stoul(array_data[i + 1].first);
     }
     return entries;
 }

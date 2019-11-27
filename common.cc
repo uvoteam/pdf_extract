@@ -108,7 +108,7 @@ namespace
 
     size_t find_name_end_delimiter(const string &buffer, size_t offset)
     {
-        size_t result = buffer.find_first_of("\r\t\n /", offset + 1);
+        size_t result = buffer.find_first_of("\r\t\n /]<(", offset + 1);
         size_t dict_end_offset = buffer.find(">>", offset);
         if (result == string::npos || dict_end_offset < result) result = dict_end_offset;
         if (result == string::npos) throw pdf_error(FUNC_STRING + " can`t find end delimiter for value");

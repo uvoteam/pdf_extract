@@ -559,7 +559,7 @@ optional<unique_ptr<CharsetConverter>> get_font_from_encoding(const ObjectStorag
     {
     case DICTIONARY:
     case INDIRECT_OBJECT:
-        return CharsetConverter::get_from_dictionary(get_dict_or_indirect_dict(it->second, storage), width);
+        return CharsetConverter::get_from_dictionary(get_dict_or_indirect_dict(it->second, storage), storage, width);
     case NAME_OBJECT:
         return unique_ptr<CharsetConverter>(new CharsetConverter(it->second.first, width));
     default:

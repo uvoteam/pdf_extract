@@ -7,10 +7,9 @@
 #include <utility>
 #include <memory>
 
-#include <boost/optional.hpp>
-
 #include "cmap.h"
 #include "common.h"
+#include "object_storage.h"
 
 
 class CharsetConverter
@@ -24,6 +23,7 @@ public:
     std::string get_strings_from_array(const std::string &array) const;
     static std::unique_ptr<CharsetConverter> get_from_dictionary(const std::map<std::string,
                                                                  std::pair<std::string, pdf_object_t>> &dictionary,
+                                                                 const ObjectStorage &storage,
                                                                  unsigned int space_width);
     static unsigned int get_space_width(const ObjectStorage &storage,
                                         const std::map<std::string, std::pair<std::string, pdf_object_t>> &font_dict);
@@ -33,8 +33,9 @@ private:
     unsigned int get_space_width() const;
     static std::unique_ptr<CharsetConverter> get_diff_map_converter(PDFEncode_t encoding,
                                                                     const std::string &array,
+                                                                    const ObjectStorage &storage,
                                                                     unsigned int space_width);
-    static boost::optional<std::string> get_symbol(const std::string &array, size_t &offset);
+    static std::string get_symbol_string(const std::string &name);
 private:
     const cmap_t *custom_encoding;
     const char *charset;

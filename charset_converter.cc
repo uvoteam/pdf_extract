@@ -6,14 +6,13 @@
 #include <memory>
 
 #include <boost/locale/encoding.hpp>
-#include <boost/optional.hpp>
 
 #include "charset_converter.h"
 #include "cmap.h"
 #include "common.h"
+#include "object_storage.h"
 
 using namespace std;
-using namespace boost;
 using namespace boost::locale::conv;
 
 #define RETURN_SPACE_WIDTH_VALUE(DICT, KEY) do \
@@ -48,8 +47,7 @@ namespace
     unsigned int get_space_width_from_font_descriptor(const ObjectStorage &storage, const pair<string, pdf_object_t> &dict)
     {
         if (dict.second != INDIRECT_OBJECT) throw pdf_error(FUNC_STRING + "/FontDescriptor must be indirect object");
-        const pair<unsigned int, unsigned int> desc_id_gen = get_id_gen(dict.first);
-        const pair<string, pdf_object_t> desc = storage.get_object(desc_id_gen.first);
+        const pair<string, pdf_object_t> desc = storage.get_object(get_id_gen(dict.first).first);
         if (desc.second != DICTIONARY) throw pdf_error(FUNC_STRING + "/FontDescriptor must be dictionary");
         const map<string, pair<string, pdf_object_t>> desc_dict = get_dictionary_data(desc.first, 0);
         RETURN_SPACE_WIDTH_VALUE(desc_dict, "/AvgWidth");
@@ -267,6 +265,7 @@ CharsetConverter::CharsetConverter(const string &encoding, unsigned int space_wi
 
 unique_ptr<CharsetConverter> CharsetConverter::get_from_dictionary(const map<string,
                                                                    pair<string, pdf_object_t>> &dictionary,
+                                                                   const ObjectStorage &storage,
                                                                    unsigned int space_width)
 {
     auto it = dictionary.find("/BaseEncoding");
@@ -282,60 +281,42 @@ unique_ptr<CharsetConverter> CharsetConverter::get_from_dictionary(const map<str
     {
         throw pdf_error(FUNC_STRING + "/Differences is not array. Type=" + to_string(it->second.second));
     }
-    return CharsetConverter::get_diff_map_converter(encoding, it->second.first, space_width);
+    return CharsetConverter::get_diff_map_converter(encoding, it->second.first, storage, space_width);
 }
 
-optional<string> CharsetConverter::get_symbol(const string &array, size_t &offset)
+string CharsetConverter::get_symbol_string(const string &name)
 {
-    for (;offset < array.length(); ++offset)
-    {
-        switch (array[offset])
-        {
-        case '/':
-        {
-            size_t end_offset = efind_first(array, "  \r\n\t/]", offset + 1);
-            auto it = symbol_table.find(array.substr(offset, end_offset - offset));
-            offset = end_offset;
-            return it == symbol_table.end()? " " : it->second;
-        }
-        case ' ':
-        case '\t':
-        case '\r':
-        case '\n':
-            continue;
-        case ']':
-            return boost::none;
-        case '0':
-        case '1':
-        case '2':
-        case '3':
-        case '4':
-        case '5':
-        case '6':
-        case '7':
-        case '8':
-        case '9':
-            return boost::none;
-        default:
-            throw pdf_error(FUNC_STRING + "wrong symbol '" + array[offset] + "'. array:" + array);
-        }
-    }
-    return boost::none;
+    auto it = symbol_table.find(name);
+    return (it == symbol_table.end())? " " : it->second;
 }
 
 unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_t encoding,
                                                                       const std::string &array,
+                                                                      const ObjectStorage &storage,
                                                                       unsigned int space_width)
 {
     unordered_map<unsigned int, string> code2symbol = standard_encodings.at(encoding);
-    for (size_t offset = efind_number(array, 0); offset < array.length(); offset = find_number(array, offset))
+    vector<pair<string, pdf_object_t>> array_data = get_array_data(array, 0);
+    if (array_data.empty()) return unique_ptr<CharsetConverter>(new CharsetConverter(std::move(code2symbol), space_width));
+    if (array_data[0].second != VALUE) throw pdf_error(FUNC_STRING + "wrong type in diff map array. type=" +
+                                                       to_string(array_data[0].second) + " val=" + array_data[0].first);
+    unsigned int code = strict_stoul(array_data[0].first);
+    for (const pair<string, pdf_object_t> &p : array_data)
     {
-        vector<string> symbols;
-        size_t end_offset = efind_first(array, "  \r\n\t/", offset);
-        unsigned int code = strict_stoul(array.substr(offset, end_offset - offset));
-        offset = end_offset;
-        while (optional<string> symbol = get_symbol(array, offset)) symbols.push_back(*symbol);
-        for (unsigned int n = code, i = 0; i < symbols.size(); ++i, ++n) code2symbol[n] = symbols[i];
+        const pair<string, pdf_object_t> symbol = (p.second == INDIRECT_OBJECT)?
+                                                  storage.get_object(get_id_gen(p.first).first) : p;
+        switch (symbol.second)
+        {
+        case VALUE:
+            code = strict_stoul(symbol.first);
+            break;
+        case NAME_OBJECT:
+            code2symbol[code] = get_symbol_string(symbol.first);
+            ++code;
+            break;
+        default:
+            throw pdf_error(FUNC_STRING + "wrong symbol type=" + to_string(symbol.second) + " val=" + symbol.first);
+        }
     }
     return unique_ptr<CharsetConverter>(new CharsetConverter(std::move(code2symbol), space_width));
 }

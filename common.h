@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 
+#include <boost/optional.hpp>
 #define LEN(S) (sizeof(S) - 1)
 
 enum pdf_object_t {DICTIONARY = 1, ARRAY = 2, STRING = 3, VALUE = 4, INDIRECT_OBJECT = 5, NAME_OBJECT = 6};
@@ -68,8 +69,9 @@ size_t get_length(const std::string &buffer,
                   const std::map<size_t, size_t> &id2offsets,
                   const std::map<std::string, std::pair<std::string, pdf_object_t>> &props);
 std::pair<unsigned int, unsigned int> get_id_gen(const std::string &data);
-std::string get_indirect_dictionary(const std::string &indirect_object, const ObjectStorage &storage);
-std::string get_indirect_array(const std::string &indirect_object, const ObjectStorage &storage);
+std::pair<std::string, pdf_object_t> get_indirect_object_data(const std::string &indirect_object,
+                                                              const ObjectStorage &storage,
+                                                              boost::optional<pdf_object_t> type = boost::none);
 std::vector<std::pair<std::string, pdf_object_t>> get_array_data(const std::string &buffer, size_t offset);
 std::string get_int(const std::string &s);
 #endif //COMMON

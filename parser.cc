@@ -136,7 +136,7 @@ map<string, pair<string, pdf_object_t>> get_dict_or_indirect_dict(const pair<str
     case DICTIONARY:
         return get_dictionary_data(data.first, 0);
     case INDIRECT_OBJECT:
-        return get_dictionary_data(get_indirect_dictionary(data.first, storage), 0);
+        return get_dictionary_data(get_indirect_object_data(data.first, storage, DICTIONARY).first, 0);
     default:
         throw pdf_error(FUNC_STRING + "wrong object type " + to_string(data.second));
     }
@@ -554,16 +554,16 @@ optional<unique_ptr<CharsetConverter>> get_font_from_encoding(const ObjectStorag
 {
     auto it = font_dict.find("/Encoding");
     if (it == font_dict.end()) return boost::none;
-    string encoding;
-    switch (it->second.second)
+    const pair<string, pdf_object_t> encoding = (it->second.second == INDIRECT_OBJECT)?
+                                                get_indirect_object_data(it->second.first, storage) : it->second;
+    switch (encoding.second)
     {
     case DICTIONARY:
-    case INDIRECT_OBJECT:
-        return CharsetConverter::get_from_dictionary(get_dict_or_indirect_dict(it->second, storage), storage, width);
+        return CharsetConverter::get_from_dictionary(get_dictionary_data(encoding.first, 0), storage, width);
     case NAME_OBJECT:
-        return unique_ptr<CharsetConverter>(new CharsetConverter(it->second.first, width));
+        return unique_ptr<CharsetConverter>(new CharsetConverter(encoding.first, width));
     default:
-        throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(it->second.second));
+        throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(encoding.second) + " val=" + encoding.first);
     }
 }
 

@@ -8,6 +8,8 @@
 #include <cctype>
 #include <utility>
 
+#include <boost/optional.hpp>
+
 #include "common.h"
 #include "charset_converter.h"
 #include "object_storage.h"
@@ -708,26 +710,15 @@ pair<unsigned int, unsigned int> get_id_gen(const string &data)
     return make_pair(id, gen);
 }
 
-string get_indirect_dictionary(const string &indirect_object, const ObjectStorage &storage)
+pair<string, pdf_object_t> get_indirect_object_data(const string &indirect_object,
+                                                    const ObjectStorage &storage,
+                                                    boost::optional<pdf_object_t> type /*=boost::none*/)
 {
-    size_t id = strict_stoul(indirect_object.substr(0, efind_first(indirect_object, " \r\n\t", 0)));
-    const pair<string, pdf_object_t> p = storage.get_object(id);
-    if (p.second != DICTIONARY)
-    {
-        throw pdf_error(FUNC_STRING + "Indirect obj must be DICTIONARY. Type: " + to_string(p.second));
-    }
-    return p.first;
-}
-
-string get_indirect_array(const string &indirect_object, const ObjectStorage &storage)
-{
-    size_t id = strict_stoul(indirect_object.substr(0, efind_first(indirect_object, " \r\n\t", 0)));
-    const pair<string, pdf_object_t> p = storage.get_object(id);
-    if (p.second != ARRAY)
-    {
-        throw pdf_error(FUNC_STRING + "Indirect obj must be ARRAY. Type: " + to_string(p.second));
-    }
-    return p.first;
+    pair<string, pdf_object_t> r = storage.get_object(strict_stoul(indirect_object.substr(0,
+                                                                                          efind_first(indirect_object,
+                                                                                                      " \r\n\t", 0))));
+    if (type && r.second != *type) throw pdf_error(FUNC_STRING + "wrong type=" + to_string(*type) + " val=" + r.first);
+    return r;
 }
 
 string get_int(const string &s)

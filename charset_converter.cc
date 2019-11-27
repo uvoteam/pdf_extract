@@ -58,7 +58,8 @@ namespace
     unsigned int get_space_width_from_widths(const ObjectStorage &storage, const pair<string, pdf_object_t> &array_arg)
     {
         unsigned int sum = 0, n = 0;
-        const string array = (array_arg.second == ARRAY)? array_arg.first : get_indirect_array(array_arg.first, storage);
+        const string array = (array_arg.second == ARRAY)? array_arg.first :
+                                                          get_indirect_object_data(array_arg.first, storage, ARRAY).first;
         const vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
         for (const pair<string, pdf_object_t> &p : result)
         {
@@ -74,7 +75,7 @@ namespace
     {
         unsigned int sum = 0, n = 0;
         const string array = (array_arg.second == ARRAY)? array_arg.first :
-                                                          get_indirect_array(array_arg.first, storage);
+                                                          get_indirect_object_data(array_arg.first, storage, ARRAY).first;
         const vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
         for (size_t i = 0; i < result.size(); i += 3)
         {
@@ -304,7 +305,7 @@ unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_
     for (const pair<string, pdf_object_t> &p : array_data)
     {
         const pair<string, pdf_object_t> symbol = (p.second == INDIRECT_OBJECT)?
-                                                  storage.get_object(get_id_gen(p.first).first) : p;
+                                                  get_indirect_object_data(p.first, storage) : p;
         switch (symbol.second)
         {
         case VALUE:

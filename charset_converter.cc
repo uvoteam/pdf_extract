@@ -74,7 +74,12 @@ namespace
         unsigned int sum = 0, n = 0;
         const string array = (array_arg.second == ARRAY)? array_arg.first :
                                                           get_indirect_object_data(array_arg.first, storage, ARRAY).first;
-        const vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
+        vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
+        for (pair<string, pdf_object_t> &p : result)
+        {
+            if (p.second == INDIRECT_OBJECT) p = get_indirect_object_data(p.first, storage);
+        }
+
         for (size_t i = 0; i < result.size(); i += 3)
         {
             switch (result.at(i + 2).second)

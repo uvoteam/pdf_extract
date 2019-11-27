@@ -588,7 +588,7 @@ optional<unique_ptr<CharsetConverter>> get_font_from_tounicode(const string &doc
         return unique_ptr<CharsetConverter>(new CharsetConverter(&cmap_storage[cmap_id_gen.first], width));
     }
     case NAME_OBJECT:
-        return unique_ptr<CharsetConverter>(new CharsetConverter(nullptr, width));
+        return boost::none;
     default:
         throw pdf_error(FUNC_STRING + "/ToUnicode wrong type: " + to_string(it->second.second) + " val:" + it->second.first);
     }

@@ -167,8 +167,9 @@ string CharsetConverter::get_string(const string &s) const
     switch (PDFencode)
     {
     case UTF8:
-    case IDENTITY:
         return s;
+    case IDENTITY:
+        return to_utf<char>(s, "UTF-16be");
     case DEFAULT:
     case MAC_EXPERT:
     case MAC_ROMAN:
@@ -195,7 +196,6 @@ string CharsetConverter::get_string(const string &s) const
         return to_utf<char>(s, charset);
     case TO_UNICODE:
     {
-        if (!custom_encoding) return to_utf<char>(s, "UTF-16be");
         string decoded;
         for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
         //strings from cmap returned in little ordering

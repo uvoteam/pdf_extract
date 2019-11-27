@@ -34,7 +34,9 @@ namespace
         //          is also a digit.
         size_t j = i;
         for (j = i; j < str.size(); ++j)
+        {
             if (!isdigit(str[j])) break;
+        }
         size_t len = j - i;
         if (len > 3) len = (str[i] == 0)? 4 : 3; //leading zero as oct mark
 

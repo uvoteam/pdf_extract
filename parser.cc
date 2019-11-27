@@ -623,7 +623,7 @@ unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
     if (r) return std::move(*r);
     r = get_font_from_encoding(storage, font_dict, width);
     if (r) return std::move(*r);
-    return unique_ptr<CharsetConverter>(new CharsetConverter());
+    return unique_ptr<CharsetConverter>(new CharsetConverter(width));
 }
 
 bool put2stack(stack<pair<pdf_object_t, string>> &st, const string &buffer, size_t &i)

@@ -139,17 +139,8 @@ namespace
         if (filters.second == NAME_OBJECT) return vector<string>{filters.first};
         if (filters.second != ARRAY) throw pdf_error(FUNC_STRING + "wrong filter type: " + to_string(filters.second));
         vector<string> result;
-        const string &body = filters.first;
-        if (body.at(0) != '[') throw pdf_error(FUNC_STRING + "filter body array must start with '['. Input: " + body);
-        size_t offset = 1;
-        while (true)
-        {
-            offset = skip_spaces(body, offset);
-            if (body[offset] == ']') return result;
-            size_t end_offset = efind_first(body, "\r\n\t ]", offset);
-            result.push_back(body.substr(offset, end_offset - offset));
-            offset = end_offset;
-        }
+        for (const pair<string, pdf_object_t> &p : get_array_data(filters.first, 0)) result.push_back(p.first);
+        return result;
     }
 
     vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,

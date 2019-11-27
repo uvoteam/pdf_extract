@@ -274,15 +274,15 @@ unique_ptr<CharsetConverter> CharsetConverter::get_from_dictionary(const map<str
     else if (it->second.first == "/MacExpertEncoding") encoding = MAC_EXPERT;
     else if (it->second.first == "/WinAnsiEncoding") encoding = WIN;
     else throw pdf_error(FUNC_STRING + "wrong /BaseEncoding value:" + it->second.first);
-    it = dictionary.find("/Differences");
-    if (it == dictionary.end()) return unique_ptr<CharsetConverter>((encoding == DEFAULT)?
-                                                                    new CharsetConverter(space_width):
-                                                                    new CharsetConverter(it->second.first, space_width));
-    if (it->second.second != ARRAY)
+    auto it2 = dictionary.find("/Differences");
+    if (it2 == dictionary.end()) return unique_ptr<CharsetConverter>((encoding == DEFAULT)?
+                                                                     new CharsetConverter(space_width):
+                                                                     new CharsetConverter(it->second.first, space_width));
+    if (it2->second.second != ARRAY)
     {
-        throw pdf_error(FUNC_STRING + "/Differences is not array. Type=" + to_string(it->second.second));
+        throw pdf_error(FUNC_STRING + "/Differences is not array. Type=" + to_string(it2->second.second));
     }
-    return CharsetConverter::get_diff_map_converter(encoding, it->second.first, storage, space_width);
+    return CharsetConverter::get_diff_map_converter(encoding, it2->second.first, storage, space_width);
 }
 
 string CharsetConverter::get_symbol_string(const string &name)

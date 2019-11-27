@@ -15,9 +15,10 @@
 class CharsetConverter
 {
 public:
+    enum { SPACE_WIDTH_FRACTION = 2, NO_SPACE_WIDTH = 0, DEFAULT_SPACE_WIDTH = 100};
     CharsetConverter(const std::string &encoding, unsigned int space_width_arg);
     CharsetConverter(std::unordered_map<unsigned int, std::string> &&difference_map_arg, unsigned int space_width_arg);
-    CharsetConverter() noexcept;
+    CharsetConverter(unsigned int space_width_arg = NO_SPACE_WIDTH) noexcept;
     CharsetConverter(const cmap_t *cmap_arg, unsigned int space_width_arg);
     std::string get_string(const std::string &s) const;
     std::string get_strings_from_array(const std::string &array) const;
@@ -29,6 +30,7 @@ public:
                                         const std::map<std::string, std::pair<std::string, pdf_object_t>> &font_dict);
 private:
     enum PDFEncode_t {DEFAULT, MAC_EXPERT, MAC_ROMAN, WIN, OTHER, UTF8, IDENTITY, TO_UNICODE, DIFFERENCE_MAP};
+
     std::string custom_decode_symbol(const std::string &s, size_t &i) const;
     unsigned int get_space_width() const;
     static std::unique_ptr<CharsetConverter> get_diff_map_converter(PDFEncode_t encoding,

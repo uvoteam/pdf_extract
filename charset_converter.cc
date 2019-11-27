@@ -28,9 +28,6 @@ using namespace boost::locale::conv;
 
 namespace
 {
-    enum { SPACE_WIDTH_FRACTION = 2,
-           NO_SPACE_WIDTH = 0,
-           DEFAULT_SPACE_WIDTH = 100};
     unsigned int convert2uint(const string &s)
     {
         if (s.length() > sizeof(unsigned int) || s.empty()) throw pdf_error(FUNC_STRING + "wrong length. s= " + s);
@@ -52,7 +49,7 @@ namespace
         const map<string, pair<string, pdf_object_t>> desc_dict = get_dictionary_data(desc.first, 0);
         RETURN_SPACE_WIDTH_VALUE(desc_dict, "/AvgWidth");
         RETURN_SPACE_WIDTH_VALUE(desc_dict, "/MissingWidth");
-        return NO_SPACE_WIDTH;
+        return CharsetConverter::NO_SPACE_WIDTH;
     }
 
     unsigned int get_space_width_from_widths(const ObjectStorage &storage, const pair<string, pdf_object_t> &array_arg)
@@ -66,7 +63,7 @@ namespace
             ++n;
             sum += strict_stoul(get_int(p.first));
         }
-        return (n == 0)? NO_SPACE_WIDTH : (sum / n);
+        return (n == 0)? CharsetConverter::NO_SPACE_WIDTH : (sum / n);
     }
 
     //https://www.adobe.com/content/dam/acom/en/devnet/pdf/pdfs/pdf_reference_archives/PDFReference.pdf
@@ -103,7 +100,7 @@ namespace
                                 " type=" + to_string(result[i + 2].second));
             }
         }
-        return (n == 0)? NO_SPACE_WIDTH : (sum / n);
+        return (n == 0)? CharsetConverter::NO_SPACE_WIDTH : (sum / n);
     }
 }
 
@@ -205,12 +202,12 @@ string CharsetConverter::get_string(const string &s) const
     }
 }
 
-CharsetConverter::CharsetConverter() noexcept :
+CharsetConverter::CharsetConverter(unsigned int space_width_arg /*=NO_SPACE_WIDTH*/) noexcept :
                                   custom_encoding(nullptr),
                                   charset(nullptr),
                                   PDFencode(DEFAULT),
                                   difference_map(unordered_map<unsigned int, string>()),
-                                  space_width(NO_SPACE_WIDTH)
+                                  space_width(space_width_arg)
 {
 }
 
@@ -278,6 +275,9 @@ unique_ptr<CharsetConverter> CharsetConverter::get_from_dictionary(const map<str
     else if (it->second.first == "/WinAnsiEncoding") encoding = WIN;
     else throw pdf_error(FUNC_STRING + "wrong /BaseEncoding value:" + it->second.first);
     it = dictionary.find("/Differences");
+    if (it == dictionary.end()) return unique_ptr<CharsetConverter>((encoding == DEFAULT)?
+                                                                    new CharsetConverter(space_width):
+                                                                    new CharsetConverter(it->second.first, space_width));
     if (it->second.second != ARRAY)
     {
         throw pdf_error(FUNC_STRING + "/Differences is not array. Type=" + to_string(it->second.second));

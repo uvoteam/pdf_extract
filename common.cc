@@ -163,7 +163,10 @@ namespace
             if (offset == string::npos)
             {
                 //7.3.8.2.Stream Extent
-                if (result.empty()) throw pdf_error(FUNC_STRING + "/DecodeParms must be dictionary or an array of dictionaries");
+                if (result.empty())
+                {
+                    throw pdf_error(FUNC_STRING + "/DecodeParms must be dictionary or an array of dictionaries");
+                }
                 return result;
             }
             result.push_back(get_dictionary_data(get_dictionary(params_data, offset), 0));

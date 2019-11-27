@@ -84,9 +84,14 @@ namespace
         return result;
     }
 
-    string hex_decode(const string &hex)
+    string hex_decode(const string &arg)
     {
-        std::string result;
+        string hex;
+        for (char c : arg)
+        {
+            if (c != '\n') hex += c;
+        }
+        string result;
         for (size_t i = 0; i < hex.length(); i += 2) result.append(1, static_cast<char>(strict_stoul(hex.substr(i, 2), 16)));
 
         return result;

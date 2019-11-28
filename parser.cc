@@ -26,7 +26,8 @@ using pages_id_resources_t = vector<pair<unsigned int, map<string, pair<string, 
 
 enum {CROSS_REFERENCE_LINE_SIZE = 20,
       BYTE_OFFSET_LEN = 10, /* length for byte offset in cross reference record */
-      GENERATION_NUMBER_LEN = 5 /* length for generation number */
+      GENERATION_NUMBER_LEN = 5, /* length for generation number */
+      WIDTH_SCALE = 1000 // in TJ offsets are represented in 1/1000 from width. so for Td operators width should be scaled
 };
 
 bool is_prefix(const char *str, const char *pre);
@@ -705,8 +706,8 @@ string extract_text(const string &doc,
         }
         else if (token == "Td" || token == "TD")
         {
-            string number_str = get_int(pop(st).second);
-            if (strict_stol(number_str) > 0) result += '\n';
+            if (strict_stol(get_int(pop(st).second)) > 0) result += '\n'; //y offset
+            if ((stod(pop(st).second) * WIDTH_SCALE) > encoding->get_space_width()) result += ' '; //x offset
         }
         else if (token == "Tf")
         {

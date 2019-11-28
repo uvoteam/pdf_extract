@@ -5,6 +5,7 @@
 #include <utility>
 #include <memory>
 #include <algorithm>
+#include <limits>
 
 #include <boost/locale/encoding.hpp>
 #include <boost/optional.hpp>
@@ -22,8 +23,8 @@ using namespace boost::locale::conv;
         auto it = DICT.find(KEY);\
         if (it != DICT.end())\
         {\
-            if (it->second.second != VALUE) throw pdf_error(FUNC_STRING + KEY + " must have VALUE value"); \
-            return strict_stoul(get_int(it->second.first));             \
+            if (it->second.second != VALUE) throw pdf_error(FUNC_STRING + KEY + " must have VALUE value");\
+            return strict_stoul(get_int(it->second.first)) / CharsetConverter::SPACE_WIDTH_SCALAR_FRACTION; \
         }\
     }\
     while(false)
@@ -56,24 +57,25 @@ namespace
 
     unsigned int get_space_width_from_widths(const ObjectStorage &storage, const pair<string, pdf_object_t> &array_arg)
     {
-        unsigned int sum = 0, n = 0;
         const string array = (array_arg.second == ARRAY)? array_arg.first :
                                                           get_indirect_object_data(array_arg.first, storage, ARRAY).first;
         const vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
+        unsigned int min = numeric_limits<unsigned int>::max();
         for (const pair<string, pdf_object_t> &p : result)
         {
             const string val = (p.second == INDIRECT_OBJECT)? get_indirect_object_data(p.first, storage).first : p.first;
-            ++n;
-            sum += strict_stoul(get_int(val));
+            unsigned int n = strict_stoul(get_int(val));
+            if (n < min && n != 0) min = n;
         }
-        return (n == 0)? CharsetConverter::NO_SPACE_WIDTH : (sum / n);
+        return (min == numeric_limits<unsigned int>::max())? CharsetConverter::NO_SPACE_WIDTH :
+                                                             (min / CharsetConverter::SPACE_WIDTH_ARRAY_FRACTION);
     }
 
     //https://www.adobe.com/content/dam/acom/en/devnet/pdf/pdfs/pdf_reference_archives/PDFReference.pdf
     // p. 340
     unsigned int get_space_width_from_w(const ObjectStorage &storage, const pair<string, pdf_object_t> &array_arg)
     {
-        unsigned int sum = 0, n = 0;
+        unsigned int min = numeric_limits<unsigned int>::max();
         const string array = (array_arg.second == ARRAY)? array_arg.first :
                                                           get_indirect_object_data(array_arg.first, storage, ARRAY).first;
         vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
@@ -88,9 +90,8 @@ namespace
             {
             case VALUE:
             {
-                unsigned int n_chars = strict_stoul(result[i + 1].first) - strict_stoul(result[i].first) + 1;
-                n += n_chars;
-                sum += n_chars * strict_stoul(get_int(result[i + 2].first));
+                unsigned int n = strict_stoul(get_int(result[i + 2].first));
+                if (n < min && n != 0) min = n;
                 break;
             }
             case ARRAY:
@@ -98,8 +99,8 @@ namespace
                 const vector<pair<string, pdf_object_t>> w_array = get_array_data(result[i + 2].first, 0);
                 for (const pair<string, pdf_object_t> &p : w_array)
                 {
-                    ++n;
-                    sum += strict_stoul(get_int(p.first));
+                    unsigned int n = strict_stoul(get_int(p.first));
+                    if (n < min && n != 0) min = n;
                 }
                 break;
             }
@@ -108,7 +109,8 @@ namespace
                                 " type=" + to_string(result[i + 2].second));
             }
         }
-        return (n == 0)? CharsetConverter::NO_SPACE_WIDTH : (sum / n);
+        return (min == numeric_limits<unsigned int>::max())? CharsetConverter::NO_SPACE_WIDTH :
+                                                             (min / CharsetConverter::SPACE_WIDTH_ARRAY_FRACTION);
     }
 }
 
@@ -224,7 +226,7 @@ CharsetConverter::CharsetConverter(const cmap_t *cmap_arg, unsigned int space_wi
                                    charset(nullptr),
                                    PDFencode(TO_UNICODE),
                                    difference_map(unordered_map<unsigned int, string>()),
-                                   space_width(space_width_arg / SPACE_WIDTH_FRACTION)
+                                   space_width(space_width_arg)
 {
 }
 
@@ -233,14 +235,14 @@ CharsetConverter::CharsetConverter(unordered_map<unsigned int, string> &&differe
                                    charset(nullptr),
                                    PDFencode(DIFFERENCE_MAP),
                                    difference_map(std::move(difference_map)),
-                                   space_width(space_width_arg / SPACE_WIDTH_FRACTION)
+                                   space_width(space_width_arg)
 {
 }
 
 CharsetConverter::CharsetConverter(const string &encoding, unsigned int space_width_arg) :
                                    custom_encoding(nullptr),
                                    difference_map(unordered_map<unsigned int, string>()),
-                                   space_width(space_width_arg / SPACE_WIDTH_FRACTION)
+                                   space_width(space_width_arg)
 {
     if (encoding == "/WinAnsiEncoding")
     {

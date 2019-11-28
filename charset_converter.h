@@ -17,7 +17,7 @@
 class CharsetConverter
 {
 public:
-    enum { SPACE_WIDTH_FRACTION = 2, NO_SPACE_WIDTH = 0, DEFAULT_SPACE_WIDTH = 100};
+    enum { SPACE_WIDTH_ARRAY_FRACTION = 2, SPACE_WIDTH_SCALAR_FRACTION = 5, NO_SPACE_WIDTH = 0, DEFAULT_SPACE_WIDTH = 100};
     CharsetConverter(const std::string &encoding, unsigned int space_width_arg);
     CharsetConverter(std::unordered_map<unsigned int, std::string> &&difference_map_arg, unsigned int space_width_arg);
     CharsetConverter(unsigned int space_width_arg = NO_SPACE_WIDTH) noexcept;

@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include <boost/locale/encoding.hpp>
+#include <boost/optional.hpp>
 
 #include "charset_converter.h"
 #include "cmap.h"
@@ -292,10 +293,10 @@ unique_ptr<CharsetConverter> CharsetConverter::get_from_dictionary(const map<str
     return CharsetConverter::get_diff_map_converter(encoding, it2->second.first, storage, space_width);
 }
 
-string CharsetConverter::get_symbol_string(const string &name)
+boost::optional<string> CharsetConverter::get_symbol_string(const string &name)
 {
     auto it = symbol_table.find(name);
-    return (it == symbol_table.end())? " " : it->second;
+    return (it == symbol_table.end())? boost::optional<string>() : boost::optional<string>(it->second);
 }
 
 unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_t encoding,
@@ -323,9 +324,12 @@ unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_
             code = strict_stoul(symbol.first);
             break;
         case NAME_OBJECT:
-            code2symbol[code] = get_symbol_string(symbol.first);
+        {
+            boost::optional<string> r = get_symbol_string(symbol.first);
+            if (r) code2symbol[code] = *r;
             ++code;
             break;
+        }
         default:
             throw pdf_error(FUNC_STRING + "wrong symbol type=" + to_string(symbol.second) + " val=" + symbol.first);
         }

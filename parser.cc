@@ -518,6 +518,7 @@ string get_text(const string &buffer,
     string result;
     map<unsigned int, cmap_t> cmap_storage;
     map<string, unsigned int> width_storage;
+
     for (const pages_id_resources_t::value_type &page_id_resource : pages_id_resources)
     {
         unsigned int page_id = page_id_resource.first;
@@ -530,7 +531,8 @@ string get_text(const string &buffer,
         result += extract_text(buffer,
                                page_content,
                                page_id_resource.second,
-                               storage, decrypt_data,
+                               storage,
+                               decrypt_data,
                                cmap_storage,
                                width_storage);
     }
@@ -805,5 +807,6 @@ int main(int argc, char *argv[])
     std::string str((std::istreambuf_iterator<char>(t)),
                     std::istreambuf_iterator<char>());
     cout << pdf2txt(str);
+
     return 0;
 }

@@ -12,7 +12,6 @@
 
 
 using namespace std;
-using namespace boost;
 
 namespace
 {
@@ -199,7 +198,7 @@ namespace
         return offset + 1;
     }
 
-    optional<State_t> get_state(const string &token)
+    boost::optional<State_t> get_state(const string &token)
     {
         if (token == "beginbfchar") return BFCHAR;
         if (token == "beginbfrange") return BFRANGE;
@@ -229,7 +228,7 @@ cmap_t get_cmap(const string &doc,
             if (end == string::npos) break;
         }
         string token = stream.substr(start, end - start);
-        optional<State_t> r = get_state(token);
+        boost::optional<State_t> r = get_state(token);
         if (r)
         {
             state = *r;

@@ -4,6 +4,7 @@
 #include <vector>
 #include <utility>
 #include <memory>
+#include <algorithm>
 
 #include <boost/locale/encoding.hpp>
 
@@ -304,14 +305,18 @@ unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_
 {
     unordered_map<unsigned int, string> code2symbol = standard_encodings.at(encoding);
     vector<pair<string, pdf_object_t>> array_data = get_array_data(array, 0);
-    if (array_data.empty()) return unique_ptr<CharsetConverter>(new CharsetConverter(std::move(code2symbol), space_width));
-    if (array_data[0].second != VALUE) throw pdf_error(FUNC_STRING + "wrong type in diff map array. type=" +
-                                                       to_string(array_data[0].second) + " val=" + array_data[0].first);
-    unsigned int code = strict_stoul(array_data[0].first);
-    for (const pair<string, pdf_object_t> &p : array_data)
+
+    auto start_it = find_if(array_data.begin(),
+                            array_data.end(),
+                            [](const pair<string, pdf_object_t> &p) { return (p.second == VALUE)? true : false;});
+    if (start_it == array_data.end()) return unique_ptr<CharsetConverter>(new CharsetConverter(std::move(code2symbol),
+                                                                                               space_width));
+    unsigned int code = strict_stoul(start_it->first);
+
+    for (auto it = start_it; it != array_data.end(); ++it)
     {
-        const pair<string, pdf_object_t> symbol = (p.second == INDIRECT_OBJECT)?
-                                                  get_indirect_object_data(p.first, storage) : p;
+        const pair<string, pdf_object_t> symbol = (it->second == INDIRECT_OBJECT)?
+                                                   get_indirect_object_data(it->first, storage) : *it;
         switch (symbol.second)
         {
         case VALUE:
@@ -324,6 +329,7 @@ unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_
         default:
             throw pdf_error(FUNC_STRING + "wrong symbol type=" + to_string(symbol.second) + " val=" + symbol.first);
         }
+
     }
     return unique_ptr<CharsetConverter>(new CharsetConverter(std::move(code2symbol), space_width));
 }

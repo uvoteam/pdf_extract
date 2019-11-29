@@ -698,7 +698,7 @@ string extract_text(const string &doc,
             const pair<pdf_object_t, string> el = pop(st);
             //wrong arg for TJ operator skipping..
             if (el.first != ARRAY) continue;
-            result += '\n' + encoding->get_strings_from_array(el.second);
+            result += encoding->get_strings_from_array(el.second);
         }
         else if (token == "T*")
         {

@@ -31,19 +31,6 @@ using namespace boost::locale::conv;
 
 namespace
 {
-    unsigned int convert2uint(const string &s)
-    {
-        if (s.length() > sizeof(unsigned int) || s.empty()) throw pdf_error(FUNC_STRING + "wrong length. s= " + s);
-        union convert_t
-        {
-            unsigned int v;
-            unsigned char a[sizeof(unsigned int)];
-        } v{0};
-
-        for (int i = s.length() - 1, j = 0; i >= 0; --i, ++j) v.a[j] = s[i];
-        return v.v;
-    }
-
     unsigned int get_space_width_from_font_descriptor(const ObjectStorage &storage, const pair<string, pdf_object_t> &dict)
     {
         if (dict.second != INDIRECT_OBJECT) throw pdf_error(FUNC_STRING + "/FontDescriptor must be indirect object");
@@ -135,7 +122,7 @@ string CharsetConverter::custom_decode_symbol(const string &s, size_t &i) const
     {
         size_t left = s.length() - i;
         if (left < n) break;
-        auto it = custom_encoding->utf16_map.find(convert2uint(s.substr(i, n)));
+        auto it = custom_encoding->utf16_map.find(s.substr(i, n));
         if (it == custom_encoding->utf16_map.end()) continue;
         i += n;
         return it->second;
@@ -206,8 +193,8 @@ string CharsetConverter::get_string(const string &s) const
     {
         string decoded;
         for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
-        //strings from cmap returned in little ordering
-        return to_utf<char>(decoded, "UTF-16le");
+        //strings from cmap returned in big ordering
+        return to_utf<char>(decoded, "UTF-16be");
     }
     }
 }

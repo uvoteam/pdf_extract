@@ -11,7 +11,7 @@
 struct cmap_t
 {
     cmap_t() = default;
-    std::unordered_map<unsigned int, std::string> utf16_map;
+    std::unordered_map<std::string, std::string> utf16_map;
 //how many bytes to read(see codespacerange)
     std::vector<unsigned char> sizes;
 };

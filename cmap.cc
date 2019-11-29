@@ -67,38 +67,26 @@ namespace
         return token_t(type, line.substr(start, end - start));
     }
 
-    unsigned int convert2number(const token_t &token)
-    {
-        switch (token.type)
-        {
-        case token_t::HEX:
-            return strict_stoul(token.val, 16);
-        case token_t::DEC:
-            return strict_stoul(token.val, 10);
-        default:
-            throw pdf_error(FUNC_STRING + "wrong token type. val =" + token.val);
-        }
-    }
-    //convert to utf16-le symbol
+    //convert to utf16-be symbol
     string num2string(unsigned int n)
     {
         if (n == 0) return string(2, 0);
         string result;
         while (n)
         {
-            result.push_back(n & 0xFF);
+            result = static_cast<char>(n & 0xFF) + result;
             n >>= 8;
         }
-        if (result.length() == 1) result.push_back(0);
+        if (result.length() == 1) result = '\x00' + result;
         return result;
     }
 
-    //get utf16le symbols from hex
+    //get utf16be symbols from hex
     string get_hex_val(const string &hex_str)
     {
         size_t n = hex_str.length() / 2 + (hex_str.length() % 2);
         string result(n, 0);
-        for (int j = result.length() - 1, i = 0; j >= 0; --j, i += 2) result[j] = strict_stoul(hex_str.substr(i, 2), 16);
+        for (int j = 0, i = 0; j < result.length(); ++j, i += 2) result[j] = strict_stoul(hex_str.substr(i, 2), 16);
         return result;
     }
 
@@ -125,26 +113,39 @@ namespace
         }
     }
 
-    size_t get_bfrange(const string &stream, size_t offset, unordered_map<unsigned int, string> &utf16_map)
+    void inc(string& n)
     {
-        unsigned int first = convert2number(get_token(stream, offset));
-        unsigned int second = convert2number(get_token(stream, offset));
-        token_t third_token = get_token(stream, offset);
+        if (n.empty()) throw pdf_error(FUNC_STRING + "string is empty");
+        char byte;
+        for (int i = n.length() - 1; i >= 0; --i)
+        {
+            ++n[i];
+            byte = n[i];
+            if (byte != 0) break;
+        }
+        if (byte == 0) n = '\x01' + n;
+    }
+
+    size_t get_bfrange(const string &stream, size_t offset, unordered_map<string, string> &utf16_map)
+    {
+        const string first = convert2string(get_token(stream, offset));
+        const string second = convert2string(get_token(stream, offset));
+        const token_t third_token = get_token(stream, offset);
         switch (third_token.type)
         {
         case token_t::HEX:
         case token_t::DEC:
         {
-            unsigned int third = convert2number(third_token);
-            for (unsigned int n = first; n <= second; ++n, ++third) utf16_map.insert(make_pair(n, num2string(third)));
+            string third = convert2string(third_token);
+            for (string n = first; n <= second; inc(n), inc(third)) utf16_map.insert(make_pair(n, third));
             break;
         }
         case token_t::ARRAY:
         {
             size_t token_offset = 0;
-            for (unsigned int n = first; n <= second; ++n)
+            for (string n = first; n <= second; inc(n))
             {
-                utf16_map.insert(make_pair(n, num2string(convert2number(get_token(third_token.val, token_offset)))));
+                utf16_map.insert(make_pair(n, convert2string(get_token(third_token.val, token_offset))));
             }
             break;
         }
@@ -152,11 +153,11 @@ namespace
         return offset + 1;
     }
 
-    size_t get_bfchar(const string &stream, size_t offset, unordered_map<unsigned int, string> &utf16_map)
+    size_t get_bfchar(const string &stream, size_t offset, unordered_map<string, string> &utf16_map)
     {
-        unsigned int num = convert2number(get_token(stream, offset));
-        const string str = convert2string(get_token(stream, offset));
-        utf16_map.insert(make_pair(num, str));
+        const string src = convert2string(get_token(stream, offset));
+        const string dst = convert2string(get_token(stream, offset));
+        utf16_map.insert(make_pair(src, dst));
         return offset + 1;
     }
 

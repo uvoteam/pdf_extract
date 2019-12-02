@@ -113,7 +113,8 @@ string extract_text(const string &doc,
                     map<string, unsigned int> &width_storage);
 
 #define ADD_X_OFFSET() if ((tx * WIDTH_SCALE) > ((encoding->get_space_width() * Tfs + Tc + Tw) * Th)) result += ' '
-#define ADD_Y_OFFSET() if ((ty * WIDTH_SCALE) > (encoding->get_space_width() * Tfs + Tc + Tw)) result += '\n'
+//always horizontal orientation
+#define ADD_Y_OFFSET() ;//if ((ty * WIDTH_SCALE) > (encoding->get_space_width() * Tfs + Tc + Tw)) result += '\n'
 
 bool is_prefix(const char *str, const char *pre)
 {

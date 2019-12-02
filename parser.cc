@@ -743,7 +743,7 @@ string extract_text(const string &doc,
         }
         else if (token == "Td" || token == "TD" || token == "Tm")
         {
-            ty = stod(pop(st).second);
+            ty = -stod(pop(st).second);
             tx = stod(pop(st).second);
             ADD_Y_OFFSET();
             ADD_X_OFFSET();

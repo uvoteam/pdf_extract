@@ -31,6 +31,7 @@ public:
     static unsigned int get_space_width(const ObjectStorage &storage,
                                         const std::map<std::string, std::pair<std::string, pdf_object_t>> &font_dict);
     unsigned int get_space_width() const;
+    void set_default_space_width();
 private:
     enum PDFEncode_t {DEFAULT, MAC_EXPERT, MAC_ROMAN, WIN, OTHER, UTF8, IDENTITY, TO_UNICODE, DIFFERENCE_MAP};
 

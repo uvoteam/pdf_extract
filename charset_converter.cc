@@ -116,6 +116,11 @@ unsigned int CharsetConverter::get_space_width(const ObjectStorage &storage,
     return NO_SPACE_WIDTH;
 }
 
+void CharsetConverter::set_default_space_width()
+{
+    space_width = NO_SPACE_WIDTH;
+}
+
 string CharsetConverter::custom_decode_symbol(const string &s, size_t &i) const
 {
     for (unsigned char n : custom_encoding->sizes)

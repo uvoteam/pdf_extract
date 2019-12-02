@@ -27,7 +27,13 @@ using pages_id_resources_t = vector<pair<unsigned int, map<string, pair<string, 
 enum {CROSS_REFERENCE_LINE_SIZE = 20,
       BYTE_OFFSET_LEN = 10, /* length for byte offset in cross reference record */
       GENERATION_NUMBER_LEN = 5, /* length for generation number */
-      WIDTH_SCALE = 1000 // in TJ offsets are represented in 1/1000 from width. so for Td operators width should be scaled
+      WIDTH_SCALE = 1000, // in TJ offsets are represented in 1/1000 from width. so for Td operators width should be scaled
+      TH_DEFAULT = 100,
+      TC_DEFAULT = 0,
+      TW_DEFAULT = 0,
+      TFS_DEFAULT = 1,
+      TX_DEFAULT = 0,
+      TY_DEFAULT = 0
 };
 
 bool is_prefix(const char *str, const char *pre);
@@ -105,6 +111,9 @@ string extract_text(const string &doc,
                     const map<string, pair<string, pdf_object_t>> &decrypt_data,
                     map<unsigned int, cmap_t> &cmap_storage,
                     map<string, unsigned int> &width_storage);
+
+#define ADD_X_OFFSET() if ((tx * WIDTH_SCALE) > ((encoding->get_space_width() * Tfs + Tc + Tw) * Th)) result += ' '
+#define ADD_Y_OFFSET() if ((ty * WIDTH_SCALE) > (encoding->get_space_width() * Tfs + Tc + Tw)) result += '\n'
 
 bool is_prefix(const char *str, const char *pre)
 {
@@ -660,6 +669,12 @@ string extract_text(const string &doc,
     string result;
     stack<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
+    double Tfs = TFS_DEFAULT;
+    double Th = TH_DEFAULT;
+    double Tc = TC_DEFAULT;
+    double Tw = TW_DEFAULT;
+    double tx = TX_DEFAULT;
+    double ty = TY_DEFAULT;
     for (size_t i = 0; i < page.length();)
     {
         i = skip_spaces(page, i, false);
@@ -670,6 +685,11 @@ string extract_text(const string &doc,
         i = end;
         if (token == "BT")
         {
+            Th = TH_DEFAULT;
+            Tc = TC_DEFAULT;
+            Tw = TW_DEFAULT;
+            Tfs = TFS_DEFAULT;
+            encoding->set_default_space_width();
             in_text_block = true;
             continue;
         }
@@ -686,12 +706,21 @@ string extract_text(const string &doc,
             if (el.first != STRING) continue;
             result += encoding->get_string(decode_string(el.second));
         }
-        else if (token == "'" || token == "\"")
+        else if (token == "Tz")
         {
-            const pair<pdf_object_t, string> el = pop(st);
-            //wrong arg for '" operators skipping..
-            if (el.first != STRING) continue;
-            result += '\n' + encoding->get_string(decode_string(el.second));
+            Th = stod(pop(st).second);
+        }
+        else if (token == "'")
+        {
+            ADD_Y_OFFSET();
+            result += encoding->get_string(decode_string(pop(st).second));
+        }
+        else if (token == "\"")
+        {
+            const string str = pop(st).second;
+            Tc = stod(pop(st).second);
+            Tw = stod(pop(st).second);
+            result += '\n' + encoding->get_string(str);
         }
         else if (token == "TJ")
         {
@@ -702,16 +731,26 @@ string extract_text(const string &doc,
         }
         else if (token == "T*")
         {
-            result += '\n';
+            ADD_Y_OFFSET();
         }
-        else if (token == "Td" || token == "TD")
+        else if (token == "Tc")
         {
-            if (strict_stol(get_int(pop(st).second)) > 0) result += '\n'; //y offset
-            if ((stod(pop(st).second) * WIDTH_SCALE) > encoding->get_space_width()) result += ' '; //x offset
+            Tc = stod(pop(st).second);
+        }
+        else if (token == "Tw")
+        {
+            Tw = stod(pop(st).second);
+        }
+        else if (token == "Td" || token == "TD" || token == "Tm")
+        {
+            ty = stod(pop(st).second);
+            tx = stod(pop(st).second);
+            ADD_Y_OFFSET();
+            ADD_X_OFFSET();
         }
         else if (token == "Tf")
         {
-            pop(st);
+            Tfs = stod(pop(st).second);
             encoding = get_font_encoding(doc, pop(st).second, fonts, storage, decrypt_data, cmap_storage, width_storage);
         }
         else

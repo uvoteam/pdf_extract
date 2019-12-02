@@ -93,7 +93,7 @@ namespace
         string hex;
         for (char c : arg)
         {
-            if (c != '\n') hex += c;
+            if (c != '\n' && c != '\r') hex += c;
         }
         string result;
         for (size_t i = 0; i < hex.length(); i += 2) result.append(1, static_cast<char>(strict_stoul(hex.substr(i, 2), 16)));

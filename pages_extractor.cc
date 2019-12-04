@@ -377,7 +377,11 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
             continue;
         }
         if (token == "cm") CTM = multiply_matrixes(get_matrix(st), CTM);
-        if (!in_text_block) continue;
+        if (!in_text_block)
+        {
+            st.push(make_pair(VALUE, token));
+            continue;
+        }
         if (token == "Tj")
         {
             texts.push_back(encoding->get_string(decode_string(pop(st).second), Tm, CTM, Tfs, Tc, Tw, Th, 0, gtx));

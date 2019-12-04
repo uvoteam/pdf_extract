@@ -130,7 +130,7 @@ namespace
         auto it = dictionary.find("/Rotate");
         if (it != dictionary.end())
         {
-            unsigned int v = strict_stoul(it->first);
+            unsigned int v = strict_stoul(it->second.first);
             if (v % 90 != 0) throw pdf_error(FUNC_STRING + "/Rotate must be multiple of 90.Val:" + to_string(v));
             return v;
         }

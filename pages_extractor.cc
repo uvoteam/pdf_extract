@@ -27,7 +27,8 @@ namespace
         TL_DEFAULT = 0
     };
     
-    string output_content(const string &buffer,
+    string output_content(unordered_set<unsigned int> &visited_contents,
+                          const string &buffer,
                           const ObjectStorage &storage,
                           const pair<unsigned int, unsigned int> &id_gen,
                           const dict_t &decrypt_data)
@@ -35,12 +36,14 @@ namespace
         const pair<string, pdf_object_t> content_pair = storage.get_object(id_gen.first);
         if (content_pair.second == ARRAY)
         {
-            //TODO check infinite recursion
             vector<pair<unsigned int, unsigned int>> contents = get_set(content_pair.first);
             string result;
             for (const pair<unsigned int, unsigned int> &p : contents)
             {
-                result += output_content(buffer, storage, p, decrypt_data);
+                //avoid infinite recursion
+                if (visited_contents.count(p.first)) continue;
+                visited_contents.insert(p.first);
+                result += output_content(visited_contents, buffer, storage, p, decrypt_data);
             }
             return result;
         }
@@ -251,9 +254,10 @@ string PagesExtractor::get_text()
     {
         vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(storage.get_object(page_id));
         string page_content;
+        unordered_set<unsigned int> visited_contents;
         for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen)
         {
-            page_content += output_content(doc, storage, id_gen, decrypt_data);
+            page_content += output_content(visited_contents, doc, storage, id_gen, decrypt_data);
         }
         text += extract_text(page_content, page_id);
     }

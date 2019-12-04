@@ -1,8 +1,8 @@
 #include <array>
 #include <utility>
 #include <map>
+#include <unordered_set>
 #include <vector>
-#include <algorithm>
 #include <memory>
 #include <stack>
 
@@ -152,7 +152,8 @@ PagesExtractor::PagesExtractor(unsigned int catalog_pages_id,
     {
         throw pdf_error("In root catalog type must be '/Type /Pages'");
     }
-    get_pages_resources_int(data, map<string, pair<string, pdf_object_t>>(), boost::none, 0);
+    unordered_set<unsigned int> checked_nodes;
+    get_pages_resources_int(checked_nodes, data, map<string, pair<string, pdf_object_t>>(), boost::none, 0);
 }
 
 matrix_t PagesExtractor::init_CTM(unsigned int page_id) const
@@ -189,7 +190,8 @@ PagesExtractor::cropbox_t PagesExtractor::parse_rectangle(const pair<string, pdf
     return result;
 }
 
-void PagesExtractor::get_pages_resources_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
+void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checked_nodes,
+                                             const map<string, pair<string, pdf_object_t>> &parent_dict,
                                              const map<string, pair<string, pdf_object_t>> &parent_font,
                                              const optional<cropbox_t> &parent_crop_box,
                                              unsigned int parent_rotate)
@@ -203,23 +205,23 @@ void PagesExtractor::get_pages_resources_int(const map<string, pair<string, pdf_
     {
         unsigned int id = page.first;
         //avoid infinite recursion for 'bad' pdf
-        if (find(pages.begin(), pages.end(), id) == pages.end())
+        if (checked_nodes.count(id) == 0)
         {
+            checked_nodes.insert(id);
             const pair<string, pdf_object_t> page_dict = storage.get_object(id);
             if (page_dict.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
-            pages.push_back(id);
             const map<string, pair<string, pdf_object_t>> dict_data = get_dictionary_data(page_dict.first, 0);
             if (dict_data.at("/Type").first == "/Page")
             {
-                const map<string, pair<string, pdf_object_t>> font = get_fonts(dict_data, parent_font);
-                const optional<cropbox_t> crop_box = get_crop_box(dict_data, parent_crop_box);
-                unsigned int rotate = get_rotate(dict_data, parent_rotate);
-                fonts.insert(make_pair(id, font));
-                crop_boxes.insert(make_pair(id, crop_box.value()));
-                rotates.insert(make_pair(id, rotate));
-                get_pages_resources_int(dict_data, font, crop_box, rotate);
+                pages.push_back(id);
+                fonts.insert(make_pair(id, get_fonts(dict_data, parent_font)));
+                crop_boxes.insert(make_pair(id, get_crop_box(dict_data, parent_crop_box).value()));
+                rotates.insert(make_pair(id, get_rotate(dict_data, parent_rotate)));
             }
-            get_pages_resources_int(dict_data, parent_font, parent_crop_box, parent_rotate);
+            else
+            {
+                get_pages_resources_int(checked_nodes, dict_data, parent_font, parent_crop_box, parent_rotate);
+            }
         }
     }
 }

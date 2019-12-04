@@ -6,6 +6,7 @@
 #include <utility>
 #include <map>
 #include <memory>
+#include <unordered_set>
 
 #include <boost/optional.hpp>
 
@@ -28,7 +29,8 @@ private:
     matrix_t init_CTM(unsigned int page_id) const;
     std::string extract_text(const std::string &page_content, unsigned int page_id);
     cropbox_t parse_rectangle(const std::pair<std::string, pdf_object_t> &rectangle) const;
-    void get_pages_resources_int(const std::map<std::string, std::pair<std::string, pdf_object_t>> &parent_dict,
+    void get_pages_resources_int(std::unordered_set<unsigned int> &checked_nodes,
+                                 const std::map<std::string, std::pair<std::string, pdf_object_t>> &parent_dict,
                                  const std::map<std::string, std::pair<std::string, pdf_object_t>> &parent_fonts,
                                  const boost::optional<cropbox_t> &parent_crop_box,
                                  unsigned int parent_rotate);

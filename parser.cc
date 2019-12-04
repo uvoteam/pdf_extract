@@ -3,118 +3,27 @@
 #include <map>
 #include <utility>
 #include <vector>
-#include <cstdint>
-#include <memory>
-#include <stack>
 
-#include <boost/optional.hpp>
 //for test
 #include <fstream>
 #include <iostream>
 
 
 #include "common.h"
-#include "charset_converter.h"
 #include "object_storage.h"
-#include "cmap.h"
+#include "pages_extractor.h"
 
 using namespace std;
-using namespace boost;
 
-using pages_id_resources_t = vector<pair<unsigned int, map<string, pair<string, pdf_object_t>>>>;
-
-
-enum {CROSS_REFERENCE_LINE_SIZE = 20,
-      BYTE_OFFSET_LEN = 10, /* length for byte offset in cross reference record */
-      GENERATION_NUMBER_LEN = 5, /* length for generation number */
-      WIDTH_SCALE = 1000, // in TJ offsets are represented in 1/1000 from width. so for Td operators width should be scaled
-      TH_DEFAULT = 100,
-      TC_DEFAULT = 0,
-      TW_DEFAULT = 0,
-      TFS_DEFAULT = 1,
-      TX_DEFAULT = 0,
-      TY_DEFAULT = 0
+enum
+{
+    CROSS_REFERENCE_LINE_SIZE = 20,
+    BYTE_OFFSET_LEN = 10, /* length for byte offset in cross reference record */
+    GENERATION_NUMBER_LEN = 5 /* length for generation number */
 };
 
-bool is_prefix(const char *str, const char *pre);
-uint64_t get_uint64(const string &src);
-array<uint64_t, 3> get_cross_reference_entry(const string &stream, size_t &offset, const array<unsigned int, 3> &w);
-pair<pdf_object_t, string> pop(vector<pair<pdf_object_t, string>> &st);
-void get_offsets_internal_new(const string &stream,
-                              const map<string, pair<string, pdf_object_t>> dictionary_data,
-                              vector<size_t> &result);
-size_t get_cross_ref_offset(const string &buffer);
-pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end);
-optional<unique_ptr<CharsetConverter>> get_font_from_encoding(const ObjectStorage &storage,
-                                                              const map<string, pair<string, pdf_object_t>> &font_dict,
-                                                              unsigned int width);
-optional<unique_ptr<CharsetConverter>> get_font_from_tounicode(const string &doc,
-                                                               const ObjectStorage &storage,
-                                                               const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                                                               const map<string, pair<string, pdf_object_t>> &font_dict,
-                                                               map<unsigned int, cmap_t> &cmap_storage,
-                                                               unsigned int width);
-void append_object(const string &buf, size_t offset, vector<size_t> &objects);
-char get_object_status(const string &buffer, size_t offset);
-unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
-                                               const string &font,
-                                               const map<string, pair<string, pdf_object_t>> &fonts,
-                                               const ObjectStorage &storage,
-                                               const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                                               map<unsigned int, cmap_t> &cmap_storage,
-                                               map<string, unsigned int> &width_storage);
-size_t get_xref_number(const string &buffer, size_t &offset);
-vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset);
-vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_t cross_ref_offset);
-vector<pair<size_t, size_t>> get_trailer_offsets_new(const string &buffer, size_t cross_ref_offset);
-void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &result);
-void get_object_offsets_new(const string &buffer, size_t offset, vector<size_t> &result);
 void get_object_offsets_old(const string &buffer, size_t offset, vector<size_t> &result);
-void validate_offsets(const string &buffer, const vector<size_t> &offsets);
-map<string, pair<string, pdf_object_t>> get_dict_or_indirect_dict(const pair<string, pdf_object_t> &data,
-                                                                  const ObjectStorage &storage);
-vector<size_t> get_all_object_offsets(const string &buffer,
-                                      size_t cross_ref_offset,
-                                      const vector<pair<size_t, size_t>> &trailer_offsets);
-map<string, pair<string, pdf_object_t>> get_fonts(const map<string, pair<string, pdf_object_t>> &dictionary,
-                                                  const ObjectStorage &storage,
-                                                  const map<string, pair<string, pdf_object_t>> &parent_fonts);
-map<size_t, size_t> get_id2offsets(const string &buffer,
-                                   size_t cross_ref_offset,
-                                   const vector<pair<size_t, size_t>> &trailer_offsets);
-unsigned int get_cross_ref_entries(const map<string, pair<string, pdf_object_t>> dictionary_data,
-                                   const array<unsigned int, 3> &w, size_t length);
-array<unsigned int, 3> get_w(const map<string, pair<string, pdf_object_t>> &dictionary_data);
-string get_text(const string &buffer,
-                size_t cross_ref_offset,
-                const ObjectStorage &storage,
-                map<string, pair<string, pdf_object_t>> &encrypt_data);
-pages_id_resources_t get_pages_id_fonts(unsigned int catalog_pages_id, const ObjectStorage &storage);
-void get_pages_id_fonts_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
-                            const map<string, pair<string, pdf_object_t>> &parent_fonts,
-                            const ObjectStorage &storage,
-                            pages_id_resources_t &result);
-vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, pdf_object_t> &page_pair);
-string output_content(const string &buffer,
-                      const ObjectStorage &storage,
-                      const pair<unsigned int, unsigned int> &id_gen,
-                      const map<string, pair<string, pdf_object_t>> &encrypt_data);
-map<string, pair<string, pdf_object_t>> get_encrypt_data(const string &buffer,
-                                                         size_t start,
-                                                         size_t end,
-                                                         const map<size_t, size_t> &id2offsets);
-pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets);
-string extract_text(const string &doc,
-                    const string &page,
-                    const map<string, pair<string, pdf_object_t>> &fonts,
-                    const ObjectStorage &storage,
-                    const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                    map<unsigned int, cmap_t> &cmap_storage,
-                    map<string, unsigned int> &width_storage);
-
-#define ADD_X_OFFSET() if ((tx * WIDTH_SCALE) > ((encoding->get_space_width() * Tfs + Tc + Tw) * Th)) result += ' '
-//always horizontal orientation
-#define ADD_Y_OFFSET() if ((ty * WIDTH_SCALE) > (encoding->get_space_width() * Tfs + Tc + Tw)) result += '\n'
+void get_object_offsets_new(const string &buffer, size_t offset, vector<size_t> &result);
 
 bool is_prefix(const char *str, const char *pre)
 {
@@ -136,20 +45,6 @@ size_t get_cross_ref_offset(const string &buffer)
     }
 
     return r;
-}
-
-map<string, pair<string, pdf_object_t>> get_dict_or_indirect_dict(const pair<string, pdf_object_t> &data,
-                                                                  const ObjectStorage &storage)
-{
-    switch (data.second)
-    {
-    case DICTIONARY:
-        return get_dictionary_data(data.first, 0);
-    case INDIRECT_OBJECT:
-        return get_dictionary_data(get_indirect_object_data(data.first, storage, DICTIONARY).first, 0);
-    default:
-        throw pdf_error(FUNC_STRING + "wrong object type " + to_string(data.second));
-    }
 }
 
 void append_object(const string &buf, size_t offset, vector<size_t> &objects)
@@ -183,12 +78,6 @@ size_t get_xref_number(const string &buffer, size_t &offset)
     offset = skip_spaces(buffer, end_offset);
 
     return result;
-}
-
-vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset)
-{
-    if (is_prefix(buffer.data() + cross_ref_offset, "xref")) return get_trailer_offsets_old(buffer, cross_ref_offset);
-    return get_trailer_offsets_new(buffer, cross_ref_offset);
 }
 
 vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_t cross_ref_offset)
@@ -238,6 +127,13 @@ vector<pair<size_t, size_t>> get_trailer_offsets_new(const string &buffer, size_
     }
 
     return trailer_offsets;
+}
+
+
+vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset)
+{
+    if (is_prefix(buffer.data() + cross_ref_offset, "xref")) return get_trailer_offsets_old(buffer, cross_ref_offset);
+    return get_trailer_offsets_new(buffer, cross_ref_offset);
 }
 
 void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &result)
@@ -420,89 +316,6 @@ map<size_t, size_t> get_id2offsets(const string &buffer,
     return id2offsets;
 }
 
-void get_pages_id_fonts_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
-                            const map<string, pair<string, pdf_object_t>> &parent_fonts,
-                            const ObjectStorage &storage,
-                            pages_id_resources_t &result)
-{
-    auto it = parent_dict.find("/Type");
-    if (it == parent_dict.end() || it->second.first != "/Pages") return;
-    pair<string, pdf_object_t> kids = parent_dict.at("/Kids");
-    if (kids.second != ARRAY) throw pdf_error(FUNC_STRING + "/Kids is not array");
-
-    for (const pair<unsigned int, unsigned int> &page : get_set(kids.first))
-    {
-        unsigned int id = page.first;
-        //avoid infinite recursion for 'bad' pdf
-        if (find_if(result.begin(), result.end(),
-                    [id](const pages_id_resources_t::value_type &v){ return id == v.first; }) == result.end())
-        {
-            const pair<string, pdf_object_t> page_dict = storage.get_object(id);
-            if (page_dict.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
-            const map<string, pair<string, pdf_object_t>> dict_data = get_dictionary_data(page_dict.first, 0);
-            const map<string, pair<string, pdf_object_t>> fonts = get_fonts(dict_data, storage, parent_fonts);
-            result.push_back(make_pair(id, fonts));
-            get_pages_id_fonts_int(dict_data, fonts, storage, result);
-        }
-    }
-}
-
-map<string, pair<string, pdf_object_t>> get_fonts(const map<string, pair<string, pdf_object_t>> &dictionary,
-                                                  const ObjectStorage &storage,
-                                                  const map<string, pair<string, pdf_object_t>> &parent_fonts)
-{
-    auto it = dictionary.find("/Resources");
-    if (it == dictionary.end()) return parent_fonts;
-    const map<string, pair<string, pdf_object_t>> resources = get_dict_or_indirect_dict(it->second, storage);
-    it = resources.find("/Font");
-    if (it == resources.end()) return map<string, pair<string, pdf_object_t>>();
-    return get_dict_or_indirect_dict(it->second, storage);
-}
-
-pages_id_resources_t get_pages_id_fonts(unsigned int catalog_pages_id, const ObjectStorage &storage)
-{
-    const pair<string, pdf_object_t> catalog_pair = storage.get_object(catalog_pages_id);
-    if (catalog_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "catalog must be DICTIONARY");
-    const map<string, pair<string, pdf_object_t>> data = get_dictionary_data(catalog_pair.first, 0);
-    auto it = data.find("/Type");
-    if (it == data.end() || it->second.first != "/Pages")
-    {
-        throw pdf_error("In root catalog type must be '/Type /Pages'");
-    }
-    //due to PDF official documentation /Resources is required;inheritable(Table 3.8) and must be dictionary
-    //Tolerate this rule: root /Resources always exists
-    const map<string, pair<string, pdf_object_t>> fonts = get_fonts(data,
-                                                                    storage,
-                                                                    map<string, pair<string, pdf_object_t>>());
-    pages_id_resources_t result;
-    get_pages_id_fonts_int(data, fonts, storage, result);
-
-    return result;
-}
-
-vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, pdf_object_t> &page_pair)
-{
-    if (page_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
-    const map<string, pair<string, pdf_object_t>> data = get_dictionary_data(page_pair.first, 0);
-    auto it = data.find("/Contents");
-    // "/Contents" key can be absent for Page. In this case Page is empty
-    if (it == data.end()) return vector<pair<unsigned int, unsigned int>>();
-    vector<pair<unsigned int, unsigned int>> contents_id_gen;
-    const string &contents_data = it->second.first;
-    switch (it->second.second)
-    {
-    case ARRAY:
-        contents_id_gen = get_set(contents_data);
-        return contents_id_gen;
-    case INDIRECT_OBJECT:
-        contents_id_gen.push_back(get_id_gen(contents_data));
-        return contents_id_gen;
-    default:
-        throw pdf_error(FUNC_STRING + "/Contents type must be ARRAY or INDIRECT_OBJECT");
-        break;
-    }
-}
-
 string get_text(const string &buffer,
                 size_t cross_ref_offset,
                 const ObjectStorage &storage,
@@ -524,261 +337,7 @@ string get_text(const string &buffer,
     const pair<string, pdf_object_t> pages_pair = root_data.at("/Pages");
     if (pages_pair.second != INDIRECT_OBJECT) throw pdf_error(FUNC_STRING + "/Pages value must be INDRECT_OBJECT");
 
-    unsigned int catalog_pages_id = get_id_gen(pages_pair.first).first;
-    const pages_id_resources_t pages_id_resources = get_pages_id_fonts(catalog_pages_id, storage);
-    string result;
-    map<unsigned int, cmap_t> cmap_storage;
-    map<string, unsigned int> width_storage;
-
-    for (const pages_id_resources_t::value_type &page_id_resource : pages_id_resources)
-    {
-        unsigned int page_id = page_id_resource.first;
-        vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(storage.get_object(page_id));
-        string page_content;
-        for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen)
-        {
-            page_content += output_content(buffer, storage, id_gen, decrypt_data);
-        }
-        result += extract_text(buffer,
-                               page_content,
-                               page_id_resource.second,
-                               storage,
-                               decrypt_data,
-                               cmap_storage,
-                               width_storage);
-    }
-
-    return result;
-}
-
-pair<pdf_object_t, string> pop(stack<pair<pdf_object_t, string>> &st)
-{
-    if (st.empty()) throw pdf_error(FUNC_STRING + "stack is empty");
-    pair<pdf_object_t, string> result = st.top();
-    st.pop();
-    return result;
-}
-
-optional<unique_ptr<CharsetConverter>> get_font_from_encoding(const ObjectStorage &storage,
-                                                              map<string, pair<string, pdf_object_t>> &font_dict,
-                                                              unsigned int width)
-{
-    auto it = font_dict.find("/Encoding");
-    if (it == font_dict.end()) return boost::none;
-    const pair<string, pdf_object_t> encoding = (it->second.second == INDIRECT_OBJECT)?
-                                                get_indirect_object_data(it->second.first, storage) : it->second;
-    switch (encoding.second)
-    {
-    case DICTIONARY:
-        return CharsetConverter::get_from_dictionary(get_dictionary_data(encoding.first, 0), storage, width);
-    case NAME_OBJECT:
-        return unique_ptr<CharsetConverter>(new CharsetConverter(encoding.first, width));
-    default:
-        throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(encoding.second) + " val=" + encoding.first);
-    }
-}
-
-optional<unique_ptr<CharsetConverter>> get_font_from_tounicode(const string &doc,
-                                                               const ObjectStorage &storage,
-                                                               const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                                                               map<string, pair<string, pdf_object_t>> &font_dict,
-                                                               map<unsigned int, cmap_t> &cmap_storage,
-                                                               unsigned int width)
-{
-    auto it = font_dict.find("/ToUnicode");
-    if (it == font_dict.end()) return boost::none;
-    switch (it->second.second)
-    {
-    case INDIRECT_OBJECT:
-    {
-        const pair<unsigned int, unsigned int> cmap_id_gen = get_id_gen(it->second.first);
-        if (cmap_storage.count(cmap_id_gen.first) == 0)
-        {
-            cmap_storage.insert(make_pair(cmap_id_gen.first, get_cmap(doc, storage, cmap_id_gen, decrypt_data)));
-        }
-        return unique_ptr<CharsetConverter>(new CharsetConverter(&cmap_storage[cmap_id_gen.first], width));
-    }
-    case NAME_OBJECT:
-        return boost::none;
-    default:
-        throw pdf_error(FUNC_STRING + "/ToUnicode wrong type: " + to_string(it->second.second) + " val:" + it->second.first);
-    }
-}
-
-unique_ptr<CharsetConverter> get_font_encoding(const string &doc,
-                                               const string &font,
-                                               const map<string, pair<string, pdf_object_t>> &fonts,
-                                               const ObjectStorage &storage,
-                                               const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                                               map<unsigned int, cmap_t> &cmap_storage,
-                                               map<string, unsigned int> &width_storage)
-{
-    auto it = fonts.find(font);
-    if (it == fonts.end()) return unique_ptr<CharsetConverter>(new CharsetConverter());
-    map<string, pair<string, pdf_object_t>> font_dict = get_dict_or_indirect_dict(it->second, storage);
-    auto it2 = width_storage.find(font);
-    unsigned int width;
-    if (it2 == width_storage.end())
-    {
-        width = CharsetConverter::get_space_width(storage, font_dict);
-        width_storage.insert(make_pair(font, width));
-    }
-    else
-    {
-        width = it2->second;
-    }
-    optional<unique_ptr<CharsetConverter>> r = get_font_from_tounicode(doc,
-                                                                       storage,
-                                                                       decrypt_data,
-                                                                       font_dict,
-                                                                       cmap_storage,
-                                                                       width);
-    if (r) return std::move(*r);
-    r = get_font_from_encoding(storage, font_dict, width);
-    if (r) return std::move(*r);
-    return unique_ptr<CharsetConverter>(new CharsetConverter(width));
-}
-
-bool put2stack(stack<pair<pdf_object_t, string>> &st, const string &buffer, size_t &i)
-{
-    switch (buffer[i])
-    {
-    case '(':
-        st.push(make_pair(STRING, get_string(buffer, i)));
-        return true;
-    case '<':
-        buffer.at(i + 1) == '<'? st.push(make_pair(DICTIONARY, get_dictionary(buffer, i))) :
-                                 st.push(make_pair(STRING, get_string(buffer, i)));
-        return true;
-    case '[':
-        st.push(make_pair(ARRAY, get_array(buffer, i)));
-        return true;
-    default:
-        return false;
-    }
-}
-
-string extract_text(const string &doc,
-                    const string &page,
-                    const map<string, pair<string, pdf_object_t>> &fonts,
-                    const ObjectStorage &storage,
-                    const map<string, pair<string, pdf_object_t>> &decrypt_data,
-                    map<unsigned int, cmap_t> &cmap_storage,
-                    map<string, unsigned int> &width_storage)
-{
-    unique_ptr<CharsetConverter> encoding(new CharsetConverter());
-    string result;
-    stack<pair<pdf_object_t, string>> st;
-    bool in_text_block = false;
-    double Tfs = TFS_DEFAULT;
-    double Th = TH_DEFAULT;
-    double Tc = TC_DEFAULT;
-    double Tw = TW_DEFAULT;
-    double tx = TX_DEFAULT;
-    double ty = TY_DEFAULT;
-    for (size_t i = 0; i < page.length();)
-    {
-        i = skip_spaces(page, i, false);
-        if (in_text_block && put2stack(st, page, i)) continue;
-        size_t end = page.find_first_of(" \r\n\t/[(<", i + 1);
-        if (end == string::npos) end = page.length();
-        const string token = page.substr(i, end - i);
-        i = end;
-        if (token == "BT")
-        {
-            Th = TH_DEFAULT;
-            Tc = TC_DEFAULT;
-            Tw = TW_DEFAULT;
-            Tfs = TFS_DEFAULT;
-            encoding->set_default_space_width();
-            in_text_block = true;
-            continue;
-        }
-        if (token == "ET")
-        {
-            in_text_block = false;
-            continue;
-        }
-        if (!in_text_block) continue;
-        if (token == "Tj")
-        {
-            const pair<pdf_object_t, string> el = pop(st);
-            //wrong arg for Tj operator skipping..
-            if (el.first != STRING) continue;
-            result += encoding->get_string(decode_string(el.second));
-        }
-        else if (token == "Tz")
-        {
-            Th = stod(pop(st).second);
-        }
-        else if (token == "'")
-        {
-            ADD_Y_OFFSET();
-            result += encoding->get_string(decode_string(pop(st).second));
-        }
-        else if (token == "\"")
-        {
-            const string str = pop(st).second;
-            Tc = stod(pop(st).second);
-            Tw = stod(pop(st).second);
-            result += '\n' + encoding->get_string(str);
-        }
-        else if (token == "TJ")
-        {
-            const pair<pdf_object_t, string> el = pop(st);
-            //wrong arg for TJ operator skipping..
-            if (el.first != ARRAY) continue;
-            result += encoding->get_strings_from_array(el.second);
-        }
-        else if (token == "T*")
-        {
-            ADD_Y_OFFSET();
-        }
-        else if (token == "Tc")
-        {
-            Tc = stod(pop(st).second);
-        }
-        else if (token == "Tw")
-        {
-            Tw = stod(pop(st).second);
-        }
-        else if (token == "Td" || token == "TD" || token == "Tm")
-        {
-            ty = -stod(pop(st).second);
-            tx = stod(pop(st).second);
-            ADD_Y_OFFSET();
-            ADD_X_OFFSET();
-        }
-        else if (token == "Tf")
-        {
-            Tfs = stod(pop(st).second);
-            encoding = get_font_encoding(doc, pop(st).second, fonts, storage, decrypt_data, cmap_storage, width_storage);
-        }
-        else
-        {
-            st.push(make_pair(VALUE, token));
-        }
-    }
-    return result;
-}
-
-string output_content(const string &buffer,
-                      const ObjectStorage &storage,
-                      const pair<unsigned int, unsigned int> &id_gen,
-                      const map<string, pair<string, pdf_object_t>> &decrypt_data)
-{
-    const pair<string, pdf_object_t> content_pair = storage.get_object(id_gen.first);
-    if (content_pair.second == ARRAY)
-    {
-        vector<pair<unsigned int, unsigned int>> contents = get_set(content_pair.first);
-        string result;
-        for (const pair<unsigned int, unsigned int> &p : contents)
-        {
-            result += output_content(buffer, storage, p, decrypt_data);
-        }
-        return result;
-    }
-    return get_stream(buffer, id_gen, storage, decrypt_data);
+    return PagesExtractor(get_id_gen(pages_pair.first).first, storage, decrypt_data, buffer).get_text();
 }
 
 pair<string, pair<string, pdf_object_t>> get_id(const string &buffer, size_t start, size_t end)

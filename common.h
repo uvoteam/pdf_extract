@@ -12,6 +12,20 @@
 
 enum pdf_object_t {DICTIONARY = 1, ARRAY = 2, STRING = 3, VALUE = 4, INDIRECT_OBJECT = 5, NAME_OBJECT = 6};
 
+struct text_chunk_t
+{
+    text_chunk_t() noexcept : x(0), y(0)
+    {
+    }
+    text_chunk_t(unsigned int x_arg, unsigned int y_arg, std::string &&text_arg) noexcept :
+                 x(x_arg), y(y_arg), text(std::move(text))
+    {
+    }
+    unsigned int x;
+    unsigned int y;
+    std::string text;
+};
+
 #define FUNC_STRING (std::string(__func__) + ": ")
 extern const std::map<pdf_object_t, std::string (&)(const std::string&, size_t&)> TYPE2FUNC;
 class ObjectStorage;
@@ -28,6 +42,8 @@ public:
     }
 };
 
+using matrix_t=std::vector<std::vector<double>>;
+
 size_t efind_first(const std::string &src, const std::string& str, size_t pos);
 size_t efind_first(const std::string &src, const char* s, size_t pos);
 size_t efind_first(const std::string &src, const char* s, size_t pos, size_t n);
@@ -40,6 +56,7 @@ size_t efind(const std::string &src, char c, size_t pos);
 size_t skip_spaces(const std::string &buffer, size_t offset, bool validate = true);
 size_t skip_comments(const std::string &buffer, size_t offset);
 pdf_object_t get_object_type(const std::string &buffer, size_t &offset);
+matrix_t multiply_matrixes(const matrix_t &m1, const matrix_t &m2);
 std::string get_value(const std::string &buffer, size_t &offset);
 std::string get_array(const std::string &buffer, size_t &offset);
 std::string get_name_object(const std::string &buffer, size_t &offset);

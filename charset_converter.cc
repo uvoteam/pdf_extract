@@ -24,13 +24,46 @@ using namespace boost::locale::conv;
         if (it != DICT.end())\
         {\
             if (it->second.second != VALUE) throw pdf_error(FUNC_STRING + KEY + " must have VALUE value");\
-            return strict_stoul(get_int(it->second.first)) / CharsetConverter::SPACE_WIDTH_SCALAR_FRACTION; \
+            return strict_stoul(get_int(it->second.first)) / CharsetConverter::SPACE_WIDTH_SCALAR_FRACTION;\
         }\
     }\
     while(false)
 
 namespace
 {
+    enum {TRISE_DEFAULT = 0};
+    text_chunk_t get_text_chunk(string &&s,
+                                const matrix_t &Tm,
+                                const matrix_t &CTM,
+                                double Tfs,
+                                double Th,
+                                double tx)
+    {
+        matrix_t result = multiply_matrixes(
+                            matrix_t{{tx, 0, 1}},
+                            multiply_matrixes(
+                              multiply_matrixes(matrix_t{{Tfs * Th, 0, 0}, {0, Tfs, 0}, {0, TRISE_DEFAULT, 0}},
+                                Tm),
+                              CTM));
+        return text_chunk_t(result[0][0], result[0][1], std::move(s));
+    }
+
+    unsigned int utf8_length(const string &s)
+    {
+        unsigned int len = 0;
+        //Count all first-bytes (the ones that don't match 10xxxxxx).
+        for (char c : s) len += (c & 0xc0) != 0x80;
+        return len;
+    }
+
+    unsigned int get_length(const string &s, const string &charset)
+    {
+        if (charset == "UTF-8") return utf8_length(s);
+        if (charset == "UTF-16be" || charset == "UTF-16le" || charset == "UTF-16") return s.length() / 2;
+        if (charset == "UTF-32be" || charset == "UTF-32le" || charset == "UTF-32") return s.length() / 4;
+        return s.length();
+    }
+
     unsigned int get_space_width_from_font_descriptor(const ObjectStorage &storage, const pair<string, pdf_object_t> &dict)
     {
         if (dict.second != INDIRECT_OBJECT) throw pdf_error(FUNC_STRING + "/FontDescriptor must be indirect object");
@@ -136,24 +169,35 @@ string CharsetConverter::custom_decode_symbol(const string &s, size_t &i) const
     return string();
 }
 
-string CharsetConverter::get_strings_from_array(const string &array) const
+text_chunk_t CharsetConverter::get_strings_from_array(const string &array,
+                                                      matrix_t &Tm,
+                                                      const matrix_t &CTM,
+                                                      double Tfs,
+                                                      double Tc,
+                                                      double Tw,
+                                                      double Th,
+                                                      double &gtx) const
 {
-    string result;
+    text_chunk_t result;
+    double Tj = 0;
     for (const pair<string, pdf_object_t> &p : get_array_data(array, 0))
     {
         switch (p.second)
         {
         case VALUE:
+            Tj = stod(p.first);
+            if (Tj > 0) continue;
+            if (-Tj > get_space_width()) result.text += ' ';
+            break;
+        case STRING:
         {
-            long int n = strict_stol(get_int(p.first));
-            if (n > 0) continue;
-            n = -n;
-            if (n > get_space_width()) result += ' ';
+            text_chunk_t r = get_string(decode_string(p.first), Tm, CTM, Tfs, Tc, Tw, Th, Tj, gtx);
+            result.x = r.x;
+            result.y = r.y;
+            result.text += r.text;
+            Tj = 0;
             break;
         }
-        case STRING:
-            result += get_string(decode_string(p.first));
-            break;
         default:
             throw pdf_error(FUNC_STRING + "wrong type " + to_string(p.second) + " val=" + p.first);
         }
@@ -161,45 +205,69 @@ string CharsetConverter::get_strings_from_array(const string &array) const
     return result;
 }
 
-string CharsetConverter::get_string(const string &s) const
+text_chunk_t CharsetConverter::get_string(const string &s,
+                                          matrix_t &Tm,
+                                          const matrix_t &CTM,
+                                          double Tfs,
+                                          double Tc,
+                                          double Tw,
+                                          double Th,
+                                          double Tj,
+                                          double &tx) const
 {
-    string result;
+    text_chunk_t result;
     switch (PDFencode)
     {
     case UTF8:
-        return s;
+        result = get_text_chunk(string(s), Tm, CTM, Tfs, Th, tx);
+        adjust_coordinates(Tm, Tfs, Tc, Tw, Th, Tj, utf8_length(s), tx);
+        return result;
     case IDENTITY:
-        return to_utf<char>(s, "UTF-16be");
+        result = get_text_chunk(to_utf<char>(s, "UTF-16be"), Tm, CTM, Tfs, Th, tx);
+        adjust_coordinates(Tm, Tfs, Tc, Tw, Th, Tj, s.length() / 2, tx);
+        return result;
     case DEFAULT:
     case MAC_EXPERT:
     case MAC_ROMAN:
     case WIN:
     {
         const unordered_map<unsigned int, string> &standard_encoding = standard_encodings.at(PDFencode);
-        result.reserve(s.length());
+        string str;
+        str.reserve(s.length());
         for (char c : s)
         {
             auto it = standard_encoding.find(static_cast<unsigned char>(c));
-            if (it != standard_encoding.end()) result.append(it->second);
+            if (it != standard_encoding.end()) str.append(it->second);
         }
+        result = get_text_chunk(to_utf<char>(s, "UTF-16be"), Tm, CTM, Tfs, Th, tx);
+        adjust_coordinates(Tm, Tfs, Tc, Tw, Th, Tj, s.length(), tx);
         return result;
     }
     case DIFFERENCE_MAP:
-        result.reserve(s.length());
+    {
+        string str;
+        str.reserve(s.length());
         for (char c : s)
         {
             auto it = difference_map.find(static_cast<unsigned char>(c));
-            if (it != difference_map.end()) result.append(it->second);
+            if (it != difference_map.end()) str.append(it->second);
         }
+        result = get_text_chunk(std::move(str), Tm, CTM, Tfs, Th, tx);
+        adjust_coordinates(Tm, Tfs, Tc, Tw, Th, Tj, s.length(), tx);
         return result;
+    }
     case OTHER:
-        return to_utf<char>(s, charset);
+        result = get_text_chunk(to_utf<char>(s, charset), Tm, CTM, Tfs, Th, tx);
+        adjust_coordinates(Tm, Tfs, Tc, Tw, Th, Tj, get_length(s, charset), tx);
+        return result;
     case TO_UNICODE:
     {
         string decoded;
         for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
         //strings from cmap returned in big ordering
-        return to_utf<char>(decoded, "UTF-16be");
+        result = get_text_chunk(to_utf<char>(decoded, "UTF-16be"), Tm, CTM, Tfs, Th, tx);
+        adjust_coordinates(Tm, Tfs, Tc, Tw, Th, Tj, decoded.length() / 2, tx);
+        return result;
     }
     }
 }
@@ -335,6 +403,20 @@ unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_
 unsigned int CharsetConverter::get_space_width() const
 {
     return (space_width == NO_SPACE_WIDTH)? DEFAULT_SPACE_WIDTH : space_width;
+}
+
+void CharsetConverter::adjust_coordinates(matrix_t &Tm,
+                                          double Tfs,
+                                          double Tc,
+                                          double Tw,
+                                          double Th,
+                                          double Tj,
+                                          size_t len,
+                                          double &tx) const
+{
+    tx += ((get_space_width() - Tj/1000) * Tfs + Tc + Tw) * Th * len;
+    matrix_t m = matrix_t{{1, 0, 0}, {0, 1, 0}, {tx, 0, 1}};
+    Tm = multiply_matrixes(m, Tm);
 }
 
 const unordered_map<unsigned int, string> CharsetConverter::standard_encoding = {{32, " "},

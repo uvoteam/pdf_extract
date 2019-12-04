@@ -724,3 +724,17 @@ string get_int(const string &s)
     if (off == 0 || (off == 1 && s[0] == '-')) return "0";
     return s.substr(0, off);
 }
+
+matrix_t multiply_matrixes(const matrix_t &m1, const matrix_t &m2)
+{
+    matrix_t result(m1.size(), vector<double>(m2.at(0).size(), 0));
+    for (size_t i = 0; i < m1.size(); i++)
+    {
+        for (size_t j = 0; j < m2.at(0).size(); j++)
+        {
+            result[i][j] = 0;
+            for (size_t k = 0; k < m1.at(0).size(); k++) result[i][j] += m1[i][k] * m2[k][j];
+        }
+    }
+    return result;
+}

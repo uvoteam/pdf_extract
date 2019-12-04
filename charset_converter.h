@@ -26,12 +26,10 @@ public:
                             double Tfs, double Tc, double Tw, double Th, double Tj, double &gtx) const;
     text_chunk_t get_strings_from_array(const std::string &array, matrix_t &Tm, const matrix_t &CTM,
                                         double Tfs, double Tc, double Tw, double Th, double &gtx) const;
-    static std::unique_ptr<CharsetConverter> get_from_dictionary(const std::map<std::string,
-                                                                 std::pair<std::string, pdf_object_t>> &dictionary,
+    static std::unique_ptr<CharsetConverter> get_from_dictionary(const dict_t &dictionary,
                                                                  const ObjectStorage &storage,
                                                                  unsigned int space_width);
-    static unsigned int get_space_width(const ObjectStorage &storage,
-                                        const std::map<std::string, std::pair<std::string, pdf_object_t>> &font_dict);
+    static unsigned int get_space_width(const ObjectStorage &storage, const dict_t &font_dict);
     unsigned int get_space_width() const;
     void set_default_space_width();
 private:

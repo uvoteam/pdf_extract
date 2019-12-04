@@ -1,6 +1,5 @@
 #include <array>
 #include <utility>
-#include <map>
 #include <unordered_set>
 #include <vector>
 #include <memory>
@@ -31,7 +30,7 @@ namespace
     string output_content(const string &buffer,
                           const ObjectStorage &storage,
                           const pair<unsigned int, unsigned int> &id_gen,
-                          const map<string, pair<string, pdf_object_t>> &decrypt_data)
+                          const dict_t &decrypt_data)
     {
         const pair<string, pdf_object_t> content_pair = storage.get_object(id_gen.first);
         if (content_pair.second == ARRAY)
@@ -51,7 +50,7 @@ namespace
     vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, pdf_object_t> &page_pair)
     {
         if (page_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
-        const map<string, pair<string, pdf_object_t>> data = get_dictionary_data(page_pair.first, 0);
+        const dict_t data = get_dictionary_data(page_pair.first, 0);
         auto it = data.find("/Contents");
         // "/Contents" key can be absent for Page. In this case Page is empty
         if (it == data.end()) return vector<pair<unsigned int, unsigned int>>();
@@ -71,8 +70,7 @@ namespace
         }
     }
 
-    map<string, pair<string, pdf_object_t>> get_dict_or_indirect_dict(const pair<string, pdf_object_t> &data,
-                                                                      const ObjectStorage &storage)
+    dict_t get_dict_or_indirect_dict(const pair<string, pdf_object_t> &data, const ObjectStorage &storage)
     {
         switch (data.second)
         {
@@ -125,7 +123,7 @@ namespace
                         {e, f, 1}};
     }
 
-    unsigned int get_rotate(const map<string, pair<string, pdf_object_t>> &dictionary, unsigned int parent_rotate)
+    unsigned int get_rotate(const dict_t &dictionary, unsigned int parent_rotate)
     {
         auto it = dictionary.find("/Rotate");
         if (it != dictionary.end())
@@ -140,20 +138,20 @@ namespace
 
 PagesExtractor::PagesExtractor(unsigned int catalog_pages_id,
                                const ObjectStorage &storage_arg,
-                               const map<string, pair<string, pdf_object_t>> &decrypt_data_arg,
+                               const dict_t &decrypt_data_arg,
                                const string &doc_arg) :
                                doc(doc_arg), storage(storage_arg), decrypt_data(decrypt_data_arg)
 {
     const pair<string, pdf_object_t> catalog_pair = storage.get_object(catalog_pages_id);
     if (catalog_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "catalog must be DICTIONARY");
-    const map<string, pair<string, pdf_object_t>> data = get_dictionary_data(catalog_pair.first, 0);
+    const dict_t data = get_dictionary_data(catalog_pair.first, 0);
     auto it = data.find("/Type");
     if (it == data.end() || it->second.first != "/Pages")
     {
         throw pdf_error("In root catalog type must be '/Type /Pages'");
     }
     unordered_set<unsigned int> checked_nodes;
-    get_pages_resources_int(checked_nodes, data, map<string, pair<string, pdf_object_t>>(), boost::none, 0);
+    get_pages_resources_int(checked_nodes, data, dict_t(), boost::none, 0);
 }
 
 matrix_t PagesExtractor::init_CTM(unsigned int page_id) const
@@ -191,8 +189,8 @@ PagesExtractor::cropbox_t PagesExtractor::parse_rectangle(const pair<string, pdf
 }
 
 void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checked_nodes,
-                                             const map<string, pair<string, pdf_object_t>> &parent_dict,
-                                             const map<string, pair<string, pdf_object_t>> &parent_font,
+                                             const dict_t &parent_dict,
+                                             const dict_t &parent_font,
                                              const optional<cropbox_t> &parent_crop_box,
                                              unsigned int parent_rotate)
 {
@@ -210,7 +208,7 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
             checked_nodes.insert(id);
             const pair<string, pdf_object_t> page_dict = storage.get_object(id);
             if (page_dict.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
-            const map<string, pair<string, pdf_object_t>> dict_data = get_dictionary_data(page_dict.first, 0);
+            const dict_t dict_data = get_dictionary_data(page_dict.first, 0);
             if (dict_data.at("/Type").first == "/Page")
             {
                 pages.push_back(id);
@@ -226,21 +224,17 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
     }
 }
 
-map<string, pair<string, pdf_object_t>> PagesExtractor::get_fonts(const map<string,
-                                                                            pair<string, pdf_object_t>> &dictionary,
-                                                                            const map<string,
-                                                                            pair<string, pdf_object_t>>
-                                                                            &parent_fonts) const
+dict_t PagesExtractor::get_fonts(const dict_t &dictionary, const dict_t &parent_fonts) const
 {
     auto it = dictionary.find("/Resources");
     if (it == dictionary.end()) return parent_fonts;
-    const map<string, pair<string, pdf_object_t>> resources = get_dict_or_indirect_dict(it->second, storage);
+    const dict_t resources = get_dict_or_indirect_dict(it->second, storage);
     it = resources.find("/Font");
-    if (it == resources.end()) return map<string, pair<string, pdf_object_t>>();
+    if (it == resources.end()) return dict_t();
     return get_dict_or_indirect_dict(it->second, storage);
 }
 
-optional<PagesExtractor::cropbox_t> PagesExtractor::get_crop_box(const map<string, pair<string, pdf_object_t>> &dictionary,
+optional<PagesExtractor::cropbox_t> PagesExtractor::get_crop_box(const dict_t &dictionary,
                                                                  const optional<cropbox_t> &parent_crop_box) const
 {
     auto it = dictionary.find("/CropBox");
@@ -266,8 +260,7 @@ string PagesExtractor::get_text()
     return text;
 }
 
-optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_encoding(map<string, pair<string,
-                                                                              pdf_object_t>> &font_dict,
+optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_encoding(const dict_t &font_dict,
                                                                               unsigned int width) const
 {
     auto it = font_dict.find("/Encoding");
@@ -287,10 +280,10 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_encoding(ma
 
 unique_ptr<CharsetConverter> PagesExtractor::get_font_encoding(const string &font, unsigned int page_id)
 {
-    const map<string, pair<string, pdf_object_t>> &page_fonts = fonts.at(page_id);
+    const dict_t &page_fonts = fonts.at(page_id);
     auto it = page_fonts.find(font);
     if (it == page_fonts.end()) return unique_ptr<CharsetConverter>(new CharsetConverter());
-    map<string, pair<string, pdf_object_t>> font_dict = get_dict_or_indirect_dict(it->second, storage);
+    const dict_t font_dict = get_dict_or_indirect_dict(it->second, storage);
     auto it2 = width_storage.find(font);
     unsigned int width;
     if (it2 == width_storage.end())
@@ -309,9 +302,7 @@ unique_ptr<CharsetConverter> PagesExtractor::get_font_encoding(const string &fon
     return unique_ptr<CharsetConverter>(new CharsetConverter(width));
 }
 
-optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(const map<string, pair<string,
-                                                                               pdf_object_t>> &font_dict,
-                                                                               unsigned int width)
+optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(const dict_t &font_dict, unsigned int width)
 {
     auto it = font_dict.find("/ToUnicode");
     if (it == font_dict.end()) return boost::none;

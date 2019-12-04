@@ -42,7 +42,7 @@ namespace
                                                        {0x46, 0xF}};
 }
 
-string ascii_hex_decode(const string &buf, const map<string, pair<string, pdf_object_t>> &dict)
+string ascii_hex_decode(const string &buf, const dict_t &dict)
 {
     bool low = true;
     const char *buffer = buf.c_str();

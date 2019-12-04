@@ -1,7 +1,6 @@
 #include <zlib.h>
 
 #include <string>
-#include <map>
 
 #include "common.h"
 
@@ -41,7 +40,7 @@ namespace
     }
 }
 
-string flate_decode(const string &data, const map<string, pair<string, pdf_object_t>> &opts)
+string flate_decode(const string &data, const dict_t &opts)
 {
     z_stream strm  = {0};
     strm.zalloc = Z_NULL;

@@ -1,5 +1,4 @@
 #include <string>
-#include <map>
 #include <utility>
 #include <unordered_map>
 #include <algorithm>
@@ -213,7 +212,7 @@ namespace
 cmap_t get_cmap(const string &doc,
                 const ObjectStorage &storage,
                 const pair<unsigned int, unsigned int> &cmap_id_gen,
-                const map<string, pair<string, pdf_object_t>> &decrypt_data)
+                const dict_t &decrypt_data)
 {
     State_t state = NONE;
     const string stream = get_stream(doc, cmap_id_gen, storage, decrypt_data);

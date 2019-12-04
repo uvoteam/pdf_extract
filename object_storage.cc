@@ -12,11 +12,9 @@ using namespace std;
 extern string decrypt(unsigned int n,
                       unsigned int g,
                       const string &in,
-                      const map<string, pair<string, pdf_object_t>> &decrypt_opts);
+                      const dict_t &decrypt_opts);
 
-ObjectStorage::ObjectStorage(const string &doc_arg,
-                             map<size_t, size_t> &&id2offsets_arg,
-                             const map<string, pair<string, pdf_object_t>> &decrypt_data) :
+ObjectStorage::ObjectStorage(const string &doc_arg, map<size_t, size_t> &&id2offsets_arg, const dict_t &decrypt_data) :
                              doc(doc_arg), id2offsets(move(id2offsets_arg))
 {
     for (const pair<size_t, size_t> &p : id2offsets) insert_obj_stream(p.first, decrypt_data);
@@ -43,7 +41,7 @@ size_t ObjectStorage::get_gen_id(size_t offset) const
     return strict_stoul(doc.substr(offset, end_offset - offset));
 }
 
-void ObjectStorage::insert_obj_stream(size_t id, const map<string, pair<string, pdf_object_t>> &decrypt_data)
+void ObjectStorage::insert_obj_stream(size_t id, const dict_t &decrypt_data)
 {
     size_t offset = id2offsets.at(id);
     offset = skip_comments(doc, offset);
@@ -52,7 +50,7 @@ void ObjectStorage::insert_obj_stream(size_t id, const map<string, pair<string, 
     offset = efind(doc, "obj", offset);
     offset += LEN("obj");
     if (get_object_type(doc, offset) != DICTIONARY) return;
-    map<string, pair<string, pdf_object_t>> dictionary = get_dictionary_data(get_dictionary(doc, offset), 0);
+    dict_t dictionary = get_dictionary_data(get_dictionary(doc, offset), 0);
     auto it = dictionary.find("/Type");
     if (it == dictionary.end() || it->second.first != "/ObjStm") return;
     unsigned int len = get_length(doc, id2offsets, dictionary);
@@ -70,8 +68,7 @@ void ObjectStorage::insert_obj_stream(size_t id, const map<string, pair<string, 
     }
 }
 
-vector<pair<size_t, size_t>> ObjectStorage::get_id2offsets_obj_stm(const string &content,
-                                                                   const map<string, pair<string, pdf_object_t>> &dictionary)
+vector<pair<size_t, size_t>> ObjectStorage::get_id2offsets_obj_stm(const string &content, const dict_t &dictionary)
 {
     vector<pair<size_t, size_t>> result;
     size_t offset = 0;

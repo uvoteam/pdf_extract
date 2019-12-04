@@ -36,7 +36,7 @@ namespace
     }
 }
 
-string lzw_decode(const string& buf, const map<string, pair<string, pdf_object_t>> &opts)
+string lzw_decode(const string& buf, const dict_t &opts)
 {
     unsigned int  mask = 0;
     unsigned int  code_len = 9;

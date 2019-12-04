@@ -1,5 +1,4 @@
 #include <cstring>
-#include <map>
 #include <array>
 #include <memory>
 #include <string>
@@ -11,8 +10,6 @@
 #include "common.h"
 
 
-
-#include <iostream> //remove
 using namespace std;
 
 namespace
@@ -47,7 +44,7 @@ namespace
         return result;
     }
 
-    bool is_encrypt_metadata(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+    bool is_encrypt_metadata(const dict_t &decrypt_opts)
     {
         auto it = decrypt_opts.find("/EncryptMetadata");
         if (it == decrypt_opts.end()) return true;
@@ -93,7 +90,7 @@ namespace
         return result;
     }
 
-    unsigned int get_length(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+    unsigned int get_length(const dict_t &decrypt_opts)
     {
         auto it = decrypt_opts.find("/Length");
         if (it == decrypt_opts.end()) return DEFAULT_LENGTH / 8;
@@ -101,7 +98,7 @@ namespace
         return strict_stoul(it->second.first) / 8;
     }
 
-    array<unsigned char, 4> get_ext(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+    array<unsigned char, 4> get_ext(const dict_t &decrypt_opts)
     {
         array<unsigned char, 4> ext;
         long int p_value = strict_stol(decrypt_opts.at("/P").first);
@@ -136,7 +133,7 @@ namespace
         md5_final_exc(digest, &ctx);
     }
 
-    vector<unsigned char> get_decryption_key(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+    vector<unsigned char> get_decryption_key(const dict_t &decrypt_opts)
     {
         unsigned int key_length = get_length(decrypt_opts);
         MD5_CTX ctx;
@@ -201,7 +198,7 @@ namespace
         return decryption_key;
     }
 
-    encrypt_algorithm_t get_algorithm(const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+    encrypt_algorithm_t get_algorithm(const dict_t &decrypt_opts)
     {
         const string val = decrypt_opts.at("/R").first;
         switch (strict_stoul(val))
@@ -219,9 +216,9 @@ namespace
         case 4:
         {
             if (decrypt_opts.count("/CF") == 0) return ENCRYPT_ALGORITHM_IDENTITY;
-            const map<string, pair<string, pdf_object_t>> CF_dict = get_dictionary_data(decrypt_opts.at("/CF").first, 0);
+            const dict_t CF_dict = get_dictionary_data(decrypt_opts.at("/CF").first, 0);
             if (CF_dict.count("/StdCF") == 0) return ENCRYPT_ALGORITHM_IDENTITY;
-            const map<string, pair<string, pdf_object_t>> stdCF_dict = get_dictionary_data(CF_dict.at("/StdCF").first, 0);
+            const dict_t stdCF_dict = get_dictionary_data(CF_dict.at("/StdCF").first, 0);
             auto it = stdCF_dict.find("/CFM");
             if (it == stdCF_dict.end()) return ENCRYPT_ALGORITHM_IDENTITY;
             //TODO: add /None support(custom decryption algorithm)
@@ -242,7 +239,7 @@ namespace
                         unsigned int g,
                         unsigned char obj_key[MD5_DIGEST_LENGTH],
                         int *key_len,
-                        const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+                        const dict_t &decrypt_opts)
     {
         unsigned char nkey[MD5_DIGEST_LENGTH + 5 + 4];
         const vector<unsigned char> decryption_key = get_decryption_key(decrypt_opts);
@@ -270,10 +267,7 @@ namespace
         *key_len = (decryption_key.size() <= 11) ? decryption_key.size() + 5 : 16;
     }
 
-    string decrypt_rc4(unsigned int n,
-                       unsigned int g,
-                       const string &in_str,
-                       const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+    string decrypt_rc4(unsigned int n, unsigned int g, const string &in_str, const dict_t &decrypt_opts)
     {
         vector<unsigned char> in = string2array(in_str);
         unsigned char obj_key[MD5_DIGEST_LENGTH];
@@ -326,10 +320,7 @@ namespace
         if(status != 1) throw pdf_error(FUNC_STRING + "Error AES-decryption data final");
     }
 
-    string decrypt_aesv2(unsigned int n,
-                         unsigned int g,
-                         const string &in_str,
-                         const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+    string decrypt_aesv2(unsigned int n, unsigned int g, const string &in_str, const dict_t &decrypt_opts)
     {
         vector<unsigned char> in = string2array(in_str);
         unsigned char obj_key[MD5_DIGEST_LENGTH];
@@ -348,10 +339,7 @@ namespace
     }
 }
 
-string decrypt(unsigned int n,
-               unsigned int g,
-               const string &in_str,
-               const map<string, pair<string, pdf_object_t>> &decrypt_opts)
+string decrypt(unsigned int n, unsigned int g, const string &in_str, const dict_t &decrypt_opts)
 {
     if (decrypt_opts.empty()) return in_str;
     encrypt_algorithm_t algorithm = get_algorithm(decrypt_opts);

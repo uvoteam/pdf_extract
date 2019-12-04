@@ -69,7 +69,7 @@ namespace
         if (dict.second != INDIRECT_OBJECT) throw pdf_error(FUNC_STRING + "/FontDescriptor must be indirect object");
         const pair<string, pdf_object_t> desc = storage.get_object(get_id_gen(dict.first).first);
         if (desc.second != DICTIONARY) throw pdf_error(FUNC_STRING + "/FontDescriptor must be dictionary");
-        const map<string, pair<string, pdf_object_t>> desc_dict = get_dictionary_data(desc.first, 0);
+        const dict_t desc_dict = get_dictionary_data(desc.first, 0);
         RETURN_SPACE_WIDTH_VALUE(desc_dict, "/AvgWidth");
         RETURN_SPACE_WIDTH_VALUE(desc_dict, "/MissingWidth");
         return CharsetConverter::NO_SPACE_WIDTH;
@@ -135,8 +135,7 @@ namespace
 }
 
 //https://stackoverflow.com/questions/55147999/pdf-tj-operator/55180478
-unsigned int CharsetConverter::get_space_width(const ObjectStorage &storage,
-                                               const map<string, pair<string, pdf_object_t>> &font_dict)
+unsigned int CharsetConverter::get_space_width(const ObjectStorage &storage, const dict_t &font_dict)
 {
     auto it = font_dict.find("/Widths");
     if (it != font_dict.end()) return get_space_width_from_widths(storage, it->second);
@@ -331,8 +330,7 @@ CharsetConverter::CharsetConverter(const string &encoding, unsigned int space_wi
     }
 }
 
-unique_ptr<CharsetConverter> CharsetConverter::get_from_dictionary(const map<string,
-                                                                   pair<string, pdf_object_t>> &dictionary,
+unique_ptr<CharsetConverter> CharsetConverter::get_from_dictionary(const dict_t &dictionary,
                                                                    const ObjectStorage &storage,
                                                                    unsigned int space_width)
 {

@@ -42,7 +42,9 @@ public:
     }
 };
 
-using matrix_t=std::vector<std::vector<double>>;
+using matrix_t = std::vector<std::vector<double>>;
+using dict_t = std::map<std::string, std::pair<std::string, pdf_object_t>>;
+
 
 size_t efind_first(const std::string &src, const std::string& str, size_t pos);
 size_t efind_first(const std::string &src, const char* s, size_t pos);
@@ -66,10 +68,8 @@ std::string get_dictionary(const std::string &buffer, size_t &offset);
 std::string decode_string(const std::string &str);
 size_t strict_stoul(const std::string &str, int base = 10);
 long int strict_stol(const std::string &str, int base = 10);
-std::string predictor_decode(const std::string &data,
-                             const std::map<std::string,
-                             std::pair<std::string, pdf_object_t>> &opts);
-std::map<std::string, std::pair<std::string, pdf_object_t>> get_dictionary_data(const std::string &buffer, size_t offset);
+std::string predictor_decode(const std::string &data, const dict_t &opts);
+dict_t get_dictionary_data(const std::string &buffer, size_t offset);
 std::vector<std::pair<unsigned int, unsigned int>> get_set(const std::string &array);
 std::pair<std::string, pdf_object_t> get_object(const std::string &buffer,
                                                 size_t id,
@@ -77,14 +77,14 @@ std::pair<std::string, pdf_object_t> get_object(const std::string &buffer,
 std::string get_stream(const std::string &doc,
                        const std::pair<unsigned int, unsigned int> &id_gen,
                        const ObjectStorage &storage,
-                       const std::map<std::string, std::pair<std::string, pdf_object_t>> &encrypt_data);
+                       const dict_t &encrypt_data);
 std::string get_content(const std::string &buffer, size_t len, size_t offset);
-std::string decode(const std::string &content, const std::map<std::string, std::pair<std::string, pdf_object_t>> &props);
+std::string decode(const std::string &content, const dict_t &props);
 size_t find_number(const std::string &buffer, size_t offset);
 size_t efind_number(const std::string &buffer, size_t offset);
 size_t get_length(const std::string &buffer,
                   const std::map<size_t, size_t> &id2offsets,
-                  const std::map<std::string, std::pair<std::string, pdf_object_t>> &props);
+                  const dict_t &props);
 std::pair<unsigned int, unsigned int> get_id_gen(const std::string &data);
 std::pair<std::string, pdf_object_t> get_indirect_object_data(const std::string &indirect_object,
                                                               const ObjectStorage &storage,

@@ -16,14 +16,11 @@
 
 using namespace std;
 
-extern string decrypt(unsigned int n,
-                      unsigned int g,
-                      const string &in,
-                      const map<string, pair<string, pdf_object_t>> &decrypt_opts);
-extern string flate_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
-extern string lzw_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
-extern string ascii85_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
-extern string ascii_hex_decode(const string&, const map<string, pair<string, pdf_object_t>>&);
+extern string decrypt(unsigned int n, unsigned int g, const string &in, const dict_t &decrypt_opts);
+extern string flate_decode(const string&, const dict_t&);
+extern string lzw_decode(const string&, const dict_t&);
+extern string ascii85_decode(const string&, const dict_t&);
+extern string ascii_hex_decode(const string&, const dict_t&);
 
 namespace
 {
@@ -107,7 +104,7 @@ namespace
         return false;
     }
 
-    unsigned int get_decode_key(const map<string, pair<string, pdf_object_t>> &opts, const string &key, unsigned int def)
+    unsigned int get_decode_key(const dict_t &opts, const string &key, unsigned int def)
     {
         auto it = opts.find(key);
         if (it == opts.end()) return def;
@@ -133,7 +130,7 @@ namespace
         return result;
     }
 
-    vector<string> get_filters(const map<string, pair<string, pdf_object_t>> &props)
+    vector<string> get_filters(const dict_t &props)
     {
         const pair<string, pdf_object_t> filters = props.at("/Filter");
         if (filters.second == NAME_OBJECT) return vector<string>{filters.first};
@@ -143,19 +140,18 @@ namespace
         return result;
     }
 
-    vector<map<string, pair<string, pdf_object_t>>> get_decode_params(const map<string, pair<string, pdf_object_t>> &src,
-                                                                      size_t filters)
+    vector<dict_t> get_decode_params(const dict_t &src, size_t filters)
     {
         auto it = src.find("/DecodeParms");
         //default decode params for all filters
-        if (it == src.end()) return vector<map<string, pair<string, pdf_object_t>>>(filters);
+        if (it == src.end()) return vector<dict_t>(filters);
         const string &params_data = it->second.first;
         if (it->second.second == DICTIONARY)
         {
-            return vector<map<string, pair<string, pdf_object_t>>>{get_dictionary_data(params_data, 0)};
+            return vector<dict_t>{get_dictionary_data(params_data, 0)};
         }
         if (it->second.second != ARRAY) throw pdf_error(FUNC_STRING + "wrong type for /DecodeParms");
-        vector<map<string, pair<string, pdf_object_t>>> result;
+        vector<dict_t> result;
         size_t offset = 0;
         while (true)
         {
@@ -430,11 +426,11 @@ string get_array(const string &buffer, size_t &offset)
     throw pdf_error(FUNC_STRING + " no array in " + to_string(offset));
 }
 
-map<string, pair<string, pdf_object_t>> get_dictionary_data(const string &buffer, size_t offset)
+dict_t get_dictionary_data(const string &buffer, size_t offset)
 {
     offset = efind(buffer, "<<", offset);
     offset += LEN("<<");
-    map<string, pair<string, pdf_object_t>> result;
+    dict_t result;
     while (true)
     {
         offset = skip_comments(buffer, offset);
@@ -465,7 +461,7 @@ vector<pair<string, pdf_object_t>> get_array_data(const string &buffer, size_t o
     return result;
 }
 
-string predictor_decode(const string &data, const map<string, pair<string, pdf_object_t>> &opts)
+string predictor_decode(const string &data, const dict_t &opts)
 {
     unsigned int predictor = get_decode_key(opts, "/Predictor", 1);
     unsigned int colors = get_decode_key(opts, "/Colors", 1);
@@ -625,11 +621,11 @@ pair<string, pdf_object_t> get_object(const string &buffer, size_t id, const map
 string get_stream(const string &doc,
                   const pair<unsigned int, unsigned int> &id_gen,
                   const ObjectStorage &storage,
-                  const map<string, pair<string, pdf_object_t>> &decrypt_data)
+                  const dict_t &decrypt_data)
 {
     const pair<string, pdf_object_t> stream_pair = storage.get_object(id_gen.first);
     if (stream_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "stream must be a dictionary");
-    const map<string, pair<string, pdf_object_t>> props = get_dictionary_data(stream_pair.first, 0);
+    const dict_t props = get_dictionary_data(stream_pair.first, 0);
     const map<size_t, size_t> &id2offsets = storage.get_id2offsets();
     string content = get_content(doc, get_length(doc, id2offsets, props), id2offsets.at(id_gen.first));
     content = decrypt(id_gen.first, id_gen.second, content, decrypt_data);
@@ -646,11 +642,11 @@ string get_content(const string &buffer, size_t len, size_t offset)
     return buffer.substr(offset, len);
 }
 
-string decode(const string &content, const map<string, pair<string, pdf_object_t>> &props)
+string decode(const string &content, const dict_t &props)
 {
     if (!props.count("/Filter")) return content;
     vector<string> filters = get_filters(props);
-    vector<map<string, pair<string, pdf_object_t>>> decode_params = get_decode_params(props, filters.size());
+    vector<dict_t> decode_params = get_decode_params(props, filters.size());
     if (filters.size() != decode_params.size())
     {
         throw pdf_error(FUNC_STRING + "different sizes for filters and decode_params");
@@ -675,7 +671,7 @@ size_t efind_number(const string &buffer, size_t offset)
 
 size_t get_length(const string &buffer,
                   const map<size_t, size_t> &id2offsets,
-                  const map<string, pair<string, pdf_object_t>> &props)
+                  const dict_t &props)
 {
     const pair<string, pdf_object_t> &r = props.at("/Length");
     if (r.second == VALUE)

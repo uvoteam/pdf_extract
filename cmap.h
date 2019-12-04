@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "object_storage.h"
+#include "common.h"
 
 struct cmap_t
 {
@@ -19,6 +20,6 @@ struct cmap_t
 extern cmap_t get_cmap(const std::string &doc,
                        const ObjectStorage &storage,
                        const std::pair<unsigned int, unsigned int> &cmap_id_gen,
-                       const std::map<std::string, std::pair<std::string, pdf_object_t>> &decrypt_data);
+                       const dict_t &decrypt_data);
 
 #endif //CMAP_H

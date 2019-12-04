@@ -29,14 +29,14 @@ private:
     std::string extract_text(const std::string &page_content, unsigned int page_id);
     cropbox_t parse_rectangle(const std::pair<std::string, pdf_object_t> &rectangle) const;
     void get_pages_resources_int(const std::map<std::string, std::pair<std::string, pdf_object_t>> &parent_dict,
-                                 const boost::optional<std::map<std::string, std::pair<std::string, pdf_object_t>>> &parent_fonts,
+                                 const std::map<std::string, std::pair<std::string, pdf_object_t>> &parent_fonts,
                                  const boost::optional<cropbox_t> &parent_crop_box,
-                                 const boost::optional<unsigned int> &parent_rotate);
-    boost::optional<std::map<std::string, std::pair<std::string, pdf_object_t>>> get_fonts(const std::map<std::string,
+                                 unsigned int parent_rotate);
+    std::map<std::string, std::pair<std::string, pdf_object_t>> get_fonts(const std::map<std::string,
                                                                           std::pair<std::string, pdf_object_t>> &dictionary,
-                                                                          const boost::optional<std::map<std::string,
+                                                                          const std::map<std::string,
                                                                           std::pair<std::string,
-                                                                          pdf_object_t>>> &parent_fonts) const;
+                                                                          pdf_object_t>> &parent_fonts) const;
     boost::optional<cropbox_t> get_crop_box(const std::map<std::string, std::pair<std::string, pdf_object_t>> &dictionary,
                            const boost::optional<cropbox_t> &parent_crop_box) const;
     std::unique_ptr<CharsetConverter> get_font_encoding(const std::string &font, unsigned int page_id);

@@ -125,8 +125,7 @@ namespace
                         {e, f, 1}};
     }
 
-    optional<unsigned int> get_rotate(const map<string, pair<string, pdf_object_t>> &dictionary,
-                                      const optional<unsigned int> &parent_rotate)
+    unsigned int get_rotate(const map<string, pair<string, pdf_object_t>> &dictionary, unsigned int parent_rotate)
     {
         auto it = dictionary.find("/Rotate");
         if (it != dictionary.end())
@@ -153,10 +152,7 @@ PagesExtractor::PagesExtractor(unsigned int catalog_pages_id,
     {
         throw pdf_error("In root catalog type must be '/Type /Pages'");
     }
-    const optional<map<string, pair<string, pdf_object_t>>> page_fonts = get_fonts(data, boost::none);
-    const optional<cropbox_t> crop_box = get_crop_box(data, boost::none);
-    const optional<unsigned int> rotate = get_rotate(data, boost::none);
-    get_pages_resources_int(data, page_fonts, crop_box, rotate);
+    get_pages_resources_int(data, map<string, pair<string, pdf_object_t>>(), boost::none, 0);
 }
 
 matrix_t PagesExtractor::init_CTM(unsigned int page_id) const
@@ -194,9 +190,9 @@ PagesExtractor::cropbox_t PagesExtractor::parse_rectangle(const pair<string, pdf
 }
 
 void PagesExtractor::get_pages_resources_int(const map<string, pair<string, pdf_object_t>> &parent_dict,
-                                             const optional<map<string, pair<string, pdf_object_t>>> &parent_font,
+                                             const map<string, pair<string, pdf_object_t>> &parent_font,
                                              const optional<cropbox_t> &parent_crop_box,
-                                             const optional<unsigned int> &parent_rotate)
+                                             unsigned int parent_rotate)
 {
     auto it = parent_dict.find("/Type");
     if (it == parent_dict.end() || it->second.first != "/Pages") return;
@@ -211,23 +207,27 @@ void PagesExtractor::get_pages_resources_int(const map<string, pair<string, pdf_
         {
             const pair<string, pdf_object_t> page_dict = storage.get_object(id);
             if (page_dict.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
-            const map<string, pair<string, pdf_object_t>> dict_data = get_dictionary_data(page_dict.first, 0);
-            const optional<map<string, pair<string, pdf_object_t>>> font = get_fonts(dict_data, parent_font);
-            const optional<cropbox_t> crop_box = get_crop_box(dict_data, parent_crop_box);
-            const optional<unsigned int> rotate = get_rotate(dict_data, parent_rotate);
             pages.push_back(id);
-            fonts.insert(make_pair(id, font.value()));
-            crop_boxes.insert(make_pair(id, crop_box.value()));
-            rotates.insert(make_pair(id, rotate.value()));
-            get_pages_resources_int(dict_data, font, crop_box, rotate);
+            const map<string, pair<string, pdf_object_t>> dict_data = get_dictionary_data(page_dict.first, 0);
+            if (dict_data.at("/Type").first == "/Page")
+            {
+                const map<string, pair<string, pdf_object_t>> font = get_fonts(dict_data, parent_font);
+                const optional<cropbox_t> crop_box = get_crop_box(dict_data, parent_crop_box);
+                unsigned int rotate = get_rotate(dict_data, parent_rotate);
+                fonts.insert(make_pair(id, font));
+                crop_boxes.insert(make_pair(id, crop_box.value()));
+                rotates.insert(make_pair(id, rotate));
+                get_pages_resources_int(dict_data, font, crop_box, rotate);
+            }
+            get_pages_resources_int(dict_data, parent_font, parent_crop_box, parent_rotate);
         }
     }
 }
 
-optional<map<string, pair<string, pdf_object_t>>> PagesExtractor::get_fonts(const map<string,
+map<string, pair<string, pdf_object_t>> PagesExtractor::get_fonts(const map<string,
                                                                             pair<string, pdf_object_t>> &dictionary,
-                                                                            const optional<map<string,
-                                                                            pair<string, pdf_object_t>>>
+                                                                            const map<string,
+                                                                            pair<string, pdf_object_t>>
                                                                             &parent_fonts) const
 {
     auto it = dictionary.find("/Resources");

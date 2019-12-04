@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <utility>
 #include <vector>
+#include <stack>
 
 #include <boost/optional.hpp>
 #define LEN(S) (sizeof(S) - 1)
@@ -42,7 +43,6 @@ public:
     }
 };
 
-using matrix_t = std::vector<std::vector<double>>;
 using dict_t = std::map<std::string, std::pair<std::string, pdf_object_t>>;
 
 
@@ -58,7 +58,6 @@ size_t efind(const std::string &src, char c, size_t pos);
 size_t skip_spaces(const std::string &buffer, size_t offset, bool validate = true);
 size_t skip_comments(const std::string &buffer, size_t offset);
 pdf_object_t get_object_type(const std::string &buffer, size_t &offset);
-matrix_t multiply_matrixes(const matrix_t &m1, const matrix_t &m2);
 std::string get_value(const std::string &buffer, size_t &offset);
 std::string get_array(const std::string &buffer, size_t &offset);
 std::string get_name_object(const std::string &buffer, size_t &offset);
@@ -91,4 +90,5 @@ std::pair<std::string, pdf_object_t> get_indirect_object_data(const std::string 
                                                               boost::optional<pdf_object_t> type = boost::none);
 std::vector<std::pair<std::string, pdf_object_t>> get_array_data(const std::string &buffer, size_t offset);
 std::string get_int(const std::string &s);
+std::pair<pdf_object_t, std::string> pop(std::stack<std::pair<pdf_object_t, std::string>> &st);
 #endif //COMMON

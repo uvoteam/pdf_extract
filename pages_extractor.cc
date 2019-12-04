@@ -12,21 +12,38 @@
 #include "charset_converter.h"
 #include "cmap.h"
 #include "pages_extractor.h"
+#include "coordinates.h"
 
 using namespace std;
 using namespace boost;
 
 namespace
 {
-    enum
+    cropbox_t parse_rectangle(const pair<string, pdf_object_t> &rectangle)
     {
-        TH_DEFAULT = 100,
-        TC_DEFAULT = 0,
-        TW_DEFAULT = 0,
-        TFS_DEFAULT = 1,
-        TL_DEFAULT = 0
-    };
-    
+        if (rectangle.second != ARRAY)
+        {
+            throw pdf_error(FUNC_STRING + "wrong type=" + to_string(rectangle.second) + " val:" + rectangle.first);
+        }
+        const vector<pair<string, pdf_object_t>> array_data = get_array_data(rectangle.first, 0);
+        if (array_data.size() != RECTANGLE_ELEMENTS_NUM)
+        {
+            throw pdf_error(FUNC_STRING + "wrong size of array. Size:" + to_string(array_data.size()));
+        }
+        cropbox_t result;
+        for (size_t i = 0; i < result.size(); ++i) result[i] = stod(array_data.at(i).first);
+        return result;
+    }
+
+    optional<cropbox_t> get_crop_box(const dict_t &dictionary, const optional<cropbox_t> &parent_crop_box)
+    {
+        auto it = dictionary.find("/CropBox");
+        if (it != dictionary.end()) return parse_rectangle(it->second);
+        it = dictionary.find("/MediaBox");
+        if (it != dictionary.end()) return parse_rectangle(it->second);
+        return parent_crop_box;
+    }
+
     string output_content(unordered_set<unsigned int> &visited_contents,
                           const string &buffer,
                           const ObjectStorage &storage,
@@ -82,16 +99,8 @@ namespace
         case INDIRECT_OBJECT:
             return get_dictionary_data(get_indirect_object_data(data.first, storage, DICTIONARY).first, 0);
         default:
-        throw pdf_error(FUNC_STRING + "wrong object type " + to_string(data.second));
+            throw pdf_error(FUNC_STRING + "wrong object type " + to_string(data.second));
         }
-    }
-
-    pair<pdf_object_t, string> pop(stack<pair<pdf_object_t, string>> &st)
-    {
-        if (st.empty()) throw pdf_error(FUNC_STRING + "stack is empty");
-        pair<pdf_object_t, string> result = st.top();
-        st.pop();
-        return result;
     }
 
     bool put2stack(stack<pair<pdf_object_t, string>> &st, const string &buffer, size_t &i)
@@ -111,19 +120,6 @@ namespace
         default:
             return false;
         }
-    }
-
-    matrix_t get_matrix(stack<pair<pdf_object_t, string>> &st)
-    {
-        double e = stod(pop(st).second);
-        double f = stod(pop(st).second);
-        double d = stod(pop(st).second);
-        double c = stod(pop(st).second);
-        double b = stod(pop(st).second);
-        double a = stod(pop(st).second);
-        return matrix_t{{a, b, 0},
-                        {c, d, 0},
-                        {e, f, 1}};
     }
 
     unsigned int get_rotate(const dict_t &dictionary, unsigned int parent_rotate)
@@ -155,40 +151,6 @@ PagesExtractor::PagesExtractor(unsigned int catalog_pages_id,
     }
     unordered_set<unsigned int> checked_nodes;
     get_pages_resources_int(checked_nodes, data, dict_t(), boost::none, 0);
-}
-
-matrix_t PagesExtractor::init_CTM(unsigned int page_id) const
-{
-    cropbox_t cropbox = crop_boxes.at(page_id);
-    unsigned int rotate = rotates.at(page_id);
-    if (rotate == 90) return matrix_t{{0, -1, 0},
-                                      {1, 0, 0},
-                                      {-cropbox.at(1), cropbox.at(2), 1}};
-    if (rotate == 180) return matrix_t{{-1, 0, 0},
-                                       {0, -1, 0},
-                                       {cropbox.at(2), cropbox.at(3), 1}}; 
-    if (rotate == 270) return matrix_t{{0, 1, 0},
-                                       {-1, 0, 0},
-                                       {cropbox.at(3), -cropbox.at(0), 1}};
-    return matrix_t{{1, 0, 0},
-                    {0, 1, 0},
-                    {-cropbox.at(0), -cropbox.at(1), 0}};
-}
-
-PagesExtractor::cropbox_t PagesExtractor::parse_rectangle(const pair<string, pdf_object_t> &rectangle) const
-{
-    if (rectangle.second != ARRAY)
-    {
-        throw pdf_error(FUNC_STRING + "wrong type=" + to_string(rectangle.second) + " val:" + rectangle.first);
-    }
-    const vector<pair<string, pdf_object_t>> array_data = get_array_data(rectangle.first, 0);
-    if (array_data.size() != RECTANGLE_ELEMENTS_NUM)
-    {
-        throw pdf_error(FUNC_STRING + "wrong size of array. Size:" + to_string(array_data.size()));
-    }
-    cropbox_t result;
-    for (size_t i = 0; i < result.size(); ++i) result[i] = stod(array_data.at(i).first);
-    return result;
 }
 
 void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checked_nodes,
@@ -235,16 +197,6 @@ dict_t PagesExtractor::get_fonts(const dict_t &dictionary, const dict_t &parent_
     it = resources.find("/Font");
     if (it == resources.end()) return dict_t();
     return get_dict_or_indirect_dict(it->second, storage);
-}
-
-optional<PagesExtractor::cropbox_t> PagesExtractor::get_crop_box(const dict_t &dictionary,
-                                                                 const optional<cropbox_t> &parent_crop_box) const
-{
-    auto it = dictionary.find("/CropBox");
-    if (it != dictionary.end()) return parse_rectangle(it->second);
-    it = dictionary.find("/MediaBox");
-    if (it != dictionary.end()) return parse_rectangle(it->second);
-    return parent_crop_box;
 }
 
 string PagesExtractor::get_text()
@@ -330,20 +282,12 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(c
 #include <iostream> //temp
 string PagesExtractor::extract_text(const string &page_content, unsigned int page_id)
 {
+    static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
     unique_ptr<CharsetConverter> encoding(new CharsetConverter());
-    matrix_t CTM = init_CTM(page_id);
-    matrix_t Tm = matrix_t{{1, 0, 0},
-                           {0, 1, 0},
-                           {0, 0, 1}};
+    Coordinates coordinates(rotates.at(page_id), crop_boxes.at(page_id));
     stack<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
-    double Tfs = TFS_DEFAULT;
-    double Th = TH_DEFAULT;
-    double Tc = TC_DEFAULT;
-    double Tw = TW_DEFAULT;
-    double TL = TL_DEFAULT;
     vector<text_chunk_t> texts;
-    double gtx = 0;
     for (size_t i = 0; i < page_content.length();)
     {
         i = skip_spaces(page_content, i, false);
@@ -354,14 +298,7 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         i = end;
         if (token == "BT")
         {
-            matrix_t Tm = matrix_t{{1, 0, 0},
-                                   {0, 1, 0},
-                                   {0, 0, 1}};
-            Th = TH_DEFAULT;
-            Tc = TC_DEFAULT;
-            Tw = TW_DEFAULT;
-            Tfs = TFS_DEFAULT;
-            TL = TL_DEFAULT;
+            coordinates.set_default();
             encoding->set_default_space_width();
             in_text_block = true;
             continue;
@@ -371,7 +308,7 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
             in_text_block = false;
             continue;
         }
-        if (token == "cm") CTM = multiply_matrixes(get_matrix(st), CTM);
+        if (token == "cm") coordinates.set_CTM(st);
         if (!in_text_block)
         {
             st.push(make_pair(VALUE, token));
@@ -379,82 +316,30 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         }
         if (token == "Tj")
         {
-            texts.push_back(encoding->get_string(decode_string(pop(st).second), Tm, CTM, Tfs, Tc, Tw, Th, 0, gtx));
+            texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0));
         }
-        else if (token == "Tz")
+        else if (adjust_tokens.count(token))
         {
-            Th = stod(pop(st).second);
+            coordinates.adjust_coordinates(token, st);
         }
         else if (token == "'")
         {
-            Tm = multiply_matrixes(matrix_t{{1, 0, 0},
-                                            {0, 1, 0},
-                                            {0, -TL, 1}}, Tm);
-            texts.push_back(encoding->get_string(decode_string(pop(st).second), Tm, CTM, Tfs, Tc, Tw, Th, 0, gtx));
+            coordinates.adjust_coordinates(token, st);
+            texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0));
         }
         else if (token == "\"")
         {
             const string str = pop(st).second;
-            Tc = stod(pop(st).second);
-            Tw = stod(pop(st).second);
-            Tm = multiply_matrixes(matrix_t{{1, 0, 0},
-                                            {0, 1, 0},
-                                            {0, -TL, 1}}, Tm);
-            texts.push_back(encoding->get_string(str, Tm, CTM, Tfs, Tc, Tw, Th, 0, gtx));
-        }
-        else if (token == "TL")
-        {
-            TL = stod(pop(st).second);
+            coordinates.adjust_coordinates(token, st);
+            texts.push_back(encoding->get_string(str, coordinates, 0));
         }
         else if (token == "TJ")
         {
-            texts.push_back(encoding->get_strings_from_array(pop(st).second, CTM, Tm, Tfs, Tc, Tw, Th, gtx));
-        }
-        else if (token == "T*")
-        {
-            Tm = multiply_matrixes(matrix_t{{1, 0, 0},
-                                            {0, 1, 0},
-                                            {0, -TL, 1}}, Tm);
-        }
-        else if (token == "Tc")
-        {
-            Tc = stod(pop(st).second);
-        }
-        else if (token == "Tw")
-        {
-            Tw = stod(pop(st).second);
-        }
-        else if (token == "Td")
-        {
-            double ty = stod(pop(st).second);
-            double tx = stod(pop(st).second);
-            Tm = multiply_matrixes(matrix_t{{1, 0, 0},
-                                            {0, 1, 0},
-                                            {tx, ty, 1}}, Tm);
-        }
-        else if (token == "TD")
-        {
-            TL = -stod(pop(st).second);
-            double tx = stod(pop(st).second);
-            Tm = multiply_matrixes(matrix_t{{1, 0, 0},
-                                            {0, 1, 0},
-                                            {tx, -TL, 1}}, Tm);
-        }
-        else if (token == "Tm")
-        {
-            double f = stod(pop(st).second);
-            double e = stod(pop(st).second);
-            double d = stod(pop(st).second);
-            double c = stod(pop(st).second);
-            double b = stod(pop(st).second);
-            double a = stod(pop(st).second);
-            Tm = matrix_t{{a, b, 0},
-                          {c, d, 0},
-                          {e, f, 1}};
+            texts.push_back(encoding->get_strings_from_array(pop(st).second, coordinates));
         }
         else if (token == "Tf")
         {
-            Tfs = stod(pop(st).second);
+            coordinates.adjust_coordinates(token, st);
             encoding = get_font_encoding(pop(st).second, page_id);
         }
         else

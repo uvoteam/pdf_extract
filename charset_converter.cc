@@ -14,6 +14,7 @@
 #include "cmap.h"
 #include "common.h"
 #include "object_storage.h"
+#include "coordinates.h"
 
 using namespace std;
 using namespace boost::locale::conv;
@@ -31,21 +32,10 @@ using namespace boost::locale::conv;
 
 namespace
 {
-    enum {TRISE_DEFAULT = 0};
-    text_chunk_t get_text_chunk(string &&s,
-                                const matrix_t &Tm,
-                                const matrix_t &CTM,
-                                double Tfs,
-                                double Th,
-                                double tx)
+    text_chunk_t get_text_chunk(string &&s, const Coordinates &coordinates)
     {
-        matrix_t result = multiply_matrixes(
-                            matrix_t{{tx, 0, 1}},
-                            multiply_matrixes(
-                              multiply_matrixes(matrix_t{{Tfs * Th, 0, 0}, {0, Tfs, 0}, {0, TRISE_DEFAULT, 0}},
-                                Tm),
-                              CTM));
-        return text_chunk_t(result[0][0], result[0][1], std::move(s));
+        const pair<unsigned int, unsigned int> r = coordinates.get_coordinates();
+        return text_chunk_t(r.first, r.second, std::move(s));
     }
 
     unsigned int utf8_length(const string &s)
@@ -168,14 +158,7 @@ string CharsetConverter::custom_decode_symbol(const string &s, size_t &i) const
     return string();
 }
 
-text_chunk_t CharsetConverter::get_strings_from_array(const string &array,
-                                                      matrix_t &Tm,
-                                                      const matrix_t &CTM,
-                                                      double Tfs,
-                                                      double Tc,
-                                                      double Tw,
-                                                      double Th,
-                                                      double &gtx) const
+text_chunk_t CharsetConverter::get_strings_from_array(const string &array, Coordinates &coordinates) const
 {
     text_chunk_t result;
     double Tj = 0;
@@ -190,7 +173,7 @@ text_chunk_t CharsetConverter::get_strings_from_array(const string &array,
             break;
         case STRING:
         {
-            text_chunk_t r = get_string(decode_string(p.first), Tm, CTM, Tfs, Tc, Tw, Th, Tj, gtx);
+            text_chunk_t r = get_string(decode_string(p.first), coordinates, Tj);
             result.x = r.x;
             result.y = r.y;
             result.text += r.text;
@@ -204,26 +187,18 @@ text_chunk_t CharsetConverter::get_strings_from_array(const string &array,
     return result;
 }
 
-text_chunk_t CharsetConverter::get_string(const string &s,
-                                          matrix_t &Tm,
-                                          const matrix_t &CTM,
-                                          double Tfs,
-                                          double Tc,
-                                          double Tw,
-                                          double Th,
-                                          double Tj,
-                                          double &tx) const
+text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordinates, double Tj) const
 {
     text_chunk_t result;
     switch (PDFencode)
     {
     case UTF8:
-        result = get_text_chunk(string(s), Tm, CTM, Tfs, Th, tx);
-        adjust_coordinates(Tm, Tfs, Tc, Tw, Th, Tj, utf8_length(s), tx);
+        result = get_text_chunk(string(s), coordinates);
+        coordinates.adjust_coordinates(get_space_width(), utf8_length(s), Tj);
         return result;
     case IDENTITY:
-        result = get_text_chunk(to_utf<char>(s, "UTF-16be"), Tm, CTM, Tfs, Th, tx);
-        adjust_coordinates(Tm, Tfs, Tc, Tw, Th, Tj, s.length() / 2, tx);
+        result = get_text_chunk(to_utf<char>(s, "UTF-16be"), coordinates);
+        coordinates.adjust_coordinates(get_space_width(), s.length() / 2, Tj);
         return result;
     case DEFAULT:
     case MAC_EXPERT:
@@ -238,8 +213,8 @@ text_chunk_t CharsetConverter::get_string(const string &s,
             auto it = standard_encoding.find(static_cast<unsigned char>(c));
             if (it != standard_encoding.end()) str.append(it->second);
         }
-        result = get_text_chunk(to_utf<char>(s, "UTF-16be"), Tm, CTM, Tfs, Th, tx);
-        adjust_coordinates(Tm, Tfs, Tc, Tw, Th, Tj, s.length(), tx);
+        result = get_text_chunk(to_utf<char>(s, "UTF-16be"), coordinates);
+        coordinates.adjust_coordinates(get_space_width(), s.length(), Tj);
         return result;
     }
     case DIFFERENCE_MAP:
@@ -251,21 +226,21 @@ text_chunk_t CharsetConverter::get_string(const string &s,
             auto it = difference_map.find(static_cast<unsigned char>(c));
             if (it != difference_map.end()) str.append(it->second);
         }
-        result = get_text_chunk(std::move(str), Tm, CTM, Tfs, Th, tx);
-        adjust_coordinates(Tm, Tfs, Tc, Tw, Th, Tj, s.length(), tx);
+        result = get_text_chunk(std::move(str), coordinates);
+        coordinates.adjust_coordinates(get_space_width(), s.length(), Tj);
         return result;
     }
     case OTHER:
-        result = get_text_chunk(to_utf<char>(s, charset), Tm, CTM, Tfs, Th, tx);
-        adjust_coordinates(Tm, Tfs, Tc, Tw, Th, Tj, get_length(s, charset), tx);
+        result = get_text_chunk(to_utf<char>(s, charset), coordinates);
+        coordinates.adjust_coordinates(get_space_width(), get_length(s, charset), Tj);
         return result;
     case TO_UNICODE:
     {
         string decoded;
         for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
         //strings from cmap returned in big ordering
-        result = get_text_chunk(to_utf<char>(decoded, "UTF-16be"), Tm, CTM, Tfs, Th, tx);
-        adjust_coordinates(Tm, Tfs, Tc, Tw, Th, Tj, decoded.length() / 2, tx);
+        result = get_text_chunk(to_utf<char>(decoded, "UTF-16be"), coordinates);
+        coordinates.adjust_coordinates(get_space_width(), decoded.length() / 2, Tj);
         return result;
     }
     }
@@ -401,20 +376,6 @@ unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_
 unsigned int CharsetConverter::get_space_width() const
 {
     return (space_width == NO_SPACE_WIDTH)? DEFAULT_SPACE_WIDTH : space_width;
-}
-
-void CharsetConverter::adjust_coordinates(matrix_t &Tm,
-                                          double Tfs,
-                                          double Tc,
-                                          double Tw,
-                                          double Th,
-                                          double Tj,
-                                          size_t len,
-                                          double &tx) const
-{
-    tx += ((get_space_width() - Tj/1000) * Tfs + Tc + Tw) * Th * len;
-    matrix_t m = matrix_t{{1, 0, 0}, {0, 1, 0}, {tx, 0, 1}};
-    Tm = multiply_matrixes(m, Tm);
 }
 
 const unordered_map<unsigned int, string> CharsetConverter::standard_encoding = {{32, " "},

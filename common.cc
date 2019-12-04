@@ -7,6 +7,7 @@
 #include <regex>
 #include <cctype>
 #include <utility>
+#include <stack>
 
 #include <boost/optional.hpp>
 
@@ -721,16 +722,10 @@ string get_int(const string &s)
     return s.substr(0, off);
 }
 
-matrix_t multiply_matrixes(const matrix_t &m1, const matrix_t &m2)
+pair<pdf_object_t, string> pop(stack<pair<pdf_object_t, string>> &st)
 {
-    matrix_t result(m1.size(), vector<double>(m2.at(0).size(), 0));
-    for (size_t i = 0; i < m1.size(); i++)
-    {
-        for (size_t j = 0; j < m2.at(0).size(); j++)
-        {
-            result[i][j] = 0;
-            for (size_t k = 0; k < m1.at(0).size(); k++) result[i][j] += m1[i][k] * m2[k][j];
-        }
-    }
+    if (st.empty()) throw pdf_error(FUNC_STRING + "stack is empty");
+    pair<pdf_object_t, string> result = st.top();
+    st.pop();
     return result;
 }

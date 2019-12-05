@@ -213,7 +213,7 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             auto it = standard_encoding.find(static_cast<unsigned char>(c));
             if (it != standard_encoding.end()) str.append(it->second);
         }
-        result = get_text_chunk(to_utf<char>(s, "UTF-16be"), coordinates);
+        result = get_text_chunk(std::move(str), coordinates);
         coordinates.adjust_coordinates(get_space_width(), s.length(), Tj);
         return result;
     }

@@ -102,7 +102,8 @@ void Coordinates::adjust_coordinates(const string &token, stack<pair<pdf_object_
 {
     if (token == "Tz")
     {
-        Th = stod(pop(st).second);
+        //Th in percentages
+        Th = stod(pop(st).second) / 100;
     }
     else if (token == "'")
     {

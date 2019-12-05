@@ -22,7 +22,7 @@ public:
 private:
     enum
     {
-        TH_DEFAULT = 100,
+        TH_DEFAULT = 1,
         TC_DEFAULT = 0,
         TW_DEFAULT = 0,
         TFS_DEFAULT = 1,

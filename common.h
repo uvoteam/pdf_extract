@@ -19,7 +19,7 @@ struct text_chunk_t
     {
     }
     text_chunk_t(unsigned int x_arg, unsigned int y_arg, std::string &&text_arg) noexcept :
-                 x(x_arg), y(y_arg), text(std::move(text))
+                 x(x_arg), y(y_arg), text(std::move(text_arg))
     {
     }
     unsigned int x;

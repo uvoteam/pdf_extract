@@ -17,8 +17,8 @@ public:
     void set_CTM(std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_default();
     std::pair<unsigned int, unsigned int> get_coordinates() const;
-    void adjust_coordinates(unsigned int width, size_t len, double Tj);
-    void adjust_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
+    std::pair<unsigned int, unsigned int> adjust_coordinates(unsigned int width, size_t len, double Tj);
+    void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:
     enum
     {

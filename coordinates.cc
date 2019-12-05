@@ -92,13 +92,14 @@ pair<unsigned int, unsigned int> Coordinates::get_coordinates() const
     return make_pair(result[0][0], result[0][1]);
 }
 
-void Coordinates::adjust_coordinates(unsigned int width, size_t len, double Tj)
+pair<unsigned int, unsigned int> Coordinates::adjust_coordinates(unsigned int width, size_t len, double Tj)
 {
     tx += ((width - Tj/1000) * Tfs + Tc + Tw) * Th * len;
     Tm = matrix_t{{1, 0, 0}, {0, 1, 0}, {tx, 0, 1}} * Tm;
+    return make_pair(tx, ty);
 }
 
-void Coordinates::adjust_coordinates(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, string>> &st)
 {
     if (token == "Tz")
     {

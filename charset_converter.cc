@@ -32,10 +32,11 @@ using namespace boost::locale::conv;
 
 namespace
 {
-    text_chunk_t get_text_chunk(string &&s, const Coordinates &coordinates)
+    text_chunk_t get_text_chunk(string &&s, unsigned int width, size_t len, double Tj, Coordinates &coordinates)
     {
-        const pair<unsigned int, unsigned int> r = coordinates.get_coordinates();
-        return text_chunk_t(r.first, r.second, std::move(s));
+        const pair<unsigned int, unsigned int> start = coordinates.get_coordinates();
+        const pair<unsigned int, unsigned int> end = coordinates.adjust_coordinates(width, len, Tj);
+        return text_chunk_t(start.first, start.second, end.first, end.second, std::move(s));
     }
 
     unsigned int utf8_length(const string &s)
@@ -162,6 +163,7 @@ text_chunk_t CharsetConverter::get_strings_from_array(const string &array, Coord
 {
     text_chunk_t result;
     double Tj = 0;
+    bool start_is_set = false;
     for (const pair<string, pdf_object_t> &p : get_array_data(array, 0))
     {
         switch (p.second)
@@ -174,8 +176,13 @@ text_chunk_t CharsetConverter::get_strings_from_array(const string &array, Coord
         case STRING:
         {
             text_chunk_t r = get_string(decode_string(p.first), coordinates, Tj);
-            result.x = r.x;
-            result.y = r.y;
+            if (!start_is_set)
+            {
+                result.start_x = r.start_x;
+                result.start_y = r.start_y;
+            }
+            result.end_x = r.end_x;
+            result.end_y = r.end_y;
             result.text += r.text;
             Tj = 0;
             break;
@@ -189,17 +196,12 @@ text_chunk_t CharsetConverter::get_strings_from_array(const string &array, Coord
 
 text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordinates, double Tj) const
 {
-    text_chunk_t result;
     switch (PDFencode)
     {
     case UTF8:
-        result = get_text_chunk(string(s), coordinates);
-        coordinates.adjust_coordinates(get_space_width(), utf8_length(s), Tj);
-        return result;
+        return get_text_chunk(string(s), get_space_width(), utf8_length(s), Tj, coordinates);
     case IDENTITY:
-        result = get_text_chunk(to_utf<char>(s, "UTF-16be"), coordinates);
-        coordinates.adjust_coordinates(get_space_width(), s.length() / 2, Tj);
-        return result;
+        return get_text_chunk(to_utf<char>(s, "UTF-16be"), get_space_width(), s.length() / 2, Tj, coordinates);
     case DEFAULT:
     case MAC_EXPERT:
     case MAC_ROMAN:
@@ -213,9 +215,7 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             auto it = standard_encoding.find(static_cast<unsigned char>(c));
             if (it != standard_encoding.end()) str.append(it->second);
         }
-        result = get_text_chunk(std::move(str), coordinates);
-        coordinates.adjust_coordinates(get_space_width(), s.length(), Tj);
-        return result;
+        return get_text_chunk(std::move(str), get_space_width(), s.length(), Tj, coordinates);
     }
     case DIFFERENCE_MAP:
     {
@@ -226,22 +226,16 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             auto it = difference_map.find(static_cast<unsigned char>(c));
             if (it != difference_map.end()) str.append(it->second);
         }
-        result = get_text_chunk(std::move(str), coordinates);
-        coordinates.adjust_coordinates(get_space_width(), s.length(), Tj);
-        return result;
+        return get_text_chunk(std::move(str), get_space_width(), s.length(), Tj, coordinates);
     }
     case OTHER:
-        result = get_text_chunk(to_utf<char>(s, charset), coordinates);
-        coordinates.adjust_coordinates(get_space_width(), get_length(s, charset), Tj);
-        return result;
+        return get_text_chunk(to_utf<char>(s, charset), get_space_width(), get_length(s, charset), Tj, coordinates);
     case TO_UNICODE:
     {
         string decoded;
         for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
         //strings from cmap returned in big ordering
-        result = get_text_chunk(to_utf<char>(decoded, "UTF-16be"), coordinates);
-        coordinates.adjust_coordinates(get_space_width(), decoded.length() / 2, Tj);
-        return result;
+        return get_text_chunk(to_utf<char>(decoded, "UTF-16be"), get_space_width(), decoded.length() / 2, Tj, coordinates);
     }
     }
 }

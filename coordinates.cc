@@ -66,6 +66,24 @@ Coordinates::Coordinates(unsigned int rotate, const cropbox_t &cropbox):
     TL(TL_DEFAULT)
 {
 }
+void Coordinates::T_quote()
+{
+    T_star();
+}
+
+void Coordinates::T_star()
+{
+    Td(0, -TL);
+}
+
+void Coordinates::Td(double x, double y)
+{
+    coordinates.start_x = x;
+    coordinates.start_y = coordinates.end_y =  y;
+    Tm = matrix_t{{1, 0, 0},
+                  {0, 1, 0},
+                  {coordinates.start_x, coordinates.start_y, 1}} * Tm;
+}
 
 void Coordinates::set_default()
 {
@@ -93,7 +111,7 @@ pair<double, double> Coordinates::get_coordinates(double x, double y) const
 coordinates_t Coordinates::adjust_coordinates(unsigned int width, size_t len, double Tj)
 {
     const pair<double, double> start_coordinates = get_coordinates(coordinates.start_x, coordinates.start_y);
-    coordinates.end_x += ((width - Tj/1000) * Tfs + Tc + Tw) * Th * len;
+    coordinates.end_x += (((width - Tj)/1000) * Tfs + Tc + Tw) * Th * len;
     Tm = matrix_t{{1, 0, 0}, {0, 1, 0}, {coordinates.end_x, coordinates.end_y, 1}} * Tm;
     const pair<double, double> end_coordinates = get_coordinates(coordinates.end_x, coordinates.end_y);
     coordinates.start_x = coordinates.end_x;
@@ -110,17 +128,13 @@ void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, 
     }
     else if (token == "'")
     {
-        Tm = matrix_t{{1, 0, 0},
-                      {0, 1, 0},
-                      {0, -TL, 1}} * Tm;
+        T_quote();
     }
     else if (token == "\"")
     {
         Tc = stod(pop(st).second);
         Tw = stod(pop(st).second);
-        Tm = matrix_t{{1, 0, 0},
-                      {0, 1, 0},
-                      {0, -TL, 1}} * Tm;
+        T_quote();
     }
     else if (token == "TL")
     {
@@ -128,9 +142,7 @@ void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, 
     }
     else if (token == "T*")
     {
-           Tm = matrix_t{{1, 0, 0},
-                         {0, 1, 0},
-                         {0, -TL, 1}} * Tm;
+        T_star();
     }
     else if (token == "Tc")
     {
@@ -142,19 +154,16 @@ void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, 
     }
     else if (token == "Td")
     {
-        double tty = stod(pop(st).second);
-        double ttx = stod(pop(st).second);
-        Tm = matrix_t{{1, 0, 0},
-                      {0, 1, 0},
-                      {ttx, tty, 1}} * Tm;
+        double y = stod(pop(st).second);
+        double x = stod(pop(st).second);
+        Td(x, y);
     }
     else if (token == "TD")
     {
-        TL = -stod(pop(st).second);
-        double ttx = stod(pop(st).second);
-        Tm = matrix_t{{1, 0, 0},
-                      {0, 1, 0},
-                      {ttx, -TL, 1}} * Tm;
+        double y = stod(pop(st).second);
+        double x = stod(pop(st).second);
+        Td(x, y);
+        TL = -y;
     }
     else if (token == "Tm")
     {

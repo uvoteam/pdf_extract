@@ -35,6 +35,9 @@ public:
     void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:
     std::pair<double, double> get_coordinates(double x, double y) const;
+    void T_quote();
+    void T_star();
+    void Td(double x, double y);
     enum
     {
         TH_DEFAULT = 1,

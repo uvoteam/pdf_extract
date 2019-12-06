@@ -10,10 +10,22 @@
 #include <boost/optional.hpp>
 
 #include "cmap.h"
-#include "common.h"
 #include "object_storage.h"
+#include "coordinates.h"
 
-class Coordinates;
+struct text_chunk_t
+{
+    text_chunk_t() noexcept
+    {
+    }
+    text_chunk_t(std::string &&text_arg, coordinates_t &&coordinates_arg) noexcept :
+                 coordinates(std::move(coordinates_arg)), text(std::move(text_arg))
+    {
+    }
+    coordinates_t coordinates;
+    std::string text;
+};
+
 class CharsetConverter
 {
 public:
@@ -23,7 +35,7 @@ public:
     CharsetConverter(unsigned int space_width_arg = NO_SPACE_WIDTH) noexcept;
     CharsetConverter(const cmap_t *cmap_arg, unsigned int space_width_arg);
     text_chunk_t get_string(const std::string &s, Coordinates &coordinates, double Tj) const;
-    text_chunk_t get_strings_from_array(const std::string &array, Coordinates &coordinates) const;
+    std::vector<text_chunk_t> get_strings_from_array(const std::string &array, Coordinates &coordinates) const;
     static std::unique_ptr<CharsetConverter> get_from_dictionary(const dict_t &dictionary,
                                                                  const ObjectStorage &storage,
                                                                  unsigned int space_width);

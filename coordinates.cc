@@ -63,9 +63,7 @@ Coordinates::Coordinates(unsigned int rotate, const cropbox_t &cropbox):
     Th(TH_DEFAULT),
     Tc(TC_DEFAULT),
     Tw(TW_DEFAULT),
-    TL(TL_DEFAULT),
-    tx(0),
-    ty(0)
+    TL(TL_DEFAULT)
 {
 }
 
@@ -86,17 +84,21 @@ void Coordinates::set_CTM(stack<pair<pdf_object_t, string>> &st)
     CTM = get_matrix(st) * CTM;
 }
 
-pair<unsigned int, unsigned int> Coordinates::get_coordinates() const
+pair<double, double> Coordinates::get_coordinates(double x, double y) const
 {
-    matrix_t result =  matrix_t{{tx, 0, 1}} * matrix_t{{Tfs * Th, 0, 0}, {0, Tfs, 0}, {0, TRISE_DEFAULT, 0}} * Tm * CTM;
+    matrix_t result =  matrix_t{{x, y, 1}} * matrix_t{{Tfs * Th, 0, 0}, {0, Tfs, 0}, {0, TRISE_DEFAULT, 0}} * Tm * CTM;
     return make_pair(result[0][0], result[0][1]);
 }
 
-pair<unsigned int, unsigned int> Coordinates::adjust_coordinates(unsigned int width, size_t len, double Tj)
+coordinates_t Coordinates::adjust_coordinates(unsigned int width, size_t len, double Tj)
 {
-    tx += ((width - Tj/1000) * Tfs + Tc + Tw) * Th * len;
-    Tm = matrix_t{{1, 0, 0}, {0, 1, 0}, {tx, 0, 1}} * Tm;
-    return make_pair(tx, ty);
+    const pair<double, double> start_coordinates = get_coordinates(coordinates.start_x, coordinates.start_y);
+    coordinates.end_x += ((width - Tj/1000) * Tfs + Tc + Tw) * Th * len;
+    Tm = matrix_t{{1, 0, 0}, {0, 1, 0}, {coordinates.end_x, coordinates.end_y, 1}} * Tm;
+    const pair<double, double> end_coordinates = get_coordinates(coordinates.end_x, coordinates.end_y);
+    coordinates.start_x = coordinates.end_x;
+    coordinates.start_y = coordinates.end_y;
+    return coordinates_t(start_coordinates.first, start_coordinates.second, end_coordinates.first, end_coordinates.second);
 }
 
 void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, string>> &st)

@@ -10,16 +10,31 @@
 #include "pages_extractor.h"
 
 using matrix_t = std::vector<std::vector<double>>;
+struct coordinates_t
+{
+    coordinates_t() noexcept : start_x(0), start_y(0), end_x(0), end_y(0)
+    {
+    }
+    coordinates_t(double start_x_arg, double start_y_arg, double end_x_arg, double end_y_arg) noexcept :
+                  start_x(start_x_arg), start_y(start_y_arg), end_x(end_x_arg), end_y(end_y_arg)
+    {
+    }
+    double start_x;
+    double start_y;
+    double end_x;
+    double end_y;
+};
+
 class Coordinates
 {
 public:
     Coordinates(unsigned int rotate, const cropbox_t &cropbox);
     void set_CTM(std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_default();
-    std::pair<unsigned int, unsigned int> get_coordinates() const;
-    std::pair<unsigned int, unsigned int> adjust_coordinates(unsigned int width, size_t len, double Tj);
+    coordinates_t adjust_coordinates(unsigned int width, size_t len, double Tj);
     void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:
+    std::pair<double, double> get_coordinates(double x, double y) const;
     enum
     {
         TH_DEFAULT = 1,
@@ -36,8 +51,7 @@ private:
     double Tc;
     double Tw;
     double TL;
-    double tx;
-    double ty;
+    coordinates_t coordinates;
 };
 
 #endif //COORDINATES_H

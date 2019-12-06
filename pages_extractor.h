@@ -13,11 +13,11 @@
 #include "common.h"
 #include "object_storage.h"
 #include "cmap.h"
-#include "charset_converter.h"
 
 enum {RECTANGLE_ELEMENTS_NUM = 4};
 using cropbox_t = std::array<double, RECTANGLE_ELEMENTS_NUM>;
 
+class CharsetConverter;
 class PagesExtractor
 {
 public:

@@ -335,7 +335,8 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         }
         else if (token == "TJ")
         {
-            texts.push_back(encoding->get_strings_from_array(pop(st).second, coordinates));
+            const vector<text_chunk_t> tj_texts = encoding->get_strings_from_array(pop(st).second, coordinates);
+            texts.insert(texts.end(), tj_texts.begin(), tj_texts.end());
         }
         else if (token == "Tf")
         {
@@ -347,7 +348,8 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
             st.push(make_pair(VALUE, token));
         }
     }
-    for (const text_chunk_t &chunk : texts) cout << '(' << chunk.start_x << ',' << chunk.start_y
-                                                 << ' ' << chunk.end_x << ',' << chunk.end_y << ')' << chunk.text << endl;
+    for (const text_chunk_t &chunk : texts) cout << '(' << chunk.coordinates.start_x << ',' << chunk.coordinates.start_y
+                                                 << ' ' << chunk.coordinates.end_x << ','
+                                                 << chunk.coordinates.end_y << ')' << chunk.text << endl;
     return string();
 }

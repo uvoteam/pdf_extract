@@ -13,29 +13,6 @@
 
 enum pdf_object_t {DICTIONARY = 1, ARRAY = 2, STRING = 3, VALUE = 4, INDIRECT_OBJECT = 5, NAME_OBJECT = 6};
 
-struct text_chunk_t
-{
-    text_chunk_t() noexcept : start_x(0), start_y(0), end_x(0), end_y(0)
-    {
-    }
-    text_chunk_t(unsigned int start_x_arg,
-                 unsigned int start_y_arg,
-                 unsigned int end_x_arg,
-                 unsigned int end_y_arg,
-                 std::string &&text_arg) noexcept :
-                 start_x(start_x_arg),
-                 start_y(start_y_arg),
-                 end_x(end_x_arg),
-                 end_y(end_y_arg),
-                 text(std::move(text_arg))
-    {
-    }
-    unsigned int start_x;
-    unsigned int start_y;
-    unsigned int end_x;
-    unsigned int end_y;
-    std::string text;
-};
 
 #define FUNC_STRING (std::string(__func__) + ": ")
 extern const std::map<pdf_object_t, std::string (&)(const std::string&, size_t&)> TYPE2FUNC;

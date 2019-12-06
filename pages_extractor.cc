@@ -19,6 +19,23 @@ using namespace boost;
 
 namespace
 {
+    string render_text(const vector<text_chunk_t> &chunks)
+    {
+        string result;
+        for (size_t i = 0; i < chunks.size(); ++i)
+        {
+            if (i == 0)
+            {
+                result += chunks[i].text;
+                continue;
+            }
+            if (chunks[i].coordinates.start_y != chunks[i-1].coordinates.end_y) result += '\n';
+            else if (chunks[i].coordinates.start_x != chunks[i-1].coordinates.end_x) result += ' ';
+            result += chunks[i].text;
+        }
+        return result;
+    }
+
     cropbox_t parse_rectangle(const pair<string, pdf_object_t> &rectangle)
     {
         if (rectangle.second != ARRAY)
@@ -279,7 +296,7 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(c
         throw pdf_error(FUNC_STRING + "/ToUnicode wrong type: " + to_string(it->second.second) + " val:" + it->second.first);
     }
 }
-#include <iostream> //temp
+
 string PagesExtractor::extract_text(const string &page_content, unsigned int page_id)
 {
     static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
@@ -348,8 +365,5 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
             st.push(make_pair(VALUE, token));
         }
     }
-    for (const text_chunk_t &chunk : texts) cout << '(' << chunk.coordinates.start_x << ',' << chunk.coordinates.start_y
-                                                 << ' ' << chunk.coordinates.end_x << ','
-                                                 << chunk.coordinates.end_y << ')' << chunk.text << endl;
-    return string();
+    return render_text(texts);
 }

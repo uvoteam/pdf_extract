@@ -167,7 +167,11 @@ PagesExtractor::PagesExtractor(unsigned int catalog_pages_id,
         throw pdf_error("In root catalog type must be '/Type /Pages'");
     }
     unordered_set<unsigned int> checked_nodes;
-    get_pages_resources_int(checked_nodes, data, dict_t(), boost::none, 0);
+    get_pages_resources_int(checked_nodes,
+                            data,
+                            get_fonts(data, dict_t()),
+                            get_crop_box(data, boost::none),
+                            get_rotate(data, 0));
 }
 
 void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checked_nodes,
@@ -200,7 +204,12 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
             }
             else
             {
-                get_pages_resources_int(checked_nodes, dict_data, parent_font, parent_crop_box, parent_rotate);
+                get_pages_resources_int(checked_nodes,
+                                        dict_data,
+                                        get_fonts(dict_data, parent_font),
+                                        get_crop_box(dict_data, parent_crop_box),
+                                        get_rotate(dict_data, parent_rotate));
+
             }
         }
     }

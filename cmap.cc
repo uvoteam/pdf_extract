@@ -28,6 +28,33 @@ namespace
         string val;
     };
 
+    size_t trim_leading_zeroes(const string &s)
+    {
+        for (size_t i = 0; i < s.length(); i++)
+        {
+            if (s[i] != 0) return i;
+        }
+        return s.length();
+    }
+
+    bool is_less_equal(const string &s1, const string &s2)
+    {
+        size_t s1_i = trim_leading_zeroes(s1);
+        size_t s2_i = trim_leading_zeroes(s2);
+        size_t s1_length = s1.length() - s1_i;
+        size_t s2_length = s2.length() - s2_i;
+        if (s1_length < s2_length) return true;
+        if (s1_length > s2_length) return false;
+        for (size_t i1 = s1_i, i2 = s2_i; i1 < s1.length() && i2 < s2.length(); ++i1, ++i2)
+        {
+            unsigned char c1 = s1[i1];
+            unsigned char c2 = s2[i2];
+            if (c1 < c2) return true;
+            if (c1 > c2) return false;
+        }
+        return true;
+    }
+
     token_t get_token(const string &line, size_t &offset)
     {
         size_t start = line.find_first_of("<[", offset);
@@ -136,13 +163,13 @@ namespace
         case token_t::DEC:
         {
             string third = convert2string(third_token);
-            for (string n = first; n <= second; inc(n), inc(third)) utf16_map.insert(make_pair(n, third));
+            for (string n = first; is_less_equal(n, second); inc(n), inc(third)) utf16_map.insert(make_pair(n, third));
             break;
         }
         case token_t::ARRAY:
         {
             size_t token_offset = 0;
-            for (string n = first; n <= second; inc(n))
+            for (string n = first; is_less_equal(n, second); inc(n))
             {
                 utf16_map.insert(make_pair(n, convert2string(get_token(third_token.val, token_offset))));
             }

@@ -36,31 +36,6 @@ namespace
         return result;
     }
 
-    cropbox_t parse_rectangle(const pair<string, pdf_object_t> &rectangle)
-    {
-        if (rectangle.second != ARRAY)
-        {
-            throw pdf_error(FUNC_STRING + "wrong type=" + to_string(rectangle.second) + " val:" + rectangle.first);
-        }
-        const vector<pair<string, pdf_object_t>> array_data = get_array_data(rectangle.first, 0);
-        if (array_data.size() != RECTANGLE_ELEMENTS_NUM)
-        {
-            throw pdf_error(FUNC_STRING + "wrong size of array. Size:" + to_string(array_data.size()));
-        }
-        cropbox_t result;
-        for (size_t i = 0; i < result.size(); ++i) result[i] = stod(array_data.at(i).first);
-        return result;
-    }
-
-    optional<cropbox_t> get_crop_box(const dict_t &dictionary, const optional<cropbox_t> &parent_crop_box)
-    {
-        auto it = dictionary.find("/CropBox");
-        if (it != dictionary.end()) return parse_rectangle(it->second);
-        it = dictionary.find("/MediaBox");
-        if (it != dictionary.end()) return parse_rectangle(it->second);
-        return parent_crop_box;
-    }
-
     string output_content(unordered_set<unsigned int> &visited_contents,
                           const string &buffer,
                           const ObjectStorage &storage,
@@ -223,6 +198,34 @@ dict_t PagesExtractor::get_fonts(const dict_t &dictionary, const dict_t &parent_
     it = resources.find("/Font");
     if (it == resources.end()) return dict_t();
     return get_dict_or_indirect_dict(it->second, storage);
+}
+
+cropbox_t PagesExtractor::parse_rectangle(const pair<string, pdf_object_t> &rectangle) const
+{
+    if (rectangle.second != ARRAY && rectangle.second != INDIRECT_OBJECT)
+    {
+        throw pdf_error(FUNC_STRING + "wrong type=" + to_string(rectangle.second) + " val:" + rectangle.first);
+    }
+    const string array = (rectangle.second == INDIRECT_OBJECT)? storage.get_object(get_id_gen(rectangle.first).first).first :
+                                                                rectangle.first;
+    const vector<pair<string, pdf_object_t>> array_data = get_array_data(array, 0);
+    if (array_data.size() != RECTANGLE_ELEMENTS_NUM)
+    {
+        throw pdf_error(FUNC_STRING + "wrong size of array. Size:" + to_string(array_data.size()));
+    }
+    cropbox_t result;
+    for (size_t i = 0; i < result.size(); ++i) result[i] = stod(array_data.at(i).first);
+    return result;
+}
+
+optional<cropbox_t> PagesExtractor::get_crop_box(const dict_t &dictionary,
+                                                 const optional<cropbox_t> &parent_crop_box) const
+{
+    auto it = dictionary.find("/CropBox");
+    if (it != dictionary.end()) return parse_rectangle(it->second);
+    it = dictionary.find("/MediaBox");
+    if (it != dictionary.end()) return parse_rectangle(it->second);
+    return parent_crop_box;
 }
 
 string PagesExtractor::get_text()

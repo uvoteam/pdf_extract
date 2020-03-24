@@ -186,3 +186,13 @@ void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, 
         throw pdf_error(FUNC_STRING + "unknown token:" + token);
     }
 }
+
+void Coordinates::push_CTM()
+{
+    CTMs.push(CTM);
+}
+
+void Coordinates::pop_CTM()
+{
+    CTM = pop(CTMs);
+}

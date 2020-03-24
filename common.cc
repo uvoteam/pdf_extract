@@ -721,11 +721,3 @@ string get_int(const string &s)
     if (off == 0 || (off == 1 && s[0] == '-')) return "0";
     return s.substr(0, off);
 }
-
-pair<pdf_object_t, string> pop(stack<pair<pdf_object_t, string>> &st)
-{
-    if (st.empty()) throw pdf_error(FUNC_STRING + "stack is empty");
-    pair<pdf_object_t, string> result = st.top();
-    st.pop();
-    return result;
-}

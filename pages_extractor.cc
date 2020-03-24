@@ -338,6 +338,8 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
             continue;
         }
         if (token == "cm") coordinates.set_CTM(st);
+        if (token == "q") coordinates.push_CTM();
+        if (token == "Q") coordinates.pop_CTM();
         if (!in_text_block)
         {
             st.push(make_pair(VALUE, token));

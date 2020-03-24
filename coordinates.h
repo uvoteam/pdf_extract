@@ -31,6 +31,8 @@ public:
     Coordinates(unsigned int rotate, const cropbox_t &cropbox);
     void set_CTM(std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_default();
+    void push_CTM();
+    void pop_CTM();
     coordinates_t adjust_coordinates(unsigned int width, size_t len, double Tj);
     void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:
@@ -55,6 +57,7 @@ private:
     double Tw;
     double TL;
     coordinates_t coordinates;
+    std::stack<matrix_t> CTMs;
 };
 
 #endif //COORDINATES_H

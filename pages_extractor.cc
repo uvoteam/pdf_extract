@@ -25,7 +25,7 @@ namespace
         sort(chunks.begin(), chunks.end(),
              [](const text_chunk_t &a, const text_chunk_t &b) -> bool
              {
-                 if (a.coordinates.start_y != b.coordinates.start_y) return a.coordinates.start_y < b.coordinates.start_y;
+                 if (a.coordinates.start_y != b.coordinates.start_y) return a.coordinates.start_y > b.coordinates.start_y;
                  return a.coordinates.start_x < b.coordinates.start_x;
              });
         string result;

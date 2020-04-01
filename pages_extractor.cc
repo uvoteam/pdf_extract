@@ -40,7 +40,7 @@ namespace
                 continue;
             }
             if (chunks[i].coordinates.start_y != chunks[i-1].coordinates.end_y) result += '\n';
-            else if (chunks[i].coordinates.start_x != chunks[i-1].coordinates.end_x) result += ' ';
+            else if (chunks[i].coordinates.start_x > chunks[i-1].coordinates.end_x) result += ' ';
             result += chunks[i].text;
         }
         return result;
@@ -335,7 +335,7 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         if (end == string::npos) end = page_content.length();
         const string token = page_content.substr(i, end - i);
         i = end;
-        //workaroung: rendering of marked content is not implemented
+        //workaround: rendering of marked content is not implemented
         if (token == "BMC" || token == "BDC" || token == "EMC")
         {
             pair<double, double> start_x_y = coordinates.get_start_coordinates();

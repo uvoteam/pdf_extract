@@ -26,7 +26,10 @@ namespace
              [](const text_chunk_t &a, const text_chunk_t &b) -> bool
              {
                  if (a.coordinates.start_y != b.coordinates.start_y) return a.coordinates.start_y > b.coordinates.start_y;
-                 return a.coordinates.start_x < b.coordinates.start_x;
+                 //for marked content section \n is added with start_x = end_x, start_y = end_y
+                 //\n should come first
+                 if (a.coordinates.start_x != b.coordinates.start_x) return a.coordinates.start_x < b.coordinates.start_x;
+                 return a.coordinates.end_x < b.coordinates.end_x;
              });
         string result;
         for (size_t i = 0; i < chunks.size(); ++i)
@@ -332,21 +335,32 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         if (end == string::npos) end = page_content.length();
         const string token = page_content.substr(i, end - i);
         i = end;
-        if (token == "BT")
+        //workaroung: rendering of marked content is not implemented
+        if (token == "BMC" || token == "BDC" || token == "EMC")
+        {
+            pair<double, double> start_x_y = coordinates.get_start_coordinates();
+            texts.push_back(text_chunk_t("\n",
+                                         coordinates_t(start_x_y.first,
+                                                       start_x_y.second,
+                                                       start_x_y.first,
+                                                       start_x_y.second)));
+        }
+        else if (token == "BT")
         {
             coordinates.set_default();
             encoding->set_default_space_width();
             in_text_block = true;
             continue;
         }
-        if (token == "ET")
+        else if (token == "ET")
         {
             in_text_block = false;
             continue;
         }
-        if (token == "cm") coordinates.set_CTM(st);
-        if (token == "q") coordinates.push_CTM();
-        if (token == "Q") coordinates.pop_CTM();
+        else if (token == "cm") coordinates.set_CTM(st);
+        else if (token == "q") coordinates.push_CTM();
+        else if (token == "Q") coordinates.pop_CTM();
+
         if (!in_text_block)
         {
             st.push(make_pair(VALUE, token));

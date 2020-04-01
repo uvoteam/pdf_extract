@@ -35,6 +35,7 @@ public:
     void pop_CTM();
     coordinates_t adjust_coordinates(unsigned int width, size_t len, double Tj);
     void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
+    std::pair<double, double> get_start_coordinates() const;
 private:
     std::pair<double, double> get_coordinates(double x, double y) const;
     void T_quote();

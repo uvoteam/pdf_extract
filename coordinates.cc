@@ -108,6 +108,11 @@ pair<double, double> Coordinates::get_coordinates(double x, double y) const
     return make_pair(result[0][0], result[0][1]);
 }
 
+pair<double, double> Coordinates::get_start_coordinates() const
+{
+    return get_coordinates(coordinates.start_x, coordinates.start_y);
+}
+
 coordinates_t Coordinates::adjust_coordinates(unsigned int width, size_t len, double Tj)
 {
     const pair<double, double> start_coordinates = get_coordinates(coordinates.start_x, coordinates.start_y);

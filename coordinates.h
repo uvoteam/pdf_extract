@@ -51,6 +51,7 @@ private:
         TRISE_DEFAULT = 0
     };
     matrix_t Tm;
+    matrix_t Tlm;
     matrix_t CTM;
     double Tfs;
     double Th;

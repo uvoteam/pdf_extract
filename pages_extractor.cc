@@ -7,6 +7,7 @@
 #include <algorithm>
 
 #include <boost/optional.hpp>
+#include <iostream> //temp
 
 #include "common.h"
 #include "object_storage.h"
@@ -31,6 +32,12 @@ namespace
                  if (a.coordinates.start_x != b.coordinates.start_x) return a.coordinates.start_x < b.coordinates.start_x;
                  return a.coordinates.end_x < b.coordinates.end_x;
              });
+        for (const text_chunk_t &chunk : chunks)
+        {
+            cout << '(' << chunk.coordinates.start_x << "," << chunk.coordinates.start_y << ") ("  << chunk.coordinates.end_x << "," << chunk.coordinates.end_y << ")" <<
+                chunk.text << endl;
+        }
+
         string result;
         for (size_t i = 0; i < chunks.size(); ++i)
         {

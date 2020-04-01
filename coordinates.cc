@@ -59,6 +59,9 @@ Coordinates::Coordinates(unsigned int rotate, const cropbox_t &cropbox):
     Tm(matrix_t{{1, 0, 0},
                 {0, 1, 0},
                 {0, 0, 1}}),
+    Tlm(matrix_t{{1, 0, 0},
+                 {0, 1, 0},
+                 {0, 0, 1}}),
     Tfs(TFS_DEFAULT),
     Th(TH_DEFAULT),
     Tc(TC_DEFAULT),
@@ -78,11 +81,9 @@ void Coordinates::T_star()
 
 void Coordinates::Td(double x, double y)
 {
-    coordinates.start_x = x;
-    coordinates.start_y = coordinates.end_y =  y;
-    Tm = matrix_t{{1, 0, 0},
-                  {0, 1, 0},
-                  {coordinates.start_x, coordinates.start_y, 1}} * Tm;
+    Tm = Tlm = matrix_t{{1, 0, 0},
+                        {0, 1, 0},
+                        {x, y, 1}} * Tlm;
 }
 
 void Coordinates::set_default()
@@ -116,8 +117,9 @@ pair<double, double> Coordinates::get_start_coordinates() const
 coordinates_t Coordinates::adjust_coordinates(unsigned int width, size_t len, double Tj)
 {
     const pair<double, double> start_coordinates = get_coordinates(coordinates.start_x, coordinates.start_y);
-    coordinates.end_x += (((width - Tj)/1000) * Tfs + Tc + Tw) * Th * len;
-    Tm = matrix_t{{1, 0, 0}, {0, 1, 0}, {coordinates.end_x, coordinates.end_y, 1}} * Tm;
+    double adjust = (((width - Tj)/1000) * Tfs + Tc + Tw) * Th * len;
+    coordinates.end_x += adjust;
+    Tm = matrix_t{{1, 0, 0}, {0, 1, 0}, {adjust, 0, 1}} * Tm;
     const pair<double, double> end_coordinates = get_coordinates(coordinates.end_x, coordinates.end_y);
     coordinates.start_x = coordinates.end_x;
     coordinates.start_y = coordinates.end_y;
@@ -178,9 +180,9 @@ void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, 
         double c = stod(pop(st).second);
         double b = stod(pop(st).second);
         double a = stod(pop(st).second);
-        Tm = matrix_t{{a, b, 0},
-                      {c, d, 0},
-                      {e, f, 1}};
+        Tlm = Tm = matrix_t{{a, b, 0},
+                            {c, d, 0},
+                            {e, f, 1}};
     }
     else if (token == "Tf")
     {

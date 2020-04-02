@@ -81,8 +81,10 @@ void Coordinates::T_star()
 
 void Coordinates::Td(double x, double y)
 {
-    coordinates.start_x = coordinates.end_x = x;
-    coordinates.start_y = coordinates.end_y = y;
+    coordinates.start_x += x;
+    coordinates.end_x += x;
+    coordinates.start_y += y;
+    coordinates.end_y += y;
     Tm = Tlm = matrix_t{{1, 0, 0},
                         {0, 1, 0},
                         {x, y, 1}} * Tlm;

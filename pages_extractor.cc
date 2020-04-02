@@ -343,16 +343,7 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         const string token = page_content.substr(i, end - i);
         i = end;
         //workaround: rendering of marked content is not implemented
-        if (token == "BMC" || token == "BDC" || token == "EMC")
-        {
-            pair<double, double> start_x_y = coordinates.get_start_coordinates();
-            texts.push_back(text_chunk_t("\n",
-                                         coordinates_t(start_x_y.first,
-                                                       start_x_y.second,
-                                                       start_x_y.first,
-                                                       start_x_y.second)));
-        }
-        else if (token == "BT")
+        if (token == "BT")
         {
             coordinates.set_default();
             encoding->set_default_space_width();

@@ -81,6 +81,8 @@ void Coordinates::T_star()
 
 void Coordinates::Td(double x, double y)
 {
+    coordinates.start_x = coordinates.end_x = x;
+    coordinates.start_y = coordinates.end_y = y;
     Tm = Tlm = matrix_t{{1, 0, 0},
                         {0, 1, 0},
                         {x, y, 1}} * Tlm;
@@ -107,11 +109,6 @@ pair<double, double> Coordinates::get_coordinates(double x, double y) const
 {
     matrix_t result =  matrix_t{{x, y, 1}} * matrix_t{{Tfs * Th, 0, 0}, {0, Tfs, 0}, {0, TRISE_DEFAULT, 0}} * Tm * CTM;
     return make_pair(result[0][0], result[0][1]);
-}
-
-pair<double, double> Coordinates::get_start_coordinates() const
-{
-    return get_coordinates(coordinates.start_x, coordinates.start_y);
 }
 
 coordinates_t Coordinates::adjust_coordinates(unsigned int width, size_t len, double Tj)
@@ -183,6 +180,8 @@ void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, 
         Tlm = Tm = matrix_t{{a, b, 0},
                             {c, d, 0},
                             {e, f, 1}};
+        coordinates.start_x = coordinates.end_x = e;
+        coordinates.start_y = coordinates.end_y = f;
     }
     else if (token == "Tf")
     {

@@ -109,6 +109,7 @@ void Coordinates::set_CTM(stack<pair<pdf_object_t, string>> &st)
 
 pair<double, double> Coordinates::get_coordinates(double x, double y) const
 {
+    return make_pair(x, y);
     matrix_t result =  matrix_t{{x, y, 1}} * matrix_t{{Tfs * Th, 0, 0}, {0, Tfs, 0}, {0, TRISE_DEFAULT, 0}} * Tm * CTM;
     return make_pair(result[0][0], result[0][1]);
 }

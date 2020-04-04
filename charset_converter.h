@@ -29,15 +29,22 @@ struct text_chunk_t
 class CharsetConverter
 {
 public:
-    enum { SPACE_WIDTH_ARRAY_FRACTION = 2, SPACE_WIDTH_SCALAR_FRACTION = 5, NO_SPACE_WIDTH = 0, DEFAULT_SPACE_WIDTH = 500};
-    CharsetConverter(const std::string &encoding, unsigned int space_width_arg);
-    CharsetConverter(std::unordered_map<unsigned int, std::string> &&difference_map_arg, unsigned int space_width_arg);
-    CharsetConverter(unsigned int space_width_arg = NO_SPACE_WIDTH) noexcept;
-    CharsetConverter(const cmap_t *cmap_arg, unsigned int space_width_arg);
+    enum { SPACE_WIDTH_ARRAY_FRACTION = 2,
+           SPACE_WIDTH_SCALAR_FRACTION = 5,
+           NO_SPACE_WIDTH = 0,
+           DEFAULT_SPACE_WIDTH = 500,
+           NO_HEIGHT = 0};
+    CharsetConverter(const std::string &encoding, unsigned int height_arg, unsigned int space_width_arg);
+    CharsetConverter(std::unordered_map<unsigned int, std::string> &&difference_map_arg,
+                     unsigned int height_arg,
+                     unsigned int space_width_arg);
+    CharsetConverter(unsigned int height_arg, unsigned int space_width_arg) noexcept;
+    CharsetConverter(const cmap_t *cmap_arg, unsigned int height_arg, unsigned int space_width_arg);
     text_chunk_t get_string(const std::string &s, Coordinates &coordinates, double Tj) const;
     std::vector<text_chunk_t> get_strings_from_array(const std::string &array, Coordinates &coordinates) const;
     static std::unique_ptr<CharsetConverter> get_from_dictionary(const dict_t &dictionary,
                                                                  const ObjectStorage &storage,
+                                                                 unsigned int height,
                                                                  unsigned int space_width);
     static unsigned int get_space_width(const ObjectStorage &storage, const dict_t &font_dict);
     unsigned int get_space_width() const;
@@ -50,6 +57,7 @@ private:
     static std::unique_ptr<CharsetConverter> get_diff_map_converter(PDFEncode_t encoding,
                                                                     const std::string &array,
                                                                     const ObjectStorage &storage,
+                                                                    unsigned int height,
                                                                     unsigned int space_width);
     static boost::optional<std::string> get_symbol_string(const std::string &name);
 private:
@@ -65,6 +73,7 @@ private:
     static const std::unordered_map<std::string, const char*> encoding2charset;
     static const std::map<PDFEncode_t, const std::unordered_map<unsigned int, std::string>&> standard_encodings;
     static const std::unordered_map<std::string, std::string> symbol_table;
+    unsigned int height;
 };
 
 #endif //CHARSET_CONVERTER

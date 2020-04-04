@@ -190,7 +190,7 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
             if (dict_data.at("/Type").first == "/Page")
             {
                 pages.push_back(id);
-                fonts.insert(make_pair(id, get_fonts(dict_data, parent_font)));
+                fonts.insert(make_pair(id, Fonts(storage, get_fonts(dict_data, parent_font))));
                 crop_boxes.insert(make_pair(id, get_crop_box(dict_data, parent_crop_box).value()));
                 rotates.insert(make_pair(id, get_rotate(dict_data, parent_rotate)));
             }
@@ -263,8 +263,7 @@ string PagesExtractor::get_text()
 }
 
 optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_encoding(const dict_t &font_dict,
-                                                                              unsigned int width,
-                                                                              unsigned int height) const
+                                                                              unsigned int width) const
 {
     auto it = font_dict.find("/Encoding");
     if (it == font_dict.end()) return boost::none;
@@ -273,31 +272,17 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_encoding(co
     switch (encoding.second)
     {
     case DICTIONARY:
-        return CharsetConverter::get_from_dictionary(get_dictionary_data(encoding.first, 0), storage, height, width);
+        return CharsetConverter::get_from_dictionary(get_dictionary_data(encoding.first, 0), storage, width);
     case NAME_OBJECT:
-        return unique_ptr<CharsetConverter>(new CharsetConverter(encoding.first, height, width));
+        return unique_ptr<CharsetConverter>(new CharsetConverter(encoding.first, width));
     default:
         throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(encoding.second) + " val=" + encoding.first);
     }
 }
 
-unsigned int PagesExtractor::get_height(const dict_t &font_dict)
-{
-    const dict_t font_desc_dict = get_dict_or_indirect_dict(font_dict.at("/FontDescriptor"), storage);
-    auto it = font_desc_dict.find("/FontBBox");
-    if (it == font_desc_dict.end()) return CharsetConverter::NO_HEIGHT;
-    vector<pair<string, pdf_object_t>> array = get_array_data(it->second.first, 0);
-    return strict_stol(array.at(3).first) - strict_stol(array.at(1).first);
-}
-
 unique_ptr<CharsetConverter> PagesExtractor::get_font_encoding(const string &font, unsigned int page_id)
 {
-    const dict_t &page_fonts = fonts.at(page_id);
-    auto it = page_fonts.find(font);
-    if (it == page_fonts.end()) return unique_ptr<CharsetConverter>(new CharsetConverter(CharsetConverter::NO_HEIGHT,
-                                                                                         CharsetConverter::NO_SPACE_WIDTH));
-    const dict_t font_dict = get_dict_or_indirect_dict(it->second, storage);
-    unsigned int height = get_height(font_dict);
+    const dict_t &font_dict = fonts.at(page_id).get_current_font_dictionary();
     auto it2 = width_storage.find(font);
     unsigned int width;
     if (it2 == width_storage.end())
@@ -309,16 +294,15 @@ unique_ptr<CharsetConverter> PagesExtractor::get_font_encoding(const string &fon
     {
         width = it2->second;
     }
-    optional<unique_ptr<CharsetConverter>> r = get_font_from_tounicode(font_dict, width, height);
+    optional<unique_ptr<CharsetConverter>> r = get_font_from_tounicode(font_dict, width);
     if (r) return std::move(*r);
-    r = get_font_from_encoding(font_dict, width, height);
+    r = get_font_from_encoding(font_dict, width);
     if (r) return std::move(*r);
-    return unique_ptr<CharsetConverter>(new CharsetConverter(width, height));
+    return unique_ptr<CharsetConverter>(new CharsetConverter(width));
 }
 
 optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(const dict_t &font_dict,
-                                                                               unsigned int width,
-                                                                               unsigned int height)
+                                                                               unsigned int width)
 {
     auto it = font_dict.find("/ToUnicode");
     if (it == font_dict.end()) return boost::none;
@@ -331,7 +315,7 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(c
         {
             cmap_storage.insert(make_pair(cmap_id_gen.first, get_cmap(doc, storage, cmap_id_gen, decrypt_data)));
         }
-        return unique_ptr<CharsetConverter>(new CharsetConverter(&cmap_storage[cmap_id_gen.first], height, width));
+        return unique_ptr<CharsetConverter>(new CharsetConverter(&cmap_storage[cmap_id_gen.first], width));
     }
     case NAME_OBJECT:
         return boost::none;
@@ -343,8 +327,7 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(c
 string PagesExtractor::extract_text(const string &page_content, unsigned int page_id)
 {
     static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
-    unique_ptr<CharsetConverter> encoding(new CharsetConverter(CharsetConverter::NO_HEIGHT,
-                                                               CharsetConverter::NO_SPACE_WIDTH));
+    unique_ptr<CharsetConverter> encoding(new CharsetConverter(CharsetConverter::NO_SPACE_WIDTH));
     Coordinates coordinates(rotates.at(page_id), crop_boxes.at(page_id));
     stack<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
@@ -357,7 +340,6 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         if (end == string::npos) end = page_content.length();
         const string token = page_content.substr(i, end - i);
         i = end;
-        //workaround: rendering of marked content is not implemented
         if (token == "BT")
         {
             coordinates.set_default();
@@ -406,7 +388,9 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         else if (token == "Tf")
         {
             coordinates.set_coordinates(token, st);
-            encoding = get_font_encoding(pop(st).second, page_id);
+            const string font = pop(st).second;
+            fonts.at(page_id).set_current_font(font);
+            encoding = get_font_encoding(font, page_id);
         }
         else
         {

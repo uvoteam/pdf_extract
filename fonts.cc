@@ -8,7 +8,7 @@
 
 using namespace std;
 
-Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict)
+Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_DEFAULT)
 {
         for (const pair<string, pair<string, pdf_object_t>> &p : fonts_dict)
         {
@@ -19,15 +19,42 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict)
             const dict_t font_desc_dict = get_dictionary_data(get_indirect_object_data(font_dict.at("/FontDescriptor").first,
                                                                                        storage,
                                                                                        DICTIONARY).first, 0);
-            auto it = font_desc_dict.find("/FontBBox");
-            if (it == font_desc_dict.end())
-            {
-                heights.insert(make_pair(p.first, Fonts::NO_HEIGHT));
-                continue;
-            }
-            vector<pair<string, pdf_object_t>> array = get_array_data(it->second.first, 0);
-            heights.insert(make_pair(p.first, strict_stol(array.at(3).first) - strict_stol(array.at(1).first)));
+            insert_height(p.first, font_desc_dict);
+            insert_descent(p.first, font_desc_dict);
         }
+}
+
+void Fonts:: set_rise(int rise_arg)
+{
+    rise = rise_arg;
+}
+
+int Fonts::get_rise() const
+{
+    return rise;
+}
+
+void Fonts::insert_height(const string &font_name, const dict_t &font_desc)
+{
+    auto it = font_desc.find("/FontBBox");
+    if (it == font_desc.end())
+    {
+        heights.insert(make_pair(font_name, Fonts::NO_HEIGHT));
+        return;
+    }
+    vector<pair<string, pdf_object_t>> array = get_array_data(it->second.first, 0);
+    heights.insert(make_pair(font_name, strict_stol(array.at(3).first) - strict_stol(array.at(1).first)));
+}
+
+void Fonts::insert_descent(const string &font_name, const dict_t &font_desc)
+{
+    auto it = font_desc.find("/Descent");
+    if (it == font_desc.end())
+    {
+        heights.insert(make_pair(font_name, Fonts::NO_DESCENT));
+        return;
+    }
+    descents.insert(make_pair(font_name, strict_stol(it->second.first)));
 }
 
 unsigned int Fonts::get_height() const

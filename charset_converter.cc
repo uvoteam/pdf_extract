@@ -15,6 +15,7 @@
 #include "common.h"
 #include "object_storage.h"
 #include "coordinates.h"
+#include "fonts.h"
 
 using namespace std;
 using namespace boost::locale::conv;
@@ -152,7 +153,9 @@ string CharsetConverter::custom_decode_symbol(const string &s, size_t &i) const
     return string();
 }
 
-vector<text_chunk_t> CharsetConverter::get_strings_from_array(const string &array, Coordinates &coordinates) const
+vector<text_chunk_t> CharsetConverter::get_strings_from_array(const string &array,
+                                                              Coordinates &coordinates,
+                                                              const Fonts &fonts) const
 {
     vector<text_chunk_t> result;
     double Tj = 0;
@@ -167,7 +170,7 @@ vector<text_chunk_t> CharsetConverter::get_strings_from_array(const string &arra
             if (-Tj > get_space_width()) set_space = true;
             break;
         case STRING:
-            result.push_back(get_string(decode_string(p.first), coordinates, Tj));
+            result.push_back(get_string(decode_string(p.first), coordinates, Tj, fonts));
             if (set_space)
             {
                 result.back().text = ' ' + result.back().text;
@@ -182,15 +185,15 @@ vector<text_chunk_t> CharsetConverter::get_strings_from_array(const string &arra
     return result;
 }
 
-text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordinates, double Tj) const
+text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordinates, double Tj, const Fonts &fonts) const
 {
     switch (PDFencode)
     {
     case UTF8:
-        return text_chunk_t(string(s), coordinates.adjust_coordinates(get_space_width(), utf8_length(s), Tj));
+        return text_chunk_t(string(s), coordinates.adjust_coordinates(get_space_width(), utf8_length(s), Tj, fonts));
     case IDENTITY:
         return text_chunk_t(to_utf<char>(s, "UTF-16be"),
-                            coordinates.adjust_coordinates(get_space_width(), s.length() / 2, Tj));
+                            coordinates.adjust_coordinates(get_space_width(), s.length() / 2, Tj, fonts));
     case DEFAULT:
     case MAC_EXPERT:
     case MAC_ROMAN:
@@ -204,7 +207,7 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             auto it = standard_encoding.find(static_cast<unsigned char>(c));
             if (it != standard_encoding.end()) str.append(it->second);
         }
-        return text_chunk_t(std::move(str), coordinates.adjust_coordinates(get_space_width(), s.length(), Tj));
+        return text_chunk_t(std::move(str), coordinates.adjust_coordinates(get_space_width(), s.length(), Tj, fonts));
     }
     case DIFFERENCE_MAP:
     {
@@ -215,18 +218,18 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             auto it = difference_map.find(static_cast<unsigned char>(c));
             if (it != difference_map.end()) str.append(it->second);
         }
-        return text_chunk_t(std::move(str), coordinates.adjust_coordinates(get_space_width(), s.length(), Tj));
+        return text_chunk_t(std::move(str), coordinates.adjust_coordinates(get_space_width(), s.length(), Tj, fonts));
     }
     case OTHER:
         return text_chunk_t(to_utf<char>(s, charset),
-                            coordinates.adjust_coordinates(get_space_width(), get_length(s, charset), Tj));
+                            coordinates.adjust_coordinates(get_space_width(), get_length(s, charset), Tj, fonts));
     case TO_UNICODE:
     {
         string decoded;
         for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
         //strings from cmap returned in big ordering
         return text_chunk_t(to_utf<char>(decoded, "UTF-16be"),
-                            coordinates.adjust_coordinates(get_space_width(), decoded.length() / 2, Tj));
+                            coordinates.adjust_coordinates(get_space_width(), decoded.length() / 2, Tj, fonts));
     }
     }
 }

@@ -1,10 +1,11 @@
 #include <stack>
 #include <utility>
 #include <string>
+#include <algorithm>
 
 #include "coordinates.h"
 #include "common.h"
-
+#include "fonts.h"
 
 using namespace std;
 
@@ -107,23 +108,29 @@ void Coordinates::set_CTM(stack<pair<pdf_object_t, string>> &st)
     CTM = get_matrix(st) * CTM;
 }
 
-pair<double, double> Coordinates::get_coordinates(double x, double y) const
+pair<double, double> Coordinates::get_coordinates(const matrix_t &m1, const matrix_t &m2) const
 {
-    return make_pair(x, y);
-    matrix_t result =  matrix_t{{x, y, 1}} * matrix_t{{Tfs * Th, 0, 0}, {0, Tfs, 0}, {0, TRISE_DEFAULT, 0}} * Tm * CTM;
-    return make_pair(result[0][0], result[0][1]);
+    matrix_t r = m1 * m2;
+    return make_pair(r[0][0], r[0][1]);
 }
 
-coordinates_t Coordinates::adjust_coordinates(unsigned int width, size_t len, double Tj)
+coordinates_t Coordinates::adjust_coordinates(unsigned int width, size_t len, double Tj, const Fonts &fonts)
 {
-    const pair<double, double> start_coordinates = get_coordinates(coordinates.start_x, coordinates.start_y);
+    double ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
+    matrix_t bll{{0, ty, 1}}, bur{{width * len, ty + fonts.get_height() * Tfs, 1}};
+    const pair<double, double> start_coordinates = get_coordinates(bll, Tm);
+    const pair<double, double> end_coordinates = get_coordinates(bur, Tm);
+    double x0 = min(start_coordinates.first, end_coordinates.first);
+    double x1 = max(start_coordinates.first, end_coordinates.first);
+    double y0 = min(start_coordinates.second, end_coordinates.second);
+    double y1 = max(start_coordinates.second, end_coordinates.second);
+
     double adjust = (((width - Tj)/1000) * Tfs + Tc + Tw) * Th * len;
     coordinates.end_x += adjust;
     Tm = matrix_t{{1, 0, 0}, {0, 1, 0}, {adjust, 0, 1}} * Tm;
-    const pair<double, double> end_coordinates = get_coordinates(coordinates.end_x, coordinates.end_y);
     coordinates.start_x = coordinates.end_x;
-    coordinates.start_y = coordinates.end_y;
-    return coordinates_t(start_coordinates.first, start_coordinates.second, end_coordinates.first, end_coordinates.second);
+
+    return coordinates_t(x0, y0, x1, y1);
 }
 
 void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, string>> &st)

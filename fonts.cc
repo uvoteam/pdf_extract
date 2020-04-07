@@ -51,16 +51,35 @@ void Fonts::insert_descent(const string &font_name, const dict_t &font_desc)
     auto it = font_desc.find("/Descent");
     if (it == font_desc.end())
     {
-        heights.insert(make_pair(font_name, Fonts::NO_DESCENT));
+        descents.insert(make_pair(font_name, Fonts::NO_DESCENT));
         return;
     }
     descents.insert(make_pair(font_name, strict_stol(it->second.first)));
 }
 
-unsigned int Fonts::get_height() const
+void Fonts::insert_ascent(const string &font_name, const dict_t &font_desc)
+{
+    auto it = font_desc.find("/Ascent");
+    if (it == font_desc.end())
+    {
+        ascents.insert(make_pair(font_name, Fonts::NO_ASCENT));
+        return;
+    }
+    ascents.insert(make_pair(font_name, strict_stol(it->second.first)));
+}
+
+double Fonts::get_height() const
 {
     validate_current_font();
-    return heights.at(current_font);
+    int height = heights.at(current_font);
+    if (height == 0) height = ascents.at(current_font) - descents.at(current_font);
+    return height * VSCALE;
+}
+
+double Fonts::get_descent() const
+{
+    validate_current_font();
+    return descents.at(current_font) * VSCALE;
 }
 
 const dict_t& Fonts::get_current_font_dictionary() const
@@ -78,3 +97,5 @@ void Fonts::validate_current_font() const
 {
     if (current_font.empty()) throw pdf_error(FUNC_STRING + "current font is not set");
 }
+
+const double Fonts::VSCALE = 0.001;

@@ -363,7 +363,7 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         }
         if (token == "Tj")
         {
-            texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0));
+            texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(page_id)));
         }
         else if (adjust_tokens.count(token))
         {
@@ -372,7 +372,7 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         else if (token == "'")
         {
             coordinates.set_coordinates(token, st);
-            texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0));
+            texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(page_id)));
         }
         else if (token == "Ts")
         {
@@ -382,11 +382,13 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         {
             const string str = pop(st).second;
             coordinates.set_coordinates(token, st);
-            texts.push_back(encoding->get_string(str, coordinates, 0));
+            texts.push_back(encoding->get_string(str, coordinates, 0, fonts.at(page_id)));
         }
         else if (token == "TJ")
         {
-            const vector<text_chunk_t> tj_texts = encoding->get_strings_from_array(pop(st).second, coordinates);
+            const vector<text_chunk_t> tj_texts = encoding->get_strings_from_array(pop(st).second,
+                                                                                   coordinates,
+                                                                                   fonts.at(page_id));
             texts.insert(texts.end(), tj_texts.begin(), tj_texts.end());
         }
         else if (token == "Tf")

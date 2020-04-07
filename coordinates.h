@@ -8,6 +8,7 @@
 
 #include "common.h"
 #include "pages_extractor.h"
+#include "fonts.h"
 
 using matrix_t = std::vector<std::vector<double>>;
 struct coordinates_t
@@ -33,10 +34,10 @@ public:
     void set_default();
     void push_CTM();
     void pop_CTM();
-    coordinates_t adjust_coordinates(unsigned int width, size_t len, double Tj);
+    coordinates_t adjust_coordinates(unsigned int width, size_t len, double Tj, const Fonts &fonts);
     void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:
-    std::pair<double, double> get_coordinates(double x, double y) const;
+    std::pair<double, double> get_coordinates(const matrix_t &m1, const matrix_t &m2) const;
     void T_quote();
     void T_star();
     void Td(double x, double y);

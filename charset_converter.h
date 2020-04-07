@@ -12,6 +12,7 @@
 #include "cmap.h"
 #include "object_storage.h"
 #include "coordinates.h"
+#include "fonts.h"
 
 struct text_chunk_t
 {
@@ -37,8 +38,10 @@ public:
     CharsetConverter(std::unordered_map<unsigned int, std::string> &&difference_map_arg, unsigned int space_width_arg);
     CharsetConverter(unsigned int space_width_arg) noexcept;
     CharsetConverter(const cmap_t *cmap_arg, unsigned int space_width_arg);
-    text_chunk_t get_string(const std::string &s, Coordinates &coordinates, double Tj) const;
-    std::vector<text_chunk_t> get_strings_from_array(const std::string &array, Coordinates &coordinates) const;
+    text_chunk_t get_string(const std::string &s, Coordinates &coordinates, double Tj, const Fonts &fonts) const;
+    std::vector<text_chunk_t> get_strings_from_array(const std::string &array,
+                                                     Coordinates &coordinates,
+                                                     const Fonts &fonts) const;
     static std::unique_ptr<CharsetConverter> get_from_dictionary(const dict_t &dictionary,
                                                                  const ObjectStorage &storage,
                                                                  unsigned int space_width);

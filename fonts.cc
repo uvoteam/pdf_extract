@@ -15,6 +15,7 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
             const dict_t font_dict = get_dictionary_data(get_indirect_object_data(p.second.first,
                                                                                   storage,
                                                                                   DICTIONARY).first, 0);
+            insert_type(p.first, font_dict);
             dictionary_per_font.insert(make_pair(p.first, font_dict));
             const dict_t font_desc_dict = get_dictionary_data(get_indirect_object_data(font_dict.at("/FontDescriptor").first,
                                                                                        storage,
@@ -24,7 +25,14 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
         }
 }
 
-void Fonts:: set_rise(int rise_arg)
+void Fonts::insert_type(const string &font_name, const dict_t &font)
+{
+    const string type = font.at("/Subtype").first;
+    if (type == "Type3") types.insert(make_pair(font_name, TYPE_3));
+    else types.insert(make_pair(font_name, OTHER));
+}
+
+void Fonts::set_rise(int rise_arg)
 {
     rise = rise_arg;
 }

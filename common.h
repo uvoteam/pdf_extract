@@ -7,12 +7,13 @@
 #include <utility>
 #include <vector>
 #include <stack>
+#include <array>
 
 #include <boost/optional.hpp>
 #define LEN(S) (sizeof(S) - 1)
 
-enum pdf_object_t {DICTIONARY = 1, ARRAY = 2, STRING = 3, VALUE = 4, INDIRECT_OBJECT = 5, NAME_OBJECT = 6};
-
+enum pdf_object_t { DICTIONARY = 1, ARRAY = 2, STRING = 3, VALUE = 4, INDIRECT_OBJECT = 5, NAME_OBJECT = 6 };
+enum { MATRIX_ELEMENTS = 6 };
 
 #define FUNC_STRING (std::string(__func__) + ": ")
 extern const std::map<pdf_object_t, std::string (&)(const std::string&, size_t&)> TYPE2FUNC;
@@ -84,5 +85,6 @@ template <class T> T pop(std::stack<T> &st)
     st.pop();
     return result;
 }
-
+std::pair<double, double> apply_matrix_norm(const std::array<double, MATRIX_ELEMENTS> &matrix,
+                                            const std::pair<double, double> &point);
 #endif //COMMON

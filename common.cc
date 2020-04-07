@@ -8,6 +8,7 @@
 #include <cctype>
 #include <utility>
 #include <stack>
+#include <array>
 
 #include <boost/optional.hpp>
 
@@ -720,4 +721,10 @@ string get_int(const string &s)
     if (off == string::npos) return s;
     if (off == 0 || (off == 1 && s[0] == '-')) return "0";
     return s.substr(0, off);
+}
+
+pair<double, double> apply_matrix_norm(const array<double, MATRIX_ELEMENTS> &matrix, const pair<double, double> &point)
+{
+    return make_pair(matrix.at(0) * point.first + matrix.at(2) * point.second,
+                     matrix.at(1) * point.first + matrix.at(3) * point.second);
 }

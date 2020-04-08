@@ -39,10 +39,8 @@ private:
                                  unsigned int parent_rotate);
     dict_t get_fonts(const dict_t &dictionary, const dict_t &parent_fonts) const;
     std::unique_ptr<CharsetConverter> get_font_encoding(const std::string &font, unsigned int page_id);
-    boost::optional<std::unique_ptr<CharsetConverter>> get_font_from_encoding(const dict_t &font_dict,
-                                                                              unsigned int width) const;
-    boost::optional<std::unique_ptr<CharsetConverter>> get_font_from_tounicode(const dict_t &font_dict,
-                                                                               unsigned int width);
+    boost::optional<std::unique_ptr<CharsetConverter>> get_font_from_encoding(const dict_t &font_dict) const;
+    boost::optional<std::unique_ptr<CharsetConverter>> get_font_from_tounicode(const dict_t &font_dict);
 private:
     const std::string &doc;
     const ObjectStorage &storage;
@@ -52,7 +50,6 @@ private:
     std::map<unsigned int, cropbox_t> crop_boxes;
     std::map<unsigned int, unsigned int> rotates;
     std::map<unsigned int, cmap_t> cmap_storage;
-    std::map<std::string, unsigned int> width_storage;
 };
 
 #endif //PAGES_EXTRACTOR_H

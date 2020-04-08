@@ -233,8 +233,7 @@ string PagesExtractor::get_text()
     return text;
 }
 
-optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_encoding(const dict_t &font_dict,
-                                                                              unsigned int width) const
+optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_encoding(const dict_t &font_dict) const
 {
     auto it = font_dict.find("/Encoding");
     if (it == font_dict.end()) return boost::none;
@@ -243,9 +242,9 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_encoding(co
     switch (encoding.second)
     {
     case DICTIONARY:
-        return CharsetConverter::get_from_dictionary(get_dictionary_data(encoding.first, 0), storage, width);
+        return CharsetConverter::get_from_dictionary(get_dictionary_data(encoding.first, 0), storage);
     case NAME_OBJECT:
-        return unique_ptr<CharsetConverter>(new CharsetConverter(encoding.first, width));
+        return unique_ptr<CharsetConverter>(new CharsetConverter(encoding.first));
     default:
         throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(encoding.second) + " val=" + encoding.first);
     }
@@ -254,26 +253,14 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_encoding(co
 unique_ptr<CharsetConverter> PagesExtractor::get_font_encoding(const string &font, unsigned int page_id)
 {
     const dict_t &font_dict = fonts.at(page_id).get_current_font_dictionary();
-    auto it2 = width_storage.find(font);
-    unsigned int width;
-    if (it2 == width_storage.end())
-    {
-        width = CharsetConverter::get_space_width(storage, font_dict);
-        width_storage.insert(make_pair(font, width));
-    }
-    else
-    {
-        width = it2->second;
-    }
-    optional<unique_ptr<CharsetConverter>> r = get_font_from_tounicode(font_dict, width);
+    optional<unique_ptr<CharsetConverter>> r = get_font_from_tounicode(font_dict);
     if (r) return std::move(*r);
-    r = get_font_from_encoding(font_dict, width);
+    r = get_font_from_encoding(font_dict);
     if (r) return std::move(*r);
-    return unique_ptr<CharsetConverter>(new CharsetConverter(width));
+    return unique_ptr<CharsetConverter>(new CharsetConverter());
 }
 
-optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(const dict_t &font_dict,
-                                                                               unsigned int width)
+optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(const dict_t &font_dict)
 {
     auto it = font_dict.find("/ToUnicode");
     if (it == font_dict.end()) return boost::none;
@@ -286,7 +273,7 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(c
         {
             cmap_storage.insert(make_pair(cmap_id_gen.first, get_cmap(doc, storage, cmap_id_gen, decrypt_data)));
         }
-        return unique_ptr<CharsetConverter>(new CharsetConverter(&cmap_storage[cmap_id_gen.first], width));
+        return unique_ptr<CharsetConverter>(new CharsetConverter(&cmap_storage[cmap_id_gen.first]));
     }
     case NAME_OBJECT:
         return boost::none;
@@ -298,7 +285,7 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(c
 string PagesExtractor::extract_text(const string &page_content, unsigned int page_id)
 {
     static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
-    unique_ptr<CharsetConverter> encoding(new CharsetConverter(CharsetConverter::NO_SPACE_WIDTH));
+    unique_ptr<CharsetConverter> encoding(new CharsetConverter());
     Coordinates coordinates(rotates.at(page_id), crop_boxes.at(page_id));
     stack<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
@@ -314,7 +301,6 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         if (token == "BT")
         {
             coordinates.set_default();
-            encoding->set_default_space_width();
             in_text_block = true;
             continue;
         }

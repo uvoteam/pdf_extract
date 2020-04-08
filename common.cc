@@ -715,14 +715,6 @@ pair<string, pdf_object_t> get_indirect_object_data(const string &indirect_objec
     return r;
 }
 
-string get_int(const string &s)
-{
-    size_t off = s.find('.');
-    if (off == string::npos) return s;
-    if (off == 0 || (off == 1 && s[0] == '-')) return "0";
-    return s.substr(0, off);
-}
-
 pair<double, double> apply_matrix_norm(const array<double, MATRIX_ELEMENTS> &matrix, const pair<double, double> &point)
 {
     return make_pair(matrix.at(0) * point.first + matrix.at(2) * point.second,

@@ -77,7 +77,6 @@ std::pair<std::string, pdf_object_t> get_indirect_object_data(const std::string 
                                                               const ObjectStorage &storage,
                                                               boost::optional<pdf_object_t> type = boost::none);
 std::vector<std::pair<std::string, pdf_object_t>> get_array_data(const std::string &buffer, size_t offset);
-std::string get_int(const std::string &s);
 template <class T> T pop(std::stack<T> &st)
 {
     if (st.empty()) throw pdf_error(FUNC_STRING + "stack is empty");

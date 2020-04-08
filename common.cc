@@ -728,3 +728,9 @@ pair<double, double> apply_matrix_norm(const array<double, MATRIX_ELEMENTS> &mat
     return make_pair(matrix.at(0) * point.first + matrix.at(2) * point.second,
                      matrix.at(1) * point.first + matrix.at(3) * point.second);
 }
+
+std::string get_dict_val(const dict_t &dict, const string &key, const string &def)
+{
+    auto it = dict.find(key);
+    return (it == dict.end())? def : it->second.first;
+}

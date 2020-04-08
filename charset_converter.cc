@@ -17,6 +17,7 @@
 #include "coordinates.h"
 #include "fonts.h"
 
+
 using namespace std;
 using namespace boost::locale::conv;
 
@@ -33,20 +34,11 @@ using namespace boost::locale::conv;
 
 namespace
 {
-    unsigned int utf8_length(const string &s)
+    double get_width(const string &s, const Fonts &fonts)
     {
-        unsigned int len = 0;
-        //Count all first-bytes (the ones that don't match 10xxxxxx).
-        for (char c : s) len += (c & 0xc0) != 0x80;
-        return len;
-    }
-
-    unsigned int get_length(const string &s, const string &charset)
-    {
-        if (charset == "UTF-8") return utf8_length(s);
-        if (charset == "UTF-16be" || charset == "UTF-16le" || charset == "UTF-16") return s.length() / 2;
-        if (charset == "UTF-32be" || charset == "UTF-32le" || charset == "UTF-32") return s.length() / 4;
-        return s.length();
+        double result = 0;
+        for (char c: s) result += fonts.get_width(c);
+        return result;
     }
 
     unsigned int get_space_width_from_font_descriptor(const ObjectStorage &storage, const pair<string, pdf_object_t> &dict)
@@ -120,7 +112,7 @@ namespace
 }
 
 //https://stackoverflow.com/questions/55147999/pdf-tj-operator/55180478
-unsigned int CharsetConverter::get_space_width(const ObjectStorage &storage, const dict_t &font_dict)
+double CharsetConverter::get_space_width(const ObjectStorage &storage, const dict_t &font_dict)
 {
     auto it = font_dict.find("/Widths");
     if (it != font_dict.end()) return get_space_width_from_widths(storage, it->second);
@@ -190,10 +182,10 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
     switch (PDFencode)
     {
     case UTF8:
-        return text_chunk_t(string(s), coordinates.adjust_coordinates(get_space_width(), utf8_length(s), Tj, fonts));
+        return text_chunk_t(string(s), coordinates.adjust_coordinates(get_width(s, fonts), Tj, fonts));
     case IDENTITY:
         return text_chunk_t(to_utf<char>(s, "UTF-16be"),
-                            coordinates.adjust_coordinates(get_space_width(), s.length() / 2, Tj, fonts));
+                            coordinates.adjust_coordinates(get_width(s, fonts), Tj, fonts));
     case DEFAULT:
     case MAC_EXPERT:
     case MAC_ROMAN:
@@ -207,7 +199,7 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             auto it = standard_encoding.find(static_cast<unsigned char>(c));
             if (it != standard_encoding.end()) str.append(it->second);
         }
-        return text_chunk_t(std::move(str), coordinates.adjust_coordinates(get_space_width(), s.length(), Tj, fonts));
+        return text_chunk_t(std::move(str), coordinates.adjust_coordinates(get_width(s, fonts), Tj, fonts));
     }
     case DIFFERENCE_MAP:
     {
@@ -218,18 +210,18 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             auto it = difference_map.find(static_cast<unsigned char>(c));
             if (it != difference_map.end()) str.append(it->second);
         }
-        return text_chunk_t(std::move(str), coordinates.adjust_coordinates(get_space_width(), s.length(), Tj, fonts));
+        return text_chunk_t(std::move(str), coordinates.adjust_coordinates(get_width(s, fonts), Tj, fonts));
     }
     case OTHER:
         return text_chunk_t(to_utf<char>(s, charset),
-                            coordinates.adjust_coordinates(get_space_width(), get_length(s, charset), Tj, fonts));
+                            coordinates.adjust_coordinates(get_width(s, fonts), Tj, fonts));
     case TO_UNICODE:
     {
         string decoded;
         for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
-        //strings from cmap returned in big ordering
+        //strings from cmap are returned in big ordering
         return text_chunk_t(to_utf<char>(decoded, "UTF-16be"),
-                            coordinates.adjust_coordinates(get_space_width(), decoded.length() / 2, Tj, fonts));
+                            coordinates.adjust_coordinates(get_width(s, fonts), Tj, fonts));
     }
     }
 }

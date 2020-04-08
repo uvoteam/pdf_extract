@@ -2,6 +2,7 @@
 #include <utility>
 #include <string>
 #include <algorithm>
+#include <iostream> //temp
 
 #include "coordinates.h"
 #include "common.h"
@@ -114,10 +115,10 @@ pair<double, double> Coordinates::get_coordinates(const matrix_t &m1, const matr
     return make_pair(r[0][0], r[0][1]);
 }
 
-coordinates_t Coordinates::adjust_coordinates(unsigned int width, size_t len, double Tj, const Fonts &fonts)
+coordinates_t Coordinates::adjust_coordinates(double width, double Tj, const Fonts &fonts)
 {
     double ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
-    matrix_t bll{{0, ty, 1}}, bur{{width * len, ty + fonts.get_height() * Tfs, 1}};
+    matrix_t bll{{0, ty, 1}}, bur{{width, ty + fonts.get_height() * Tfs, 1}};
     const pair<double, double> start_coordinates = get_coordinates(bll, Tm);
     const pair<double, double> end_coordinates = get_coordinates(bur, Tm);
     double x0 = min(start_coordinates.first, end_coordinates.first);
@@ -125,11 +126,11 @@ coordinates_t Coordinates::adjust_coordinates(unsigned int width, size_t len, do
     double y0 = min(start_coordinates.second, end_coordinates.second);
     double y1 = max(start_coordinates.second, end_coordinates.second);
 
-    double adjust = (((width - Tj)/1000) * Tfs + Tc + Tw) * Th * len;
+    double adjust = (((width - Tj)/1000) * Tfs + Tc + Tw) * Th;
     coordinates.end_x += adjust;
     Tm = matrix_t{{1, 0, 0}, {0, 1, 0}, {adjust, 0, 1}} * Tm;
     coordinates.start_x = coordinates.end_x;
-
+    cout << '(' << x0 << ", " << y0 << ")(" << x1 << ", " << y1 << ")" << endl;
     return coordinates_t(x0, y0, x1, y1);
 }
 

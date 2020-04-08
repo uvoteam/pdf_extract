@@ -4,10 +4,8 @@
 #include <vector>
 #include <memory>
 #include <stack>
-#include <algorithm>
 
 #include <boost/optional.hpp>
-#include <iostream> //temp
 
 #include "common.h"
 #include "object_storage.h"
@@ -23,34 +21,7 @@ namespace
 {
     string render_text(vector<text_chunk_t> &chunks)
     {
-        // sort(chunks.begin(), chunks.end(),
-        //      [](const text_chunk_t &a, const text_chunk_t &b) -> bool
-        //      {
-        //          if (a.coordinates.start_y != b.coordinates.start_y) return a.coordinates.start_y > b.coordinates.start_y;
-        //          //for marked content section \n is added with start_x = end_x, start_y = end_y
-        //          //\n should come first
-        //          if (a.coordinates.start_x != b.coordinates.start_x) return a.coordinates.start_x < b.coordinates.start_x;
-        //          return a.coordinates.end_x < b.coordinates.end_x;
-        //      });
-        for (const text_chunk_t &chunk : chunks)
-        {
-            cout << '(' << chunk.coordinates.start_x << "," << chunk.coordinates.start_y << ") ("  << chunk.coordinates.end_x << "," << chunk.coordinates.end_y << ")" <<
-                chunk.text << endl;
-        }
-
-        string result;
-        for (size_t i = 0; i < chunks.size(); ++i)
-        {
-            if (i == 0)
-            {
-                result += chunks[i].text;
-                continue;
-            }
-            if (chunks[i].coordinates.start_y != chunks[i-1].coordinates.end_y) result += '\n';
-            else if (chunks[i].coordinates.start_x > chunks[i-1].coordinates.end_x) result += ' ';
-            result += chunks[i].text;
-        }
-        return result;
+        return string();
     }
 
     string output_content(unordered_set<unsigned int> &visited_contents,

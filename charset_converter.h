@@ -45,14 +45,13 @@ public:
     static std::unique_ptr<CharsetConverter> get_from_dictionary(const dict_t &dictionary,
                                                                  const ObjectStorage &storage,
                                                                  unsigned int space_width);
-    static unsigned int get_space_width(const ObjectStorage &storage, const dict_t &font_dict);
+    static double get_space_width(const ObjectStorage &storage, const dict_t &font_dict);
     unsigned int get_space_width() const;
     void set_default_space_width();
 private:
     enum PDFEncode_t {DEFAULT, MAC_EXPERT, MAC_ROMAN, WIN, OTHER, UTF8, IDENTITY, TO_UNICODE, DIFFERENCE_MAP};
 
     std::string custom_decode_symbol(const std::string &s, size_t &i) const;
-    void adjust_tx(double Tfs, double Tc, double Tw, double Th, double Tj, size_t len, double &tx) const;
     static std::unique_ptr<CharsetConverter> get_diff_map_converter(PDFEncode_t encoding,
                                                                     const std::string &array,
                                                                     const ObjectStorage &storage,

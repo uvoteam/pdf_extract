@@ -22,9 +22,92 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
             const dict_t font_desc_dict = get_dictionary_data(get_indirect_object_data(font_dict.at("/FontDescriptor").first,
                                                                                        storage,
                                                                                        DICTIONARY).first, 0);
+            insert_width(storage, p.first, font_desc_dict);
             insert_height(p.first, font_desc_dict);
             insert_descent(p.first, font_desc_dict);
         }
+}
+
+double Fonts::get_width(unsigned int code) const
+{
+    auto it = widths.at(current_font).find(code);
+    if (it == widths.at(current_font).end()) return default_width.at(current_font);
+    return it->second * get_scales().first;
+}
+
+void Fonts::get_widths_from_w(const ObjectStorage &storage, const string &font_name)
+{
+    const dict_t &font = dictionary_per_font.at(font_name);
+    default_width.insert(make_pair(font_name, stod(get_dict_val(font, "/DW", DW_DEFAULT))));
+    auto it = font.find("/W");
+    const string array = (it->second.second == ARRAY)? it->second.first :
+                                                       get_indirect_object_data(it->second.first, storage, ARRAY).first;
+    vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
+    for (pair<string, pdf_object_t> &p : result)
+    {
+        if (p.second == INDIRECT_OBJECT) p = get_indirect_object_data(p.first, storage);
+    }
+
+    for (size_t i = 0; i < result.size();)
+    {
+        switch (result.at(i + 1).second)
+        {
+        case VALUE:
+        {
+            unsigned int first_char = strict_stoul(result[i].first);
+            unsigned int last_char = strict_stoul(result[i + 1].first);
+            double width = stod(result.at(i + 2).first);
+            for (unsigned int j = first_char; j <= last_char; ++j) widths.at(font_name).insert(make_pair(j, width));
+            i += 3;
+            break;
+        }
+        case ARRAY:
+        {
+            unsigned int start_char = strict_stoul(result[i].first);
+            const vector<pair<string, pdf_object_t>> w_array = get_array_data(result[i + 1].first, 0);
+            for (const pair<string, pdf_object_t> &p : w_array)
+            {
+                widths.at(font_name).insert(make_pair(start_char, stod(p.first)));
+                ++start_char;
+            }
+            break;
+        }
+        default:
+            throw pdf_error(FUNC_STRING + "wrong type for val " + result[i + 1].first +
+                            " type=" + to_string(result[i + 1].second));
+        }
+    }
+}
+
+void Fonts::get_widths_from_widths(const ObjectStorage &storage,
+                                   const string &font_name,
+                                   const pair<string, pdf_object_t> &array_arg,
+                                   const dict_t &font_desc)
+{
+    const dict_t &font = dictionary_per_font.at(font_name);
+    unsigned int first_char = strict_stoul(get_dict_val(font, "/FirstChar", FIRST_CHAR_DEFAULT));
+    default_width.insert(make_pair(font_name, stod(get_dict_val(font_desc, "/MissingWidth", MISSING_WIDTH_DEFAULT))));
+    const string array = (array_arg.second == ARRAY)? array_arg.first :
+                                                      get_indirect_object_data(array_arg.first, storage, ARRAY).first;
+    const vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
+    for (size_t i = 0; i < result.size(); ++i)
+    {
+        const pair<string, pdf_object_t> &p = result[i];
+        const string val = (p.second == INDIRECT_OBJECT)? get_indirect_object_data(p.first, storage).first : p.first;
+        widths.at(font_name).insert(make_pair(i + first_char, stod(val)));
+    }
+}
+
+void Fonts::insert_width(const ObjectStorage &storage, const string &font_name, const dict_t &font_desc)
+{
+    widths.insert(make_pair(font_name, map<unsigned int, double>()));
+    auto it = dictionary_per_font.at(font_name).find("/Widths");
+    if (it != dictionary_per_font.at(font_name).end())
+    {
+        get_widths_from_widths(storage, font_name, it->second, font_desc);
+        return;
+    }
+    get_widths_from_w(storage, font_name);
 }
 
 void Fonts::insert_matrix_type3(const string &font_name, const dict_t &font)
@@ -106,13 +189,13 @@ double Fonts::get_height() const
     validate_current_font();
     int height = heights.at(current_font);
     if (height == 0) height = ascents.at(current_font) - descents.at(current_font);
-    return height * get_vscale();
+    return height * get_scales().second;
 }
 
 double Fonts::get_descent() const
 {
     validate_current_font();
-    return descents.at(current_font) * get_vscale();
+    return descents.at(current_font) * get_scales().second;
 }
 
 const dict_t& Fonts::get_current_font_dictionary() const
@@ -131,10 +214,14 @@ void Fonts::validate_current_font() const
     if (current_font.empty()) throw pdf_error(FUNC_STRING + "current font is not set");
 }
 
-double Fonts::get_vscale() const
+pair<double, double> Fonts::get_scales() const
 {
-    if (types.at(current_font) == OTHER) return VSCALE_NO_TYPE_3;
-    return apply_matrix_norm(font_matrix_type_3.at(current_font), make_pair(1, 1)).second;
+    if (types.at(current_font) == OTHER) return make_pair(HSCALE_NO_TYPE_3, VSCALE_NO_TYPE_3);
+    return apply_matrix_norm(font_matrix_type_3.at(current_font), make_pair(1, 1));
 }
 
 const double Fonts::VSCALE_NO_TYPE_3 = 0.001;
+const double Fonts::HSCALE_NO_TYPE_3 = 0.001;
+const string Fonts::FIRST_CHAR_DEFAULT = "0";
+const string Fonts::MISSING_WIDTH_DEFAULT = "0";
+const string Fonts::DW_DEFAULT = "1000";

@@ -118,7 +118,7 @@ pair<double, double> Coordinates::get_coordinates(const matrix_t &m1, const matr
 coordinates_t Coordinates::adjust_coordinates(double width, double Tj, const Fonts &fonts)
 {
     double ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
-    matrix_t bll{{0, ty, 1}}, bur{{width, ty + fonts.get_height() * Tfs, 1}};
+    matrix_t bll{{0, ty, 1}}, bur{{width * Tfs * Th, ty + fonts.get_height() * Tfs, 1}};
     const pair<double, double> start_coordinates = get_coordinates(bll, Tm);
     const pair<double, double> end_coordinates = get_coordinates(bur, Tm);
     double x0 = min(start_coordinates.first, end_coordinates.first);

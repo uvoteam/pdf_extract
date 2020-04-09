@@ -58,7 +58,6 @@ vector<text_chunk_t> CharsetConverter::get_strings_from_array(const string &arra
         {
         case VALUE:
             Tj = stod(p.first);
-            if (Tj > 0) continue;
             break;
         case STRING:
             result.push_back(get_string(decode_string(p.first), coordinates, Tj, fonts));

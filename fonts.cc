@@ -27,6 +27,7 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
             insert_width(storage, p.first, desc_dict);
             insert_height(p.first, desc_dict);
             insert_descent(p.first, desc_dict);
+            insert_ascent(p.first, desc_dict);
         }
 }
 

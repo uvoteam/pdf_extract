@@ -42,6 +42,7 @@ void Fonts::get_widths_from_w(const ObjectStorage &storage, const string &font_n
     const dict_t &font = dictionary_per_font.at(font_name);
     default_width.insert(make_pair(font_name, stod(get_dict_val(font, "/DW", DW_DEFAULT))));
     auto it = font.find("/W");
+    if (it == font.end()) return;
     const string array = (it->second.second == ARRAY)? it->second.first :
                                                        get_indirect_object_data(it->second.first, storage, ARRAY).first;
     vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);

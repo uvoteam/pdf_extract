@@ -19,12 +19,14 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
             Font_type_t type = insert_type(p.first, font_dict);
             if (type == TYPE_3) insert_matrix_type3(p.first, font_dict);
             dictionary_per_font.insert(make_pair(p.first, font_dict));
-            const dict_t font_desc_dict = get_dictionary_data(get_indirect_object_data(font_dict.at("/FontDescriptor").first,
-                                                                                       storage,
-                                                                                       DICTIONARY).first, 0);
-            insert_width(storage, p.first, font_desc_dict);
-            insert_height(p.first, font_desc_dict);
-            insert_descent(p.first, font_desc_dict);
+            auto it = font_dict.find("/FontDescriptor");
+            const dict_t desc_dict = (it == font_dict.end())? dict_t() :
+                                                              get_dictionary_data(get_indirect_object_data(it->second.first,
+                                                                                  storage,
+                                                                                  DICTIONARY).first, 0);
+            insert_width(storage, p.first, desc_dict);
+            insert_height(p.first, desc_dict);
+            insert_descent(p.first, desc_dict);
         }
 }
 

@@ -130,13 +130,10 @@ pair<double, double> Coordinates::get_coordinates(const matrix_t &m1, const matr
     return make_pair(r[0][0], r[0][1]);
 }
 
-text_chunk_t Coordinates::adjust_coordinates(string &&s, double width, double Tj, const Fonts &fonts)
+text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, double width, double Tj, const Fonts &fonts)
 {
-    if (Tj != 0)
-    {
-        x -= Tj * Tfs * Th * 0.001;
-        x += Tc * Th;
-    }
+    if (Tj != 0) x -= Tj * Tfs * Th * 0.001;
+    if (len > 0) x += Tc * Th * (len - 1);
     double ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
     double adv = width * Tfs * Th;
     matrix_t bll{{0, ty, 1}}, bur{{adv, ty + fonts.get_height() * Tfs, 1}};

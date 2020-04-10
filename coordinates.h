@@ -49,7 +49,7 @@ public:
     void set_default();
     void push_CTM();
     void pop_CTM();
-    text_chunk_t adjust_coordinates(std::string &&s, double width, double Tj, const Fonts &fonts);
+    text_chunk_t adjust_coordinates(std::string &&s, size_t len, double width, double Tj, const Fonts &fonts);
     void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:
     std::pair<double, double> get_coordinates(const matrix_t &m1, const matrix_t &m2) const;

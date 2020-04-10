@@ -29,6 +29,21 @@ namespace
         return result;
     }
 
+    size_t utf8_length(const string &s)
+    {
+        size_t len = 0;
+        //Count all first-bytes (the ones that don't match 10xxxxxx).
+        for (char c : s) len += (c & 0xc0) != 0x80;
+        return len;
+    }
+
+    unsigned int get_length(const string &s, const string &charset)
+    {
+        if (charset == "UTF-8") return utf8_length(s);
+        if (charset == "UTF-16be" || charset == "UTF-16le" || charset == "UTF-16") return s.length() / 2;
+        if (charset == "UTF-32be" || charset == "UTF-32le" || charset == "UTF-32") return s.length() / 4;
+        return s.length();
+    }
 }
 
 string CharsetConverter::custom_decode_symbol(const string &s, size_t &i) const
@@ -75,9 +90,9 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
     switch (PDFencode)
     {
     case UTF8:
-        return coordinates.adjust_coordinates(string(s), get_width(s, fonts), Tj, fonts);
+        return coordinates.adjust_coordinates(string(s), utf8_length(s), get_width(s, fonts), Tj, fonts);
     case IDENTITY:
-        return coordinates.adjust_coordinates(to_utf<char>(s, "UTF-16be"), get_width(s, fonts), Tj, fonts);
+        return coordinates.adjust_coordinates(to_utf<char>(s, "UTF-16be"), s.length() / 2, get_width(s, fonts), Tj, fonts);
     case DEFAULT:
     case MAC_EXPERT:
     case MAC_ROMAN:
@@ -91,7 +106,7 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             auto it = standard_encoding.find(static_cast<unsigned char>(c));
             if (it != standard_encoding.end()) str.append(it->second);
         }
-        return coordinates.adjust_coordinates(std::move(str), get_width(s, fonts), Tj, fonts);
+        return coordinates.adjust_coordinates(std::move(str), s.length(), get_width(s, fonts), Tj, fonts);
     }
     case DIFFERENCE_MAP:
     {
@@ -102,16 +117,24 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             auto it = difference_map.find(static_cast<unsigned char>(c));
             if (it != difference_map.end()) str.append(it->second);
         }
-        return coordinates.adjust_coordinates(std::move(str), get_width(s, fonts), Tj, fonts);
+        return coordinates.adjust_coordinates(std::move(str), s.length(), get_width(s, fonts), Tj, fonts);
     }
     case OTHER:
-        return coordinates.adjust_coordinates(to_utf<char>(s, charset), get_width(s, fonts), Tj, fonts);
+        return coordinates.adjust_coordinates(to_utf<char>(s, charset),
+                                              get_length(s, charset),
+                                              get_width(s, fonts),
+                                              Tj,
+                                              fonts);
     case TO_UNICODE:
     {
         string decoded;
         for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
         //strings from cmap are returned in big ordering
-        return coordinates.adjust_coordinates(to_utf<char>(decoded, "UTF-16be"), get_width(s, fonts), Tj, fonts);
+        return coordinates.adjust_coordinates(to_utf<char>(decoded, "UTF-16be"),
+                                              decoded.length() / 2,
+                                              get_width(s, fonts),
+                                              Tj,
+                                              fonts);
     }
     }
 }

@@ -4,6 +4,8 @@
 #include <vector>
 #include <memory>
 #include <stack>
+#include <algorithm>
+#include <iostream> //temp
 
 #include <boost/optional.hpp>
 
@@ -16,11 +18,25 @@
 
 using namespace std;
 using namespace boost;
-
 namespace
 {
+
     string render_text(vector<text_chunk_t> &chunks)
     {
+/*        sort(chunks.begin(), chunks.end(),
+                  [](const text_chunk_t &a, const text_chunk_t &b) -> bool
+                         {
+                             if (a.coordinates.start_y != b.coordinates.start_y) return a.coordinates.start_y > b.coordinates.start_y;
+                             //for marked content section \n is added with start_x = end_x, start_y = end_y
+                             //\n should come first
+                             if (a.coordinates.start_x != b.coordinates.start_x) return a.coordinates.start_x < b.coordinates.start_x;
+                             return a.coordinates.end_x < b.coordinates.end_x;
+                             });*/
+
+        for (const text_chunk_t &chunk : chunks)
+        {
+            cout << '(' << chunk.coordinates.start_x << "," << chunk.coordinates.start_y << ") ("  << chunk.coordinates.end_x << "," << chunk.coordinates.end_y << ")" << chunk.text << endl;
+        }
         return string();
     }
 

@@ -2,7 +2,6 @@
 #include <utility>
 #include <string>
 #include <algorithm>
-#include <iostream> //temp
 
 #include "coordinates.h"
 #include "common.h"
@@ -136,7 +135,7 @@ coordinates_t Coordinates::adjust_coordinates(double width, double Tj, const Fon
     double ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
     double adv = width * Tfs * Th;
     matrix_t bll{{0, ty, 1}}, bur{{adv, ty + fonts.get_height() * Tfs, 1}};
-    matrix_t T = translate_matrix(Tm, x, y);
+    matrix_t T = translate_matrix(Tm * CTM, x, y);
     const pair<double, double> start_coordinates = get_coordinates(bll, T);
     const pair<double, double> end_coordinates = get_coordinates(bur, T);
     double x0 = min(start_coordinates.first, end_coordinates.first);

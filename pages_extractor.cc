@@ -35,7 +35,7 @@ namespace
 
         for (const text_chunk_t &chunk : chunks)
         {
-            cout << '(' << chunk.coordinates.start_x << "," << chunk.coordinates.start_y << ") ("  << chunk.coordinates.end_x << "," << chunk.coordinates.end_y << ")" << chunk.text << endl;
+            cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ") ("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.text << endl;
         }
         return string();
     }

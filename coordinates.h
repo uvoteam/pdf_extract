@@ -11,19 +11,34 @@
 #include "fonts.h"
 
 using matrix_t = std::vector<std::vector<double>>;
+
+
 struct coordinates_t
 {
-    coordinates_t() noexcept : start_x(0), start_y(0), end_x(0), end_y(0)
+    coordinates_t() noexcept : x0(0), y0(0), x1(0), y1(0)
     {
     }
-    coordinates_t(double start_x_arg, double start_y_arg, double end_x_arg, double end_y_arg) noexcept :
-                  start_x(start_x_arg), start_y(start_y_arg), end_x(end_x_arg), end_y(end_y_arg)
+    coordinates_t(double x0_arg, double y0_arg, double x1_arg, double y1_arg) noexcept :
+                  x0(x0_arg), y0(y0_arg), x1(x1_arg), y1(y1_arg)
     {
     }
-    double start_x;
-    double start_y;
-    double end_x;
-    double end_y;
+    double x0;
+    double y0;
+    double x1;
+    double y1;
+};
+
+struct text_chunk_t
+{
+    text_chunk_t() noexcept
+    {
+    }
+    text_chunk_t(std::string &&text_arg, coordinates_t &&coordinates_arg) noexcept :
+                 coordinates(std::move(coordinates_arg)), text(std::move(text_arg))
+    {
+    }
+    coordinates_t coordinates;
+    std::string text;
 };
 
 class Coordinates
@@ -34,7 +49,7 @@ public:
     void set_default();
     void push_CTM();
     void pop_CTM();
-    coordinates_t adjust_coordinates(double width, double Tj, const Fonts &fonts);
+    text_chunk_t adjust_coordinates(std::string &&s, double width, double Tj, const Fonts &fonts);
     void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:
     std::pair<double, double> get_coordinates(const matrix_t &m1, const matrix_t &m2) const;

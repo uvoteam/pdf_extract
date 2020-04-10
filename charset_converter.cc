@@ -75,10 +75,9 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
     switch (PDFencode)
     {
     case UTF8:
-        return text_chunk_t(string(s), coordinates.adjust_coordinates(get_width(s, fonts), Tj, fonts));
+        return coordinates.adjust_coordinates(string(s), get_width(s, fonts), Tj, fonts);
     case IDENTITY:
-        return text_chunk_t(to_utf<char>(s, "UTF-16be"),
-                            coordinates.adjust_coordinates(get_width(s, fonts), Tj, fonts));
+        return coordinates.adjust_coordinates(to_utf<char>(s, "UTF-16be"), get_width(s, fonts), Tj, fonts);
     case DEFAULT:
     case MAC_EXPERT:
     case MAC_ROMAN:
@@ -92,7 +91,7 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             auto it = standard_encoding.find(static_cast<unsigned char>(c));
             if (it != standard_encoding.end()) str.append(it->second);
         }
-        return text_chunk_t(std::move(str), coordinates.adjust_coordinates(get_width(s, fonts), Tj, fonts));
+        return coordinates.adjust_coordinates(std::move(str), get_width(s, fonts), Tj, fonts);
     }
     case DIFFERENCE_MAP:
     {
@@ -103,18 +102,16 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             auto it = difference_map.find(static_cast<unsigned char>(c));
             if (it != difference_map.end()) str.append(it->second);
         }
-        return text_chunk_t(std::move(str), coordinates.adjust_coordinates(get_width(s, fonts), Tj, fonts));
+        return coordinates.adjust_coordinates(std::move(str), get_width(s, fonts), Tj, fonts);
     }
     case OTHER:
-        return text_chunk_t(to_utf<char>(s, charset),
-                            coordinates.adjust_coordinates(get_width(s, fonts), Tj, fonts));
+        return coordinates.adjust_coordinates(to_utf<char>(s, charset), get_width(s, fonts), Tj, fonts);
     case TO_UNICODE:
     {
         string decoded;
         for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
         //strings from cmap are returned in big ordering
-        return text_chunk_t(to_utf<char>(decoded, "UTF-16be"),
-                            coordinates.adjust_coordinates(get_width(s, fonts), Tj, fonts));
+        return coordinates.adjust_coordinates(to_utf<char>(decoded, "UTF-16be"), get_width(s, fonts), Tj, fonts);
     }
     }
 }

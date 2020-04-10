@@ -4,7 +4,6 @@
 #include <string>
 #include <unordered_map>
 #include <map>
-#include <utility>
 #include <memory>
 
 #include <boost/optional.hpp>
@@ -13,19 +12,6 @@
 #include "object_storage.h"
 #include "coordinates.h"
 #include "fonts.h"
-
-struct text_chunk_t
-{
-    text_chunk_t() noexcept
-    {
-    }
-    text_chunk_t(std::string &&text_arg, coordinates_t &&coordinates_arg) noexcept :
-                 coordinates(std::move(coordinates_arg)), text(std::move(text_arg))
-    {
-    }
-    coordinates_t coordinates;
-    std::string text;
-};
 
 class CharsetConverter
 {

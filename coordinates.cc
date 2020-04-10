@@ -102,7 +102,7 @@ void Coordinates::Td(double x_arg, double y_arg)
     double f = Tm.at(2).at(1);
     Tm = matrix_t{{a, b, 0},
                   {c, d, 0},
-                  {x*a + y*c + e , x*b + y*d + f, 1}};
+                  {x_arg*a + y_arg*c + e , x_arg*b + y_arg*d + f, 1}};
     x = 0;
     y = 0;
 }

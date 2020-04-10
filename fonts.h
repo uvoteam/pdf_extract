@@ -19,6 +19,7 @@ public:
     void set_rise(int rise_arg);
     int get_rise() const;
     double get_descent() const;
+    double get_ascent() const;
     std::pair<double, double> get_scales() const;
     double get_width(unsigned int code) const;
 private:

@@ -192,7 +192,7 @@ double Fonts::get_height() const
 {
     validate_current_font();
     int height = heights.at(current_font);
-    if (height == 0) height = ascents.at(current_font) - descents.at(current_font);
+    if (height == 0) return get_ascent() - get_descent();
     return height * get_scales().second;
 }
 
@@ -200,6 +200,12 @@ double Fonts::get_descent() const
 {
     validate_current_font();
     return descents.at(current_font) * get_scales().second;
+}
+
+double Fonts::get_ascent() const
+{
+    validate_current_font();
+    return ascents.at(current_font) * get_scales().second;
 }
 
 const dict_t& Fonts::get_current_font_dictionary() const

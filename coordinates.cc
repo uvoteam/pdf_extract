@@ -132,6 +132,11 @@ pair<double, double> Coordinates::get_coordinates(const matrix_t &m1, const matr
 
 coordinates_t Coordinates::adjust_coordinates(double width, double Tj, const Fonts &fonts)
 {
+    if (Tj != 0)
+    {
+        x -= Tj * Tfs * Th * 0.001;
+        x += Tc * Th;
+    }
     double ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
     double adv = width * Tfs * Th;
     matrix_t bll{{0, ty, 1}}, bur{{adv, ty + fonts.get_height() * Tfs, 1}};

@@ -132,20 +132,26 @@ pair<double, double> Coordinates::get_coordinates(const matrix_t &m1, const matr
 
 text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, double width, double Tj, const Fonts &fonts)
 {
-    if (Tj != 0) x -= Tj * Tfs * Th * 0.001;
-    if (len > 0) x += Tc * Th * (len - 1);
+    double x_initial = x;
+    if (Tj != 0)
+    {
+        x -= Tj * Tfs * Th * 0.001;
+        x += Tc * Th;
+    }
     double ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
     double adv = width * Tfs * Th;
-    matrix_t bll{{0, ty, 1}}, bur{{adv, ty + fonts.get_height() * Tfs, 1}};
-    matrix_t T = translate_matrix(Tm * CTM, x, y);
-    const pair<double, double> start_coordinates = get_coordinates(bll, T);
-    const pair<double, double> end_coordinates = get_coordinates(bur, T);
+    const matrix_t bll{{0, ty, 1}}, bur{{adv, ty + fonts.get_height() * Tfs, 1}};
+    const matrix_t T_start = translate_matrix(Tm * CTM, x, y);
+    if (len > 1) x += Tc * Th * (len - 1);
+    const matrix_t T_end = translate_matrix(Tm * CTM, x, y);
+    const pair<double, double> start_coordinates = get_coordinates(bll, T_start);
+    const pair<double, double> end_coordinates = get_coordinates(bur, T_end);
     double x0 = min(start_coordinates.first, end_coordinates.first);
     double x1 = max(start_coordinates.first, end_coordinates.first);
     double y0 = min(start_coordinates.second, end_coordinates.second);
     double y1 = max(start_coordinates.second, end_coordinates.second);
     x += adv;
-//    cout << '(' << x0 << ", " << y0 << ")(" << x1 << ", " << y1 << ")" << endl;
+//    cout << '(' << x0 << ", " << y0 << ")(" << x1 << ", " << y1 << ") "  << x_initial << endl;
     for (char c : s)
     {
         if (c == ' ') x += Tw * Th;

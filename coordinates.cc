@@ -1,7 +1,6 @@
 #include <stack>
 #include <utility>
 #include <string>
-#include <algorithm>
 
 #include "coordinates.h"
 #include "common.h"

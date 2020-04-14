@@ -334,7 +334,8 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
             st.push(make_pair(VALUE, token));
             continue;
         }
-        if (token == "Tj")
+        //vertical fonts are not implemented
+        if (token == "Tj" && !encoding->is_vertical())
         {
             texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(page_id)));
         }
@@ -357,7 +358,8 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
             coordinates.set_coordinates(token, st);
             texts.push_back(encoding->get_string(str, coordinates, 0, fonts.at(page_id)));
         }
-        else if (token == "TJ")
+        //vertical fonts are not implemented
+        else if (token == "TJ" && !encoding->is_vertical())
         {
             const vector<text_chunk_t> tj_texts = encoding->get_strings_from_array(pop(st).second,
                                                                                    coordinates,

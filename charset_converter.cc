@@ -84,6 +84,11 @@ vector<text_chunk_t> CharsetConverter::get_strings_from_array(const string &arra
     }
     return result;
 }
+bool CharsetConverter::is_vertical() const
+{
+    if (custom_encoding && custom_encoding->is_vertical) return true;
+    return false;
+}
 
 text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordinates, double Tj, const Fonts &fonts) const
 {

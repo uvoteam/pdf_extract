@@ -15,7 +15,7 @@ using namespace std;
 namespace
 {
     enum { CODE_SPACE_RANGE_TOKEN_NUM = 2 };
-    enum State_t { NONE, BFCHAR, BFRANGE, CODE_SPACE_RANGE};
+    enum State_t { NONE, BFCHAR, BFRANGE, CODE_SPACE_RANGE, WMODE };
     const char *hex_digits = "01234567890abcdefABCDEF";
     struct token_t
     {
@@ -179,6 +179,12 @@ namespace
         return offset + 1;
     }
 
+    size_t get_wmode(const string &stream, size_t offset, bool &is_vertical)
+    {
+        is_vertical = (strict_stoul(get_value(stream, offset)) == 1)? true : false;
+        return offset;
+    }
+
     size_t get_bfchar(const string &stream, size_t offset, unordered_map<string, string> &utf16_map)
     {
         const string src = convert2string(get_token(stream, offset));
@@ -231,11 +237,12 @@ namespace
         if (token == "beginbfrange") return BFRANGE;
         if (token == "begincodespacerange") return CODE_SPACE_RANGE;
         if (token == "endbfchar" || token == "endbfrange" || token == "endcodespacerange") return NONE;
+        if (token == "/WMode") return WMODE;
 
         return boost::none;
     }
 }
-
+#include <iostream> //temp
 cmap_t get_cmap(const string &doc,
                 const ObjectStorage &storage,
                 const pair<unsigned int, unsigned int> &cmap_id_gen,
@@ -243,6 +250,7 @@ cmap_t get_cmap(const string &doc,
 {
     State_t state = NONE;
     const string stream = get_stream(doc, cmap_id_gen, storage, decrypt_data);
+    cout << stream << endl;
     cmap_t result;
     for (size_t start = stream.find_first_not_of(" \t\n\r"), end = stream.find_first_of(" \t\n\r", start);
          start != string::npos;
@@ -273,6 +281,9 @@ cmap_t get_cmap(const string &doc,
             break;
         case CODE_SPACE_RANGE:
             end = get_code_space_range(stream, start, result.sizes);
+            break;
+        case WMODE:
+            end = get_wmode(stream, start, result.is_vertical);
             break;
         }
         if (end == string::npos || end > (stream.length() - 2)) break;

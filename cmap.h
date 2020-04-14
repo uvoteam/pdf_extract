@@ -11,10 +11,13 @@
 
 struct cmap_t
 {
-    cmap_t() = default;
+    cmap_t() : is_vertical(false)
+    {
+    }
     std::unordered_map<std::string, std::string> utf16_map;
 //how many bytes to read(see codespacerange)
     std::vector<unsigned char> sizes;
+    bool is_vertical;
 };
 
 extern cmap_t get_cmap(const std::string &doc,

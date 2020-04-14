@@ -242,7 +242,7 @@ namespace
         return boost::none;
     }
 }
-#include <iostream> //temp
+
 cmap_t get_cmap(const string &doc,
                 const ObjectStorage &storage,
                 const pair<unsigned int, unsigned int> &cmap_id_gen,
@@ -250,7 +250,6 @@ cmap_t get_cmap(const string &doc,
 {
     State_t state = NONE;
     const string stream = get_stream(doc, cmap_id_gen, storage, decrypt_data);
-    cout << stream << endl;
     cmap_t result;
     for (size_t start = stream.find_first_not_of(" \t\n\r"), end = stream.find_first_of(" \t\n\r", start);
          start != string::npos;

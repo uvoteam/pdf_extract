@@ -9,6 +9,8 @@
 
 #include <boost/optional.hpp>
 
+#include <math.h>
+
 #include "common.h"
 #include "object_storage.h"
 #include "charset_converter.h"
@@ -20,22 +22,110 @@ using namespace std;
 using namespace boost;
 namespace
 {
+    const double LINE_OVERLAP = 0.5;
+    const double CHAR_MARGIN = 2.0;
+
+    bool is_hoverlap(const text_chunk_t &obj1, const text_chunk_t &obj2)
+    {
+        return true;
+        return obj2.coordinates.x0 <= obj1.coordinates.x1 && obj1.coordinates.x0 <= obj2.coordinates.x1;
+    }
+
+    bool is_voverlap(const text_chunk_t &obj1, const text_chunk_t &obj2)
+    {
+        return true;
+        return obj2.coordinates.y0 <= obj1.coordinates.y1 && obj1.coordinates.y1 <= obj2.coordinates.y1;
+    }
+
+    double hoverlap(const text_chunk_t &obj1, const text_chunk_t &obj2)
+    {
+        return min(fabs(obj1.coordinates.x0 - obj2.coordinates.x1), fabs(obj1.coordinates.x1 - obj2.coordinates.x0));
+    }
+
+    double voverlap(const text_chunk_t &obj1, const text_chunk_t &obj2)
+    {
+        return min(fabs(obj1.coordinates.y0 - obj2.coordinates.y1), fabs(obj1.coordinates.y1 - obj2.coordinates.y0));
+    }
+
+    double hdistance(const text_chunk_t &obj1, const text_chunk_t &obj2)
+    {
+        return min(fabs(obj1.coordinates.x0 - obj2.coordinates.x1), fabs(obj1.coordinates.x1- obj2.coordinates.x0));
+    }
+
+    double vdistance(const text_chunk_t &obj1, const text_chunk_t &obj2)
+    {
+        return min(fabs(obj1.coordinates.y0 - obj2.coordinates.y1), fabs(obj1.coordinates.y1 - obj2.coordinates.y0));
+    }
+
+    double height(const text_chunk_t &obj)
+    {
+        return obj.coordinates.y1 - obj.coordinates.y0;
+    }
+
+    double width(const text_chunk_t &obj)
+    {
+        return obj.coordinates.x1 - obj.coordinates.x0;
+    }
+
+    bool is_halign(const text_chunk_t &obj1, const text_chunk_t &obj2)
+    {
+        return is_voverlap(obj1, obj2) &&
+               (min(height(obj1), height(obj2)) * LINE_OVERLAP < voverlap(obj1, obj2)) &&
+               (hdistance(obj1, obj2) < max(width(obj1), width(obj2)) * CHAR_MARGIN);
+    }
+
+    bool is_halign(const vector<text_chunk_t> &container, const text_chunk_t &obj_arg)
+    {
+        for (const text_chunk_t &obj : container)
+        {
+            if (is_halign(obj, obj_arg)) return true;
+        }
+        return false;
+    }
+
+    void add_line(vector<vector<text_chunk_t>> &container, text_chunk_t &&obj_arg)
+    {
+        // bool valign = is_hoverlap(obj1, obj2) &&
+        //               (min(width(obj1), width(obj2)) * LINE_OVERLAP < hoverlap(obj1, obj2)) &&
+        //               (vdistance(obj1, obj2) < max(height(obj1), height(obj2)) * CHAR_MARGIN);
+        vector<text_chunk_t> &last_line = container.back();
+        if (is_halign(last_line, obj_arg)) last_line.push_back(std::move(obj_arg));
+        else container.push_back(vector<text_chunk_t>{obj_arg});
+    }
+
+    vector<vector<text_chunk_t>> make_text_lines(vector<text_chunk_t> &chunks)
+    {
+        if (chunks.empty()) vector<text_chunk_t>();
+        vector<vector<text_chunk_t>> result;
+        result.push_back(vector<text_chunk_t>{chunks[0]});
+        for (size_t i = 1; i < chunks.size(); ++i)
+        {
+            add_line(result, std::move(chunks[i]));
+        }
+        return result;
+    }
 
     string render_text(vector<text_chunk_t> &chunks)
     {
-/*        sort(chunks.begin(), chunks.end(),
-                  [](const text_chunk_t &a, const text_chunk_t &b) -> bool
-                         {
-                             if (a.coordinates.start_y != b.coordinates.start_y) return a.coordinates.start_y > b.coordinates.start_y;
-                             //for marked content section \n is added with start_x = end_x, start_y = end_y
-                             //\n should come first
-                             if (a.coordinates.start_x != b.coordinates.start_x) return a.coordinates.start_x < b.coordinates.start_x;
-                             return a.coordinates.end_x < b.coordinates.end_x;
-                             });*/
-
-        for (const text_chunk_t &chunk : chunks)
+        sort(chunks.begin(), chunks.end(),
+             [](const text_chunk_t &a, const text_chunk_t &b) -> bool
+             {
+                 return a.coordinates.y0 > b.coordinates.y0;
+             });
+        //vertical text is not implemented
+        vector<vector<text_chunk_t>> text_lines = make_text_lines(chunks);
+        for (vector<text_chunk_t> &line : text_lines)
         {
-            cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ") ("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.text << endl;
+            sort(line.begin(), line.end(),
+                 [](const text_chunk_t &a, const text_chunk_t &b) -> bool
+                 {
+                     return a.coordinates.x0 < b.coordinates.x0;
+                 });
+            for (const text_chunk_t &chunk : line)
+            {
+                cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.text;
+            }
+            cout << '|' << endl;
         }
         return string();
     }

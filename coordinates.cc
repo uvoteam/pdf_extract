@@ -140,9 +140,9 @@ text_line_t Coordinates::adjust_coordinates(string &&s, size_t len, double width
     double ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
     double adv = width * Tfs * Th;
     const matrix_t bll{{0, ty, 1}}, bur{{adv, ty + fonts.get_height() * Tfs, 1}};
-    const matrix_t T_start = translate_matrix(Tm * CTM, x, y);
+    const matrix_t T_start = translate_matrix(Tm, x, y);
     if (len > 1) x += Tc * Th * (len - 1);
-    const matrix_t T_end = translate_matrix(Tm * CTM, x, y);
+    const matrix_t T_end = translate_matrix(Tm, x, y);
     const pair<double, double> start_coordinates = get_coordinates(bll, T_start);
     const pair<double, double> end_coordinates = get_coordinates(bur, T_end);
     double x0 = min(start_coordinates.first, end_coordinates.first);

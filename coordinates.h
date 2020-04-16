@@ -30,15 +30,22 @@ struct coordinates_t
 
 struct text_chunk_t
 {
-    text_chunk_t() noexcept
-    {
-    }
-    text_chunk_t(std::string &&text_arg, coordinates_t &&coordinates_arg) noexcept :
+    text_chunk_t(std::string &&text_arg, const coordinates_t &coordinates_arg) noexcept :
                  coordinates(std::move(coordinates_arg)), text(std::move(text_arg))
     {
     }
     coordinates_t coordinates;
     std::string text;
+};
+
+struct text_line_t
+{
+    text_line_t(std::string &&text_arg, coordinates_t &&coordinates_arg) :
+                coordinates(std::move(coordinates_arg)), chunks{text_chunk_t(std::move(text_arg), coordinates)}
+    {
+    }
+    coordinates_t coordinates;
+    std::vector<text_chunk_t> chunks;
 };
 
 class Coordinates
@@ -49,7 +56,7 @@ public:
     void set_default();
     void push_CTM();
     void pop_CTM();
-    text_chunk_t adjust_coordinates(std::string &&s, size_t len, double width, double Tj, const Fonts &fonts);
+    text_line_t adjust_coordinates(std::string &&s, size_t len, double width, double Tj, const Fonts &fonts);
     void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:
     std::pair<double, double> get_coordinates(const matrix_t &m1, const matrix_t &m2) const;

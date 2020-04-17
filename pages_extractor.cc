@@ -114,9 +114,9 @@ NEXT:
     string render_text(vector<text_line_t> &chunks)
     {
         // for (const text_line_t &chunk : chunks)
-        //     {
-        //         cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.chunks[0].text << endl;
-        //     }
+        // {
+        //     cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.chunks[0].text << endl;
+        // }
         // return string();
         string result;
         make_text_lines(chunks);
@@ -256,14 +256,14 @@ PagesExtractor::PagesExtractor(unsigned int catalog_pages_id,
     get_pages_resources_int(checked_nodes,
                             data,
                             get_fonts(data, dict_t()),
-                            get_crop_box(data, boost::none),
+                            get_media_box(data, boost::none),
                             get_rotate(data, 0));
 }
 
 void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checked_nodes,
                                              const dict_t &parent_dict,
                                              const dict_t &parent_font,
-                                             const optional<cropbox_t> &parent_crop_box,
+                                             const optional<mediabox_t> &parent_media_box,
                                              unsigned int parent_rotate)
 {
     auto it = parent_dict.find("/Type");
@@ -285,7 +285,7 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
             {
                 pages.push_back(id);
                 fonts.insert(make_pair(id, Fonts(storage, get_fonts(dict_data, parent_font))));
-                crop_boxes.insert(make_pair(id, get_crop_box(dict_data, parent_crop_box).value()));
+                media_boxes.insert(make_pair(id, get_media_box(dict_data, parent_media_box).value()));
                 rotates.insert(make_pair(id, get_rotate(dict_data, parent_rotate)));
             }
             else
@@ -293,7 +293,7 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
                 get_pages_resources_int(checked_nodes,
                                         dict_data,
                                         get_fonts(dict_data, parent_font),
-                                        get_crop_box(dict_data, parent_crop_box),
+                                        get_media_box(dict_data, parent_media_box),
                                         get_rotate(dict_data, parent_rotate));
 
             }
@@ -311,7 +311,7 @@ dict_t PagesExtractor::get_fonts(const dict_t &dictionary, const dict_t &parent_
     return get_dict_or_indirect_dict(it->second, storage);
 }
 
-cropbox_t PagesExtractor::parse_rectangle(const pair<string, pdf_object_t> &rectangle) const
+mediabox_t PagesExtractor::parse_rectangle(const pair<string, pdf_object_t> &rectangle) const
 {
     if (rectangle.second != ARRAY && rectangle.second != INDIRECT_OBJECT)
     {
@@ -324,19 +324,17 @@ cropbox_t PagesExtractor::parse_rectangle(const pair<string, pdf_object_t> &rect
     {
         throw pdf_error(FUNC_STRING + "wrong size of array. Size:" + to_string(array_data.size()));
     }
-    cropbox_t result;
+    mediabox_t result;
     for (size_t i = 0; i < result.size(); ++i) result[i] = stod(array_data.at(i).first);
     return result;
 }
 
-optional<cropbox_t> PagesExtractor::get_crop_box(const dict_t &dictionary,
-                                                 const optional<cropbox_t> &parent_crop_box) const
+optional<mediabox_t> PagesExtractor::get_media_box(const dict_t &dictionary,
+                                                   const optional<mediabox_t> &parent_media_box) const
 {
-    auto it = dictionary.find("/CropBox");
+    auto it = dictionary.find("/MediaBox");
     if (it != dictionary.end()) return parse_rectangle(it->second);
-    it = dictionary.find("/MediaBox");
-    if (it != dictionary.end()) return parse_rectangle(it->second);
-    return parent_crop_box;
+    return parent_media_box;
 }
 
 string PagesExtractor::get_text()
@@ -409,7 +407,7 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
 {
     static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
     unique_ptr<CharsetConverter> encoding(new CharsetConverter());
-    Coordinates coordinates(rotates.at(page_id), crop_boxes.at(page_id));
+    Coordinates coordinates(rotates.at(page_id), media_boxes.at(page_id));
     stack<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
     vector<text_line_t> texts;

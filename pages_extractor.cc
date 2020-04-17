@@ -61,32 +61,39 @@ namespace
         return obj.y1 - obj.y0;
     }
 
-    double width(const coordinates_t &obj)
+    double width(const text_line_t &obj)
     {
-        return obj.x1 - obj.x0;
+        return (obj.coordinates.x1 - obj.coordinates.x0) / obj.string_len;
     }
 
-    bool is_halign(const coordinates_t &obj1, const coordinates_t &obj2)
+    double width(const text_chunk_t &obj)
     {
-        return is_voverlap(obj1, obj2) &&
-               (min(height(obj1), height(obj2)) * LINE_OVERLAP < voverlap(obj1, obj2)) &&
-               (hdistance(obj1, obj2) < max(width(obj1), width(obj2)) * CHAR_MARGIN);
+        return (obj.coordinates.x1 - obj.coordinates.x0) / utf8_length(obj.text);
     }
 
-    bool is_valign(const coordinates_t &obj1, const coordinates_t &obj2)
+    bool is_halign(const text_line_t &obj1, const text_line_t &obj2)
     {
-        return is_hoverlap(obj1, obj2) &&
-               (min(width(obj1), width(obj2)) * LINE_OVERLAP < hoverlap(obj1, obj2)) &&
-               (vdistance(obj1, obj2) < max(height(obj1), height(obj2)) * CHAR_MARGIN);
+        return is_voverlap(obj1.coordinates, obj2.coordinates) &&
+               (min(height(obj1.coordinates), height(obj2.coordinates)) * LINE_OVERLAP <
+                voverlap(obj1.coordinates, obj2.coordinates)) &&
+               (hdistance(obj1.coordinates, obj2.coordinates) < max(width(obj1), width(obj2)) * CHAR_MARGIN);
     }
+
+    // bool is_valign(const coordinates_t &obj1, const coordinates_t &obj2)
+    // {
+    //     return is_hoverlap(obj1, obj2) &&
+    //            (min(width(obj1), width(obj2)) * LINE_OVERLAP < hoverlap(obj1, obj2)) &&
+    //            (vdistance(obj1, obj2) < max(height(obj1), height(obj2)) * CHAR_MARGIN);
+    // }
 
     bool merge_lines(vector<text_line_t> &lines, size_t j, size_t i)
     {
         // if (is_valign(lines[j].coordinates, lines[i].coordinates) &&
         //     !is_halign(lines[j].coordinates, lines[i].coordinates))
         //     cout << lines[j] << endl;
-        if (is_halign(lines[j].coordinates, lines[i].coordinates))
+        if (is_halign(lines[j], lines[i]))
         {
+            lines[j].string_len += lines[i].string_len;
             for (text_chunk_t &chunk : lines[i].chunks) lines[j].chunks.push_back(std::move(chunk));
             lines[j].coordinates.x0 = min(lines[j].coordinates.x0, lines[i].coordinates.x0);
             lines[j].coordinates.x1 = max(lines[j].coordinates.x1, lines[i].coordinates.x1);
@@ -137,7 +144,7 @@ NEXT:
                 result += line.chunks[i].text;
                 if ((i != line.chunks.size() - 1) &&
                     line.chunks[i].coordinates.x1 < line.chunks[i + 1].coordinates.x0 -
-                    width(line.chunks[i + 1].coordinates) / utf8_length(line.chunks[i + 1].text) * WORD_MARGIN)
+                    width(line.chunks[i + 1]) * WORD_MARGIN)
                 {
                     result += ' ';
                 }

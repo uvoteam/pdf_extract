@@ -41,11 +41,14 @@ struct text_chunk_t
 struct text_line_t
 {
     text_line_t(std::string &&text_arg, coordinates_t &&coordinates_arg) :
-                coordinates(std::move(coordinates_arg)), chunks{text_chunk_t(std::move(text_arg), coordinates)}
+                coordinates(std::move(coordinates_arg)),
+                chunks{text_chunk_t(std::move(text_arg), coordinates)},
+                string_len(utf8_length(chunks[0].text))
     {
     }
     coordinates_t coordinates;
     std::vector<text_chunk_t> chunks;
+    size_t string_len;
 };
 
 class Coordinates

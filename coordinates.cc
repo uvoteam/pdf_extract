@@ -55,8 +55,8 @@ namespace
 
     matrix_t get_matrix(stack<pair<pdf_object_t, string>> &st)
     {
-        double e = stod(pop(st).second);
         double f = stod(pop(st).second);
+        double e = stod(pop(st).second);
         double d = stod(pop(st).second);
         double c = stod(pop(st).second);
         double b = stod(pop(st).second);
@@ -120,7 +120,7 @@ void Coordinates::set_default()
 
 void Coordinates::set_CTM(stack<pair<pdf_object_t, string>> &st)
 {
-    CTM = get_matrix(st) * CTM;
+    CTM = get_matrix(st);
 }
 
 pair<double, double> Coordinates::get_coordinates(const matrix_t &m1, const matrix_t &m2) const
@@ -131,7 +131,6 @@ pair<double, double> Coordinates::get_coordinates(const matrix_t &m1, const matr
 
 text_line_t Coordinates::adjust_coordinates(string &&s, size_t len, double width, double Tj, const Fonts &fonts)
 {
-    double x_initial = x;
     if (Tj != 0)
     {
         x -= Tj * Tfs * Th * 0.001;
@@ -140,9 +139,9 @@ text_line_t Coordinates::adjust_coordinates(string &&s, size_t len, double width
     double ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
     double adv = width * Tfs * Th;
     const matrix_t bll{{0, ty, 1}}, bur{{adv, ty + fonts.get_height() * Tfs, 1}};
-    const matrix_t T_start = translate_matrix(Tm, x, y);
+    const matrix_t T_start = translate_matrix(Tm * CTM, x, y);
     if (len > 1) x += Tc * Th * (len - 1);
-    const matrix_t T_end = translate_matrix(Tm, x, y);
+    const matrix_t T_end = translate_matrix(Tm * CTM, x, y);
     const pair<double, double> start_coordinates = get_coordinates(bll, T_start);
     const pair<double, double> end_coordinates = get_coordinates(bur, T_end);
     double x0 = min(start_coordinates.first, end_coordinates.first);
@@ -150,7 +149,7 @@ text_line_t Coordinates::adjust_coordinates(string &&s, size_t len, double width
     double y0 = min(start_coordinates.second, end_coordinates.second);
     double y1 = max(start_coordinates.second, end_coordinates.second);
     x += adv;
-//    cout << '(' << x0 << ", " << y0 << ")(" << x1 << ", " << y1 << ") "  << x_initial << endl;
+//    cout << '(' << x0 << ", " << y0 << ")(" << x1 << ", " << y1 << ") " << endl;
     for (char c : s)
     {
         if (c == ' ') x += Tw * Th;

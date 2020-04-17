@@ -10,20 +10,20 @@ using namespace std;
 
 namespace
 {
-    matrix_t init_CTM(unsigned int rotate, const cropbox_t &cropbox)
+    matrix_t init_CTM(unsigned int rotate, const mediabox_t &media_box)
     {
         if (rotate == 90) return matrix_t{{0, -1, 0},
                                          {1, 0, 0},
-                                         {-cropbox.at(1), cropbox.at(2), 1}};
+                                         {-media_box.at(1), media_box.at(2), 1}};
         if (rotate == 180) return matrix_t{{-1, 0, 0},
                                            {0, -1, 0},
-                                           {cropbox.at(2), cropbox.at(3), 1}}; 
+                                           {media_box.at(2), media_box.at(3), 1}};
         if (rotate == 270) return matrix_t{{0, 1, 0},
                                            {-1, 0, 0},
-                                           {cropbox.at(3), -cropbox.at(0), 1}};
+                                           {media_box.at(3), -media_box.at(0), 1}};
         return matrix_t{{1, 0, 0},
                         {0, 1, 0},
-                        {-cropbox.at(0), -cropbox.at(1), 0}};
+                        {-media_box.at(0), -media_box.at(1), 0}};
     }
 
     matrix_t translate_matrix(const matrix_t &m1, double x, double y)
@@ -67,8 +67,8 @@ namespace
     }
 }
 
-Coordinates::Coordinates(unsigned int rotate, const cropbox_t &cropbox):
-    CTM(init_CTM(rotate, cropbox)),
+Coordinates::Coordinates(unsigned int rotate, const mediabox_t &mediabox):
+    CTM(init_CTM(rotate, mediabox)),
     Tm(matrix_t{{1, 0, 0},
                 {0, 1, 0},
                 {0, 0, 1}}),

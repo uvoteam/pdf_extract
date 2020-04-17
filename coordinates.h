@@ -51,7 +51,7 @@ struct text_line_t
 class Coordinates
 {
 public:
-    Coordinates(unsigned int rotate, const cropbox_t &cropbox);
+    Coordinates(unsigned int rotate, const mediabox_t &mediabox);
     void set_CTM(std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_default();
     void push_CTM();

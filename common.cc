@@ -189,7 +189,7 @@ const map<pdf_object_t, string (&)(const string&, size_t&)> TYPE2FUNC = {{DICTIO
 
 size_t efind_first(const string &src, const string& str, size_t pos)
 {
-    size_t ret = src.find_first_of(str, pos);
+   size_t ret = src.find_first_of(str, pos);
     if (ret == string::npos) throw pdf_error(FUNC_STRING + "for " + str + " in pos " + to_string(pos) + " failed");
     return ret;
 }
@@ -725,4 +725,12 @@ std::string get_dict_val(const dict_t &dict, const string &key, const string &de
 {
     auto it = dict.find(key);
     return (it == dict.end())? def : it->second.first;
+}
+
+size_t utf8_length(const string &s)
+{
+    size_t len = 0;
+    //Count all first-bytes (the ones that don't match 10xxxxxx).
+    for (char c : s) len += (c & 0xc0) != 0x80;
+    return len;
 }

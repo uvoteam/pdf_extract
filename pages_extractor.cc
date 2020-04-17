@@ -24,7 +24,8 @@ namespace
 {
     const double LINE_OVERLAP = 0.5;
     const double CHAR_MARGIN = 2.0;
-
+    const double WORD_MARGIN = 0.1;
+    
     bool is_hoverlap(const coordinates_t &obj1, const coordinates_t &obj2)
     {
         return obj2.x0 <= obj1.x1 && obj1.x0 <= obj2.x1;
@@ -117,11 +118,7 @@ NEXT:
         //         cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.chunks[0].text << endl;
         //     }
         // return string();
-        sort(chunks.begin(), chunks.end(),
-             [](const text_line_t &a, const text_line_t &b) -> bool
-             {
-                 return a.coordinates.y0 > b.coordinates.y0;
-             });
+        string result;
         make_text_lines(chunks);
         sort(chunks.begin(), chunks.end(),
              [](const text_line_t &a, const text_line_t &b) -> bool
@@ -135,13 +132,19 @@ NEXT:
                  {
                      return a.coordinates.x0 < b.coordinates.x0;
                  });
-            for (const text_chunk_t &chunk : line.chunks)
+            for (size_t i = 0; i < line.chunks.size(); ++i)
             {
-                cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.text;
+                result += line.chunks[i].text;
+                if ((i != line.chunks.size() - 1) &&
+                    line.chunks[i].coordinates.x1 < line.chunks[i + 1].coordinates.x0 -
+                    width(line.chunks[i + 1].coordinates) / utf8_length(line.chunks[i + 1].text) * WORD_MARGIN)
+                {
+                    result += ' ';
+                }
             }
-            cout << '|' << endl;
+            result += '\n';
         }
-        return string();
+        return result;
     }
 
     string output_content(unordered_set<unsigned int> &visited_contents,

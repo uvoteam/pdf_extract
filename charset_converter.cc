@@ -29,14 +29,6 @@ namespace
         return result;
     }
 
-    size_t utf8_length(const string &s)
-    {
-        size_t len = 0;
-        //Count all first-bytes (the ones that don't match 10xxxxxx).
-        for (char c : s) len += (c & 0xc0) != 0x80;
-        return len;
-    }
-
     unsigned int get_length(const string &s, const string &charset)
     {
         if (charset == "UTF-8") return utf8_length(s);

@@ -87,4 +87,5 @@ template <class T> T pop(std::stack<T> &st)
 std::pair<double, double> apply_matrix_norm(const std::array<double, MATRIX_ELEMENTS> &matrix,
                                             const std::pair<double, double> &point);
 std::string get_dict_val(const dict_t &dict, const std::string &key, const std::string &def);
+size_t utf8_length(const std::string &s);
 #endif //COMMON

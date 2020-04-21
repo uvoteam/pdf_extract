@@ -80,7 +80,9 @@ Coordinates::Coordinates(unsigned int rotate, const mediabox_t &mediabox):
     x(0),
     y(0)
 {
+    CTMs.push(CTM);
 }
+
 void Coordinates::T_quote()
 {
     T_star();

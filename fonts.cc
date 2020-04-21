@@ -25,7 +25,7 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
                                                                                   storage,
                                                                                   DICTIONARY).first, 0);
             insert_width(storage, p.first, desc_dict);
-            insert_height(p.first, desc_dict);
+            insert_height(p.first, desc_dict, storage);
             insert_descent(p.first, desc_dict);
             insert_ascent(p.first, desc_dict);
         }
@@ -154,7 +154,7 @@ double Fonts::get_rise() const
     return rise;
 }
 
-void Fonts::insert_height(const string &font_name, const dict_t &font_desc)
+void Fonts::insert_height(const string &font_name, const dict_t &font_desc, const ObjectStorage &storage)
 {
     auto it = font_desc.find("/FontBBox");
     if (it == font_desc.end())
@@ -162,7 +162,9 @@ void Fonts::insert_height(const string &font_name, const dict_t &font_desc)
         heights.insert(make_pair(font_name, Fonts::NO_HEIGHT));
         return;
     }
-    vector<pair<string, pdf_object_t>> array = get_array_data(it->second.first, 0);
+    const string array_str = (it->second.second == ARRAY)? it->second.first :
+                                                           get_indirect_object_data(it->second.first, storage, ARRAY).first;
+    vector<pair<string, pdf_object_t>> array = get_array_data(array_str, 0);
     heights.insert(make_pair(font_name, strict_stol(array.at(3).first) - strict_stol(array.at(1).first)));
 }
 

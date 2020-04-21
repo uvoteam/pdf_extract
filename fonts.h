@@ -28,7 +28,7 @@ private:
     Font_type_t insert_type(const std::string &font_name, const dict_t &font_desc);
     void insert_descent(const std::string &font_name, const dict_t &font_desc);
     void insert_ascent(const std::string &font_name, const dict_t &font_desc);
-    void insert_height(const std::string &font_name, const dict_t &font_desc);
+    void insert_height(const std::string &font_name, const dict_t &font_desc, const ObjectStorage &storage);
     void validate_current_font() const;
     void insert_matrix_type3(const std::string &font_name, const dict_t &font_desc);
     void insert_width(const ObjectStorage &storage, const std::string &font_name, const dict_t &font_desc);

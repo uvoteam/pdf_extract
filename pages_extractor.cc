@@ -282,28 +282,26 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
     {
         unsigned int id = page.first;
         //avoid infinite recursion for 'bad' pdf
-        if (checked_nodes.count(id) == 0)
+        if (checked_nodes.count(id)) continue;
+        checked_nodes.insert(id);
+        const pair<string, pdf_object_t> page_dict = storage.get_object(id);
+        if (page_dict.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
+        const dict_t dict_data = get_dictionary_data(page_dict.first, 0);
+        if (dict_data.at("/Type").first == "/Page")
         {
-            checked_nodes.insert(id);
-            const pair<string, pdf_object_t> page_dict = storage.get_object(id);
-            if (page_dict.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
-            const dict_t dict_data = get_dictionary_data(page_dict.first, 0);
-            if (dict_data.at("/Type").first == "/Page")
-            {
-                pages.push_back(id);
-                fonts.insert(make_pair(id, Fonts(storage, get_fonts(dict_data, parent_font))));
-                media_boxes.insert(make_pair(id, get_media_box(dict_data, parent_media_box).value()));
-                rotates.insert(make_pair(id, get_rotate(dict_data, parent_rotate)));
-            }
-            else
-            {
-                get_pages_resources_int(checked_nodes,
-                                        dict_data,
-                                        get_fonts(dict_data, parent_font),
-                                        get_media_box(dict_data, parent_media_box),
-                                        get_rotate(dict_data, parent_rotate));
+            pages.push_back(id);
+            fonts.insert(make_pair(id, Fonts(storage, get_fonts(dict_data, parent_font))));
+            media_boxes.insert(make_pair(id, get_media_box(dict_data, parent_media_box).value()));
+            rotates.insert(make_pair(id, get_rotate(dict_data, parent_rotate)));
+        }
+        else
+        {
+            get_pages_resources_int(checked_nodes,
+                                    dict_data,
+                                    get_fonts(dict_data, parent_font),
+                                    get_media_box(dict_data, parent_media_box),
+                                    get_rotate(dict_data, parent_rotate));
 
-            }
         }
     }
 }

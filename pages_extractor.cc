@@ -462,7 +462,7 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         }
         else if (token == "Ts")
         {
-            fonts.at(page_id).set_rise(strict_stol(pop(st).second));
+            fonts.at(page_id).set_rise(stod(pop(st).second));
         }
         else if (token == "\"")
         {

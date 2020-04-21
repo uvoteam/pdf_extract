@@ -144,12 +144,12 @@ Fonts::Font_type_t Fonts::insert_type(const string &font_name, const dict_t &fon
     return OTHER;
 }
 
-void Fonts::set_rise(int rise_arg)
+void Fonts::set_rise(double rise_arg)
 {
     rise = rise_arg;
 }
 
-int Fonts::get_rise() const
+double Fonts::get_rise() const
 {
     return rise;
 }

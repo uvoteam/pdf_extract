@@ -16,8 +16,8 @@ public:
     const dict_t& get_current_font_dictionary() const;
     double get_height() const;
     void set_current_font(const std::string &font_arg);
-    void set_rise(int rise_arg);
-    int get_rise() const;
+    void set_rise(double rise_arg);
+    double get_rise() const;
     double get_descent() const;
     double get_ascent() const;
     std::pair<double, double> get_scales() const;
@@ -46,7 +46,7 @@ private:
     std::map<std::string, std::map<unsigned int, double>> widths;
     std::map<std::string, double> default_width;
     std::map<std::string, std::array<double, MATRIX_ELEMENTS>> font_matrix_type_3;
-    int rise;
+    double rise;
     static const double VSCALE_NO_TYPE_3;
     static const double HSCALE_NO_TYPE_3;
     static const std::string FIRST_CHAR_DEFAULT;

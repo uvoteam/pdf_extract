@@ -749,6 +749,19 @@ matrix_t operator*(const matrix_t &m1, const matrix_t &m2)
     return result;
 }
 
+dict_t get_dict_or_indirect_dict(const pair<string, pdf_object_t> &data, const ObjectStorage &storage)
+{
+    switch (data.second)
+    {
+    case DICTIONARY:
+        return get_dictionary_data(data.first, 0);
+    case INDIRECT_OBJECT:
+        return get_dictionary_data(get_indirect_object_data(data.first, storage, DICTIONARY).first, 0);
+    default:
+        throw pdf_error(FUNC_STRING + "wrong object type " + to_string(data.second));
+    }
+}
+
 const matrix_t IDENTITY_MATRIX = matrix_t{{1, 0, 0},
                                           {0, 1, 0},
                                           {0, 0, 1}};

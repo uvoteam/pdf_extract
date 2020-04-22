@@ -91,4 +91,5 @@ std::pair<double, double> apply_matrix_norm(const std::array<double, MATRIX_ELEM
 std::string get_dict_val(const dict_t &dict, const std::string &key, const std::string &def);
 size_t utf8_length(const std::string &s);
 matrix_t operator*(const matrix_t &m1, const matrix_t &m2);
+dict_t get_dict_or_indirect_dict(const std::pair<std::string, pdf_object_t> &data, const ObjectStorage &storage);
 #endif //COMMON

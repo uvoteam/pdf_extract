@@ -20,10 +20,8 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
             if (type == TYPE_3) insert_matrix_type3(p.first, font_dict);
             dictionary_per_font.insert(make_pair(p.first, font_dict));
             auto it = font_dict.find("/FontDescriptor");
-            const dict_t desc_dict = (it == font_dict.end())? dict_t() :
-                                                              get_dictionary_data(get_indirect_object_data(it->second.first,
-                                                                                  storage,
-                                                                                  DICTIONARY).first, 0);
+            const dict_t desc_dict = (it == font_dict.end())? dict_t() : get_dict_or_indirect_dict(it->second, storage);
+
             insert_width(storage, p.first, desc_dict);
             insert_height(p.first, desc_dict, storage);
             insert_descent(p.first, desc_dict);

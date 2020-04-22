@@ -91,11 +91,6 @@ void Coordinates::set_default()
     TL = TL_DEFAULT;
 }
 
-void Coordinates::set_CTM(stack<pair<pdf_object_t, string>> &st)
-{
-    CTM = get_matrix(st);
-}
-
 pair<double, double> Coordinates::get_coordinates(const matrix_t &m1, const matrix_t &m2) const
 {
     matrix_t r = m1 * m2;
@@ -128,6 +123,12 @@ text_line_t Coordinates::adjust_coordinates(string &&s, size_t len, double width
         if (c == ' ') x += Tw * Th;
     }
     return text_line_t(std::move(s), coordinates_t(x0, y0, x1, y1));
+}
+void Coordinates::ctm_work(const string &token, stack<pair<pdf_object_t, string>> &st)
+{
+    if (token == "cm") CTM = get_matrix(st);
+    else if (token == "q") CTMs.push(CTM);
+    else if (token == "Q") CTM = pop(CTMs);
 }
 
 void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, string>> &st)
@@ -198,14 +199,4 @@ void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, 
     {
         throw pdf_error(FUNC_STRING + "unknown token:" + token);
     }
-}
-
-void Coordinates::push_CTM()
-{
-    CTMs.push(CTM);
-}
-
-void Coordinates::pop_CTM()
-{
-    CTM = pop(CTMs);
 }

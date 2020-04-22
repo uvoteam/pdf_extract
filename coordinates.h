@@ -52,13 +52,11 @@ class Coordinates
 {
 public:
     Coordinates(const matrix_t &CTM);
-    void set_CTM(std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_default();
-    void push_CTM();
-    void pop_CTM();
     matrix_t get_CTM() const;
     text_line_t adjust_coordinates(std::string &&s, size_t len, double width, double Tj, const Fonts &fonts);
     void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
+    void ctm_work(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:
     std::pair<double, double> get_coordinates(const matrix_t &m1, const matrix_t &m2) const;
     void T_quote();

@@ -473,6 +473,7 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
                                                          const optional<matrix_t> &CTM)
 {
     static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
+    static const unordered_set<string> ctm_tokens = {"cm", "q", "Q"};
     unique_ptr<CharsetConverter> encoding(new CharsetConverter());
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
     stack<pair<pdf_object_t, string>> st;
@@ -499,17 +500,9 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
             in_text_block = false;
             continue;
         }
-        else if (token == "cm")
+        else if (ctm_tokens.count(token))
         {
-            coordinates.set_CTM(st);
-        }
-        else if (token == "q")
-        {
-            coordinates.push_CTM();
-        }
-        else if (token == "Q")
-        {
-            coordinates.pop_CTM();
+            coordinates.ctm_work(token, st);
         }
         else if (token == "Do")
         {

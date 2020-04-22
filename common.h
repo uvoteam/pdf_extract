@@ -32,7 +32,9 @@ public:
 };
 
 using dict_t = std::map<std::string, std::pair<std::string, pdf_object_t>>;
+using matrix_t = std::vector<std::vector<double>>;
 
+extern const matrix_t IDENTITY_MATRIX;
 
 size_t efind_first(const std::string &src, const std::string& str, size_t pos);
 size_t efind_first(const std::string &src, const char* s, size_t pos);
@@ -88,4 +90,5 @@ std::pair<double, double> apply_matrix_norm(const std::array<double, MATRIX_ELEM
                                             const std::pair<double, double> &point);
 std::string get_dict_val(const dict_t &dict, const std::string &key, const std::string &def);
 size_t utf8_length(const std::string &s);
+matrix_t operator*(const matrix_t &m1, const matrix_t &m2);
 #endif //COMMON

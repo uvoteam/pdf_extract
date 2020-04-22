@@ -22,10 +22,27 @@ using namespace std;
 using namespace boost;
 namespace
 {
+    enum { MATRIX_ELEMENTS_NUM = 6 };
     const double LINE_OVERLAP = 0.5;
     const double CHAR_MARGIN = 2.0;
     const double WORD_MARGIN = 0.1;
-    
+
+    matrix_t init_CTM(unsigned int rotate, const mediabox_t &media_box)
+    {
+        if (rotate == 90) return matrix_t{{0, -1, 0},
+                                         {1, 0, 0},
+                                         {-media_box.at(1), media_box.at(2), 1}};
+        if (rotate == 180) return matrix_t{{-1, 0, 0},
+                                           {0, -1, 0},
+                                           {media_box.at(2), media_box.at(3), 1}};
+        if (rotate == 270) return matrix_t{{0, 1, 0},
+                                           {-1, 0, 0},
+                                           {media_box.at(3), -media_box.at(0), 1}};
+        return matrix_t{{1, 0, 0},
+                        {0, 1, 0},
+                        {-media_box.at(0), -media_box.at(1), 0}};
+    }
+
     bool is_hoverlap(const coordinates_t &obj1, const coordinates_t &obj2)
     {
         return obj2.x0 <= obj1.x1 && obj1.x0 <= obj2.x1;
@@ -263,13 +280,13 @@ PagesExtractor::PagesExtractor(unsigned int catalog_pages_id,
     get_pages_resources_int(checked_nodes,
                             data,
                             get_fonts(data, dict_t()),
-                            get_media_box(data, boost::none),
+                            get_box(data, boost::none),
                             get_rotate(data, 0));
 }
 
 void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checked_nodes,
                                              const dict_t &parent_dict,
-                                             const dict_t &parent_font,
+                                             const dict_t &parent_fonts,
                                              const optional<mediabox_t> &parent_media_box,
                                              unsigned int parent_rotate)
 {
@@ -290,20 +307,63 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
         if (dict_data.at("/Type").first == "/Page")
         {
             pages.push_back(id);
-            fonts.insert(make_pair(id, Fonts(storage, get_fonts(dict_data, parent_font))));
-            media_boxes.insert(make_pair(id, get_media_box(dict_data, parent_media_box).value()));
-            rotates.insert(make_pair(id, get_rotate(dict_data, parent_rotate)));
+            const string id_str = to_string(id);
+            const dict_t fonts_dict = get_fonts(dict_data, parent_fonts);
+            fonts.insert(make_pair(id_str, Fonts(storage, fonts_dict)));
+            media_boxes.insert(make_pair(id_str, get_box(dict_data, parent_media_box).value()));
+            rotates.insert(make_pair(id_str, get_rotate(dict_data, parent_rotate)));
+            get_XObjects_data(dict_data, fonts_dict);
         }
         else
         {
             get_pages_resources_int(checked_nodes,
                                     dict_data,
-                                    get_fonts(dict_data, parent_font),
-                                    get_media_box(dict_data, parent_media_box),
+                                    get_fonts(dict_data, parent_fonts),
+                                    get_box(dict_data, parent_media_box),
                                     get_rotate(dict_data, parent_rotate));
 
         }
     }
+}
+
+void PagesExtractor::get_XObject_data(const dict_t::value_type &XObject, const dict_t &parent_fonts)
+{
+    const dict_t dict = get_dict_or_indirect_dict(XObject.second, storage);
+    const pair<string, pdf_object_t> p = dict.at("/Subtype");
+    if (p.first != "/Form") return;
+    auto it = dict.find("/BBox");
+    if (it == dict.end()) return;
+    fonts.insert(make_pair(XObject.first, Fonts(storage, get_fonts(dict, parent_fonts))));
+    XObject_streams.insert(make_pair(XObject.first, get_stream(doc,
+                                                               get_id_gen(XObject.second.first),
+                                                               storage,
+                                                               decrypt_data)));
+    it = dict.find("Matrix");
+    if (it == dict.end())
+    {
+        XObject_matrices.insert(make_pair(XObject.first, IDENTITY_MATRIX));
+    }
+    else
+    {
+        const vector<pair<string, pdf_object_t>> numbers = get_array_data(it->second.first, 0);
+        if (numbers.size() != MATRIX_ELEMENTS_NUM) throw pdf_error(FUNC_STRING + "matrix must have " +
+                                                                   to_string(MATRIX_ELEMENTS_NUM) +
+                                                                   "elements. Data = " + it->second.first);
+        XObject_matrices.insert(make_pair(XObject.first,matrix_t{{stod(numbers[0].first), stod(numbers[1].first), 0},
+                                                                 {stod(numbers[2].first), stod(numbers[3].first), 0},
+                                                                 {stod(numbers[4].first), stod(numbers[5].first), 0}}));
+    }
+}
+
+void PagesExtractor::get_XObjects_data(const dict_t &page, const dict_t &parent_fonts)
+{
+    auto it = page.find("/Resources");
+    if (it == page.end()) return;
+    const dict_t resources = get_dict_or_indirect_dict(it->second, storage);
+    it = resources.find("/XObject");
+    if (it == resources.end()) return;
+    const dict_t XObjects = get_dict_or_indirect_dict(it->second, storage);
+    for (const dict_t::value_type &p : XObjects) get_XObject_data(p, parent_fonts);
 }
 
 dict_t PagesExtractor::get_fonts(const dict_t &dictionary, const dict_t &parent_fonts) const
@@ -334,8 +394,8 @@ mediabox_t PagesExtractor::parse_rectangle(const pair<string, pdf_object_t> &rec
     return result;
 }
 
-optional<mediabox_t> PagesExtractor::get_media_box(const dict_t &dictionary,
-                                                   const optional<mediabox_t> &parent_media_box) const
+optional<mediabox_t> PagesExtractor::get_box(const dict_t &dictionary,
+                                             const optional<mediabox_t> &parent_media_box) const
 {
     auto it = dictionary.find("/MediaBox");
     if (it != dictionary.end()) return parse_rectangle(it->second);
@@ -354,7 +414,7 @@ string PagesExtractor::get_text()
         {
             page_content += output_content(visited_contents, doc, storage, id_gen, decrypt_data);
         }
-        text += extract_text(page_content, page_id);
+        for (vector<text_line_t> &r : extract_text(page_content, to_string(page_id), boost::none)) text += render_text(r);
     }
     return text;
 }
@@ -376,9 +436,9 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_encoding(co
     }
 }
 
-unique_ptr<CharsetConverter> PagesExtractor::get_font_encoding(const string &font, unsigned int page_id)
+unique_ptr<CharsetConverter> PagesExtractor::get_font_encoding(const string &font, const string &resource_id)
 {
-    const dict_t &font_dict = fonts.at(page_id).get_current_font_dictionary();
+    const dict_t &font_dict = fonts.at(resource_id).get_current_font_dictionary();
     optional<unique_ptr<CharsetConverter>> r = get_font_from_tounicode(font_dict);
     if (r) return std::move(*r);
     r = get_font_from_encoding(font_dict);
@@ -408,14 +468,18 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(c
     }
 }
 
-string PagesExtractor::extract_text(const string &page_content, unsigned int page_id)
+vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_content,
+                                                         const string &resource_id,
+                                                         const optional<matrix_t> &CTM)
 {
     static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
     unique_ptr<CharsetConverter> encoding(new CharsetConverter());
-    Coordinates coordinates(rotates.at(page_id), media_boxes.at(page_id));
+    Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
     stack<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
-    vector<text_line_t> texts;
+    vector<vector<text_line_t>> result;
+    result.push_back(vector<text_line_t>());
+    vector<text_line_t> &texts = result[0];
     for (size_t i = 0; i < page_content.length();)
     {
         i = skip_spaces(page_content, i, false);
@@ -435,9 +499,28 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
             in_text_block = false;
             continue;
         }
-        else if (token == "cm") coordinates.set_CTM(st);
-        else if (token == "q") coordinates.push_CTM();
-        else if (token == "Q") coordinates.pop_CTM();
+        else if (token == "cm")
+        {
+            coordinates.set_CTM(st);
+        }
+        else if (token == "q")
+        {
+            coordinates.push_CTM();
+        }
+        else if (token == "Q")
+        {
+            coordinates.pop_CTM();
+        }
+        else if (token == "Do")
+        {
+            const string XObject = pop(st).second;
+            auto it = XObject_streams.find(XObject);
+            if (it != XObject_streams.end())
+            {
+                const matrix_t ctm = XObject_matrices.at(XObject) * coordinates.get_CTM();
+                for (const vector<text_line_t> &r : extract_text(it->second, XObject, ctm)) result.push_back(r);
+            }
+        }
 
         if (!in_text_block)
         {
@@ -447,7 +530,7 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         //vertical fonts are not implemented
         if (token == "Tj" && !encoding->is_vertical())
         {
-            texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(page_id)));
+            texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
         }
         else if (adjust_tokens.count(token))
         {
@@ -456,37 +539,38 @@ string PagesExtractor::extract_text(const string &page_content, unsigned int pag
         else if (token == "'")
         {
             coordinates.set_coordinates(token, st);
-            texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(page_id)));
+            texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
         }
         else if (token == "Ts")
         {
-            fonts.at(page_id).set_rise(stod(pop(st).second));
+            fonts.at(resource_id).set_rise(stod(pop(st).second));
         }
         else if (token == "\"")
         {
             const string str = pop(st).second;
             coordinates.set_coordinates(token, st);
-            texts.push_back(encoding->get_string(str, coordinates, 0, fonts.at(page_id)));
+            texts.push_back(encoding->get_string(str, coordinates, 0, fonts.at(resource_id)));
         }
         //vertical fonts are not implemented
         else if (token == "TJ" && !encoding->is_vertical())
         {
             const vector<text_line_t> tj_texts = encoding->get_strings_from_array(pop(st).second,
                                                                                   coordinates,
-                                                                                  fonts.at(page_id));
+                                                                                  fonts.at(resource_id));
             texts.insert(texts.end(), tj_texts.begin(), tj_texts.end());
         }
         else if (token == "Tf")
         {
             coordinates.set_coordinates(token, st);
             const string font = pop(st).second;
-            fonts.at(page_id).set_current_font(font);
-            encoding = get_font_encoding(font, page_id);
+            fonts.at(resource_id).set_current_font(font);
+            encoding = get_font_encoding(font, resource_id);
         }
         else
         {
             st.push(make_pair(VALUE, token));
         }
     }
-    return render_text(texts);
+
+    return result;
 }

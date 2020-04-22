@@ -734,3 +734,21 @@ size_t utf8_length(const string &s)
     for (char c : s) len += (c & 0xc0) != 0x80;
     return len;
 }
+
+matrix_t operator*(const matrix_t &m1, const matrix_t &m2)
+{
+    matrix_t result(m1.size(), vector<double>(m2.at(0).size(), 0));
+    for (size_t i = 0; i < m1.size(); i++)
+    {
+        for (size_t j = 0; j < m2.at(0).size(); j++)
+        {
+            result[i][j] = 0;
+            for (size_t k = 0; k < m1.at(0).size(); k++) result[i][j] += m1[i][k] * m2.at(k)[j];
+        }
+    }
+    return result;
+}
+
+const matrix_t IDENTITY_MATRIX = matrix_t{{1, 0, 0},
+                                          {0, 1, 0},
+                                          {0, 0, 1}};

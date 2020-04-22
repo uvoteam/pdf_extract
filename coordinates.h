@@ -7,10 +7,7 @@
 #include <utility>
 
 #include "common.h"
-#include "pages_extractor.h"
 #include "fonts.h"
-
-using matrix_t = std::vector<std::vector<double>>;
 
 
 struct coordinates_t
@@ -54,11 +51,12 @@ struct text_line_t
 class Coordinates
 {
 public:
-    Coordinates(unsigned int rotate, const mediabox_t &mediabox);
+    Coordinates(const matrix_t &CTM);
     void set_CTM(std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_default();
     void push_CTM();
     void pop_CTM();
+    matrix_t get_CTM() const;
     text_line_t adjust_coordinates(std::string &&s, size_t len, double width, double Tj, const Fonts &fonts);
     void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:

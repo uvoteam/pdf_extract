@@ -10,22 +10,6 @@ using namespace std;
 
 namespace
 {
-    matrix_t init_CTM(unsigned int rotate, const mediabox_t &media_box)
-    {
-        if (rotate == 90) return matrix_t{{0, -1, 0},
-                                         {1, 0, 0},
-                                         {-media_box.at(1), media_box.at(2), 1}};
-        if (rotate == 180) return matrix_t{{-1, 0, 0},
-                                           {0, -1, 0},
-                                           {media_box.at(2), media_box.at(3), 1}};
-        if (rotate == 270) return matrix_t{{0, 1, 0},
-                                           {-1, 0, 0},
-                                           {media_box.at(3), -media_box.at(0), 1}};
-        return matrix_t{{1, 0, 0},
-                        {0, 1, 0},
-                        {-media_box.at(0), -media_box.at(1), 0}};
-    }
-
     matrix_t translate_matrix(const matrix_t &m1, double x, double y)
     {
         double a = m1.at(0).at(0);
@@ -37,20 +21,6 @@ namespace
         return matrix_t{{a, b, 0},
                         {c, d, 0},
                         {x*a + y*c + e, x*b + y*d + f, 1}};
-    }
-
-    matrix_t operator*(const matrix_t &m1, const matrix_t &m2)
-    {
-        matrix_t result(m1.size(), vector<double>(m2.at(0).size(), 0));
-        for (size_t i = 0; i < m1.size(); i++)
-        {
-            for (size_t j = 0; j < m2.at(0).size(); j++)
-            {
-                result[i][j] = 0;
-                for (size_t k = 0; k < m1.at(0).size(); k++) result[i][j] += m1[i][k] * m2.at(k)[j];
-            }
-        }
-        return result;
     }
 
     matrix_t get_matrix(stack<pair<pdf_object_t, string>> &st)
@@ -67,11 +37,9 @@ namespace
     }
 }
 
-Coordinates::Coordinates(unsigned int rotate, const mediabox_t &mediabox):
-    CTM(init_CTM(rotate, mediabox)),
-    Tm(matrix_t{{1, 0, 0},
-                {0, 1, 0},
-                {0, 0, 1}}),
+Coordinates::Coordinates(const matrix_t &CTM_arg):
+    CTM(CTM_arg),
+    Tm(IDENTITY_MATRIX),
     Tfs(TFS_DEFAULT),
     Th(TH_DEFAULT),
     Tc(TC_DEFAULT),
@@ -81,6 +49,11 @@ Coordinates::Coordinates(unsigned int rotate, const mediabox_t &mediabox):
     y(0)
 {
     CTMs.push(CTM);
+}
+
+matrix_t Coordinates::get_CTM() const
+{
+    return CTM;
 }
 
 void Coordinates::T_quote()
@@ -110,14 +83,12 @@ void Coordinates::Td(double x_arg, double y_arg)
 
 void Coordinates::set_default()
 {
-            Tm = matrix_t{{1, 0, 0},
-                          {0, 1, 0},
-                          {0, 0, 1}};
-            Th = TH_DEFAULT;
-            Tc = TC_DEFAULT;
-            Tw = TW_DEFAULT;
-            Tfs = TFS_DEFAULT;
-            TL = TL_DEFAULT;
+    Tm = IDENTITY_MATRIX;
+    Th = TH_DEFAULT;
+    Tc = TC_DEFAULT;
+    Tw = TW_DEFAULT;
+    Tfs = TFS_DEFAULT;
+    TL = TL_DEFAULT;
 }
 
 void Coordinates::set_CTM(stack<pair<pdf_object_t, string>> &st)

@@ -457,7 +457,7 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(c
 
 vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_content,
                                                          const string &resource_id,
-                                                         const optional<matrix_t> &CTM)
+                                                         const optional<matrix_t> CTM)
 {
     static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
     static const unordered_set<string> ctm_tokens = {"cm", "q", "Q"};

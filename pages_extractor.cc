@@ -27,6 +27,11 @@ namespace
     const double CHAR_MARGIN = 2.0;
     const double WORD_MARGIN = 0.1;
 
+    string get_resource_name(const string &page, const string &object)
+    {
+        return "/" + page + "/" + object;
+    }
+
     matrix_t init_CTM(unsigned int rotate, const mediabox_t &media_box)
     {
         if (rotate == 90) return matrix_t{{0, -1, 0},
@@ -299,7 +304,7 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
             fonts.insert(make_pair(id_str, Fonts(storage, fonts_dict)));
             media_boxes.insert(make_pair(id_str, get_box(dict_data, parent_media_box).value()));
             rotates.insert(make_pair(id_str, get_rotate(dict_data, parent_rotate)));
-            get_XObjects_data(dict_data, fonts_dict);
+            get_XObjects_data(id_str, dict_data, fonts_dict);
         }
         else
         {
@@ -313,22 +318,23 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
     }
 }
 
-void PagesExtractor::get_XObject_data(const dict_t::value_type &XObject, const dict_t &parent_fonts)
+void PagesExtractor::get_XObject_data(const string &page_id, const dict_t::value_type &XObject, const dict_t &parent_fonts)
 {
     const dict_t dict = get_dict_or_indirect_dict(XObject.second, storage);
     const pair<string, pdf_object_t> p = dict.at("/Subtype");
     if (p.first != "/Form") return;
     auto it = dict.find("/BBox");
     if (it == dict.end()) return;
-    fonts.insert(make_pair(XObject.first, Fonts(storage, get_fonts(dict, parent_fonts))));
-    XObject_streams.insert(make_pair(XObject.first, get_stream(doc,
+    const string resource_name = get_resource_name(page_id, XObject.first);
+    fonts.insert(make_pair(resource_name, Fonts(storage, get_fonts(dict, parent_fonts))));
+    XObject_streams.insert(make_pair(resource_name, get_stream(doc,
                                                                get_id_gen(XObject.second.first),
                                                                storage,
                                                                decrypt_data)));
     it = dict.find("Matrix");
     if (it == dict.end())
     {
-        XObject_matrices.insert(make_pair(XObject.first, IDENTITY_MATRIX));
+        XObject_matrices.insert(make_pair(resource_name, IDENTITY_MATRIX));
     }
     else
     {
@@ -336,13 +342,13 @@ void PagesExtractor::get_XObject_data(const dict_t::value_type &XObject, const d
         if (numbers.size() != MATRIX_ELEMENTS_NUM) throw pdf_error(FUNC_STRING + "matrix must have " +
                                                                    to_string(MATRIX_ELEMENTS_NUM) +
                                                                    "elements. Data = " + it->second.first);
-        XObject_matrices.insert(make_pair(XObject.first,matrix_t{{stod(numbers[0].first), stod(numbers[1].first), 0},
-                                                                 {stod(numbers[2].first), stod(numbers[3].first), 0},
-                                                                 {stod(numbers[4].first), stod(numbers[5].first), 0}}));
+        XObject_matrices.insert(make_pair(resource_name, matrix_t{{stod(numbers[0].first), stod(numbers[1].first), 0},
+                                                                  {stod(numbers[2].first), stod(numbers[3].first), 0},
+                                                                  {stod(numbers[4].first), stod(numbers[5].first), 0}}));
     }
 }
 
-void PagesExtractor::get_XObjects_data(const dict_t &page, const dict_t &parent_fonts)
+void PagesExtractor::get_XObjects_data(const string &page_id, const dict_t &page, const dict_t &parent_fonts)
 {
     auto it = page.find("/Resources");
     if (it == page.end()) return;
@@ -350,7 +356,7 @@ void PagesExtractor::get_XObjects_data(const dict_t &page, const dict_t &parent_
     it = resources.find("/XObject");
     if (it == resources.end()) return;
     const dict_t XObjects = get_dict_or_indirect_dict(it->second, storage);
-    for (const dict_t::value_type &p : XObjects) get_XObject_data(p, parent_fonts);
+    for (const dict_t::value_type &p : XObjects) get_XObject_data(page_id, p, parent_fonts);
 }
 
 dict_t PagesExtractor::get_fonts(const dict_t &dictionary, const dict_t &parent_fonts) const
@@ -493,11 +499,12 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
         else if (token == "Do")
         {
             const string XObject = pop(st).second;
-            auto it = XObject_streams.find(XObject);
+            const string resource_name = get_resource_name(resource_id, XObject);
+            auto it = XObject_streams.find(resource_name);
             if (it != XObject_streams.end())
             {
-                const matrix_t ctm = XObject_matrices.at(XObject) * coordinates.get_CTM();
-                for (const vector<text_line_t> &r : extract_text(it->second, XObject, ctm)) result.push_back(r);
+                const matrix_t ctm = XObject_matrices.at(resource_name) * coordinates.get_CTM();
+                for (const vector<text_line_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(r);
             }
         }
 

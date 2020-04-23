@@ -467,7 +467,6 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
     bool in_text_block = false;
     vector<vector<text_line_t>> result;
     result.push_back(vector<text_line_t>());
-    vector<text_line_t> &texts = result[0];
     for (size_t i = 0; i < page_content.length();)
     {
         i = skip_spaces(page_content, i, false);
@@ -510,7 +509,7 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
         //vertical fonts are not implemented
         if (token == "Tj" && !encoding->is_vertical())
         {
-            texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
+            result[0].push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
         }
         else if (adjust_tokens.count(token))
         {
@@ -519,7 +518,7 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
         else if (token == "'")
         {
             coordinates.set_coordinates(token, st);
-            texts.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
+            result[0].push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
         }
         else if (token == "Ts")
         {
@@ -529,7 +528,7 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
         {
             const string str = pop(st).second;
             coordinates.set_coordinates(token, st);
-            texts.push_back(encoding->get_string(str, coordinates, 0, fonts.at(resource_id)));
+            result[0].push_back(encoding->get_string(str, coordinates, 0, fonts.at(resource_id)));
         }
         //vertical fonts are not implemented
         else if (token == "TJ" && !encoding->is_vertical())
@@ -537,7 +536,7 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
             const vector<text_line_t> tj_texts = encoding->get_strings_from_array(pop(st).second,
                                                                                   coordinates,
                                                                                   fonts.at(resource_id));
-            texts.insert(texts.end(), tj_texts.begin(), tj_texts.end());
+            result[0].insert(result[0].end(), tj_texts.begin(), tj_texts.end());
         }
         else if (token == "Tf")
         {

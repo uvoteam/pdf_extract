@@ -163,7 +163,7 @@ void Fonts::insert_height(const string &font_name, const dict_t &font_desc, cons
     const string array_str = (it->second.second == ARRAY)? it->second.first :
                                                            get_indirect_object_data(it->second.first, storage, ARRAY).first;
     vector<pair<string, pdf_object_t>> array = get_array_data(array_str, 0);
-    heights.insert(make_pair(font_name, strict_stol(array.at(3).first) - strict_stol(array.at(1).first)));
+    heights.insert(make_pair(font_name, stod(array.at(3).first) - stod(array.at(1).first)));
 }
 
 void Fonts::insert_descent(const string &font_name, const dict_t &font_desc)
@@ -174,7 +174,7 @@ void Fonts::insert_descent(const string &font_name, const dict_t &font_desc)
         descents.insert(make_pair(font_name, Fonts::NO_DESCENT));
         return;
     }
-    descents.insert(make_pair(font_name, strict_stol(it->second.first)));
+    descents.insert(make_pair(font_name, stod(it->second.first)));
 }
 
 void Fonts::insert_ascent(const string &font_name, const dict_t &font_desc)
@@ -185,14 +185,14 @@ void Fonts::insert_ascent(const string &font_name, const dict_t &font_desc)
         ascents.insert(make_pair(font_name, Fonts::NO_ASCENT));
         return;
     }
-    ascents.insert(make_pair(font_name, strict_stol(it->second.first)));
+    ascents.insert(make_pair(font_name, stod(it->second.first)));
 }
 
 double Fonts::get_height() const
 {
     validate_current_font();
-    int height = heights.at(current_font);
-    if (height == 0) return get_ascent() - get_descent();
+    double height = heights.at(current_font);
+    if (height == NO_HEIGHT) return get_ascent() - get_descent();
     return height * get_scales().second;
 }
 
@@ -232,6 +232,10 @@ pair<double, double> Fonts::get_scales() const
 
 const double Fonts::VSCALE_NO_TYPE_3 = 0.001;
 const double Fonts::HSCALE_NO_TYPE_3 = 0.001;
+const double Fonts::NO_HEIGHT = 0;
+const double Fonts::NO_DESCENT = 0;
+const double Fonts::RISE_DEFAULT = 0;
+const double Fonts::NO_ASCENT = 0;
 const string Fonts::FIRST_CHAR_DEFAULT = "0";
 const string Fonts::MISSING_WIDTH_DEFAULT = "0";
 const string Fonts::DW_DEFAULT = "1000";

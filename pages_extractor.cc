@@ -304,7 +304,9 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
             fonts.insert(make_pair(id_str, Fonts(storage, fonts_dict)));
             media_boxes.insert(make_pair(id_str, get_box(dict_data, parent_media_box).value()));
             rotates.insert(make_pair(id_str, get_rotate(dict_data, parent_rotate)));
-            get_XObjects_data(id_str, dict_data, fonts_dict);
+            //avoiding infinite recursion
+            unordered_set<string> visited_XObjects;
+            get_XObjects_data(id_str, dict_data, fonts_dict, visited_XObjects);
         }
         else
         {
@@ -318,15 +320,21 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
     }
 }
 
-void PagesExtractor::get_XObject_data(const string &page_id, const dict_t::value_type &XObject, const dict_t &parent_fonts)
+void PagesExtractor::get_XObject_data(const string &parent_id,
+                                      const dict_t::value_type &XObject,
+                                      const dict_t &parent_fonts,
+                                      unordered_set<string> &visited_XObjects)
 {
+    if (visited_XObjects.count(XObject.first)) return;
+    visited_XObjects.insert(XObject.first);
     const dict_t dict = get_dict_or_indirect_dict(XObject.second, storage);
     const pair<string, pdf_object_t> p = dict.at("/Subtype");
     if (p.first != "/Form") return;
     auto it = dict.find("/BBox");
     if (it == dict.end()) return;
-    const string resource_name = get_resource_name(page_id, XObject.first);
-    fonts.insert(make_pair(resource_name, Fonts(storage, get_fonts(dict, parent_fonts))));
+    const string resource_name = get_resource_name(parent_id, XObject.first);
+    const dict_t font = get_fonts(dict, parent_fonts);
+    fonts.insert(make_pair(resource_name, Fonts(storage, font)));
     XObject_streams.insert(make_pair(resource_name, get_stream(doc,
                                                                get_id_gen(XObject.second.first),
                                                                storage,
@@ -346,9 +354,12 @@ void PagesExtractor::get_XObject_data(const string &page_id, const dict_t::value
                                                                   {stod(numbers[2].first), stod(numbers[3].first), 0},
                                                                   {stod(numbers[4].first), stod(numbers[5].first), 0}}));
     }
+    get_XObjects_data(resource_name, dict, font, visited_XObjects);
 }
 
-void PagesExtractor::get_XObjects_data(const string &page_id, const dict_t &page, const dict_t &parent_fonts)
+void PagesExtractor::get_XObjects_data(const string &parent_id,
+                                       const dict_t &page, const dict_t &parent_fonts,
+                                       unordered_set<string> &visited_XObjects)
 {
     auto it = page.find("/Resources");
     if (it == page.end()) return;
@@ -356,7 +367,7 @@ void PagesExtractor::get_XObjects_data(const string &page_id, const dict_t &page
     it = resources.find("/XObject");
     if (it == resources.end()) return;
     const dict_t XObjects = get_dict_or_indirect_dict(it->second, storage);
-    for (const dict_t::value_type &p : XObjects) get_XObject_data(page_id, p, parent_fonts);
+    for (const dict_t::value_type &p : XObjects) get_XObject_data(parent_id, p, parent_fonts, visited_XObjects);
 }
 
 dict_t PagesExtractor::get_fonts(const dict_t &dictionary, const dict_t &parent_fonts) const

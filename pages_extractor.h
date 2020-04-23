@@ -44,8 +44,14 @@ private:
     std::unique_ptr<CharsetConverter> get_font_encoding(const std::string &font, const std::string &resource_id);
     boost::optional<std::unique_ptr<CharsetConverter>> get_font_from_encoding(const dict_t &font_dict) const;
     boost::optional<std::unique_ptr<CharsetConverter>> get_font_from_tounicode(const dict_t &font_dict);
-    void get_XObjects_data(const std::string &page_id, const dict_t &page, const dict_t &parent_fonts);
-    void get_XObject_data(const std::string &page_id, const dict_t::value_type &XObject, const dict_t &parent_fonts);
+    void get_XObjects_data(const std::string &page_id,
+                           const dict_t &page,
+                           const dict_t &parent_fonts,
+                           std::unordered_set<std::string> &visited_XObjects);
+    void get_XObject_data(const std::string &page_id,
+                          const dict_t::value_type &XObject,
+                          const dict_t &parent_fonts,
+                          std::unordered_set<std::string> &visited_XObjects);
 private:
     const std::string &doc;
     const ObjectStorage &storage;

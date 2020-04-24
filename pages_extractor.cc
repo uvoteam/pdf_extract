@@ -523,6 +523,13 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
                 for (const vector<text_line_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(r);
             }
         }
+        else if (token == "Tf")
+        {
+            coordinates.set_coordinates(token, st);
+            const string font = pop(st).second;
+            fonts.at(resource_id).set_current_font(font);
+            encoding = get_font_encoding(font, resource_id);
+        }
 
         if (!in_text_block)
         {
@@ -560,13 +567,6 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
                                                                                   coordinates,
                                                                                   fonts.at(resource_id));
             result[0].insert(result[0].end(), tj_texts.begin(), tj_texts.end());
-        }
-        else if (token == "Tf")
-        {
-            coordinates.set_coordinates(token, st);
-            const string font = pop(st).second;
-            fonts.at(resource_id).set_current_font(font);
-            encoding = get_font_encoding(font, resource_id);
         }
         else
         {

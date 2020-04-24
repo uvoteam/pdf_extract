@@ -305,7 +305,7 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
             media_boxes.insert(make_pair(id_str, get_box(dict_data, parent_media_box).value()));
             rotates.insert(make_pair(id_str, get_rotate(dict_data, parent_rotate)));
             //avoiding infinite recursion
-            unordered_set<string> visited_XObjects;
+            unordered_set<unsigned int> visited_XObjects;
             get_XObjects_data(id_str, dict_data, fonts_dict, visited_XObjects);
         }
         else
@@ -323,10 +323,14 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
 void PagesExtractor::get_XObject_data(const string &parent_id,
                                       const dict_t::value_type &XObject,
                                       const dict_t &parent_fonts,
-                                      unordered_set<string> &visited_XObjects)
+                                      unordered_set<unsigned int> &visited_XObjects)
 {
-    if (visited_XObjects.count(XObject.first)) return;
-    visited_XObjects.insert(XObject.first);
+    if (XObject.second.second == INDIRECT_OBJECT)
+    {
+        unsigned int id = get_id_gen(XObject.second.first).first;
+        if (visited_XObjects.count(id)) return;
+        visited_XObjects.insert(id);
+    }
     const dict_t dict = get_dict_or_indirect_dict(XObject.second, storage);
     const pair<string, pdf_object_t> p = dict.at("/Subtype");
     if (p.first != "/Form") return;
@@ -358,8 +362,9 @@ void PagesExtractor::get_XObject_data(const string &parent_id,
 }
 
 void PagesExtractor::get_XObjects_data(const string &parent_id,
-                                       const dict_t &page, const dict_t &parent_fonts,
-                                       unordered_set<string> &visited_XObjects)
+                                       const dict_t &page,
+                                       const dict_t &parent_fonts,
+                                       unordered_set<unsigned int> &visited_XObjects)
 {
     auto it = page.find("/Resources");
     if (it == page.end()) return;

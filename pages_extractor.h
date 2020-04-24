@@ -47,11 +47,11 @@ private:
     void get_XObjects_data(const std::string &page_id,
                            const dict_t &page,
                            const dict_t &parent_fonts,
-                           std::unordered_set<std::string> &visited_XObjects);
+                           std::unordered_set<unsigned int> &visited_XObjects);
     void get_XObject_data(const std::string &page_id,
                           const dict_t::value_type &XObject,
                           const dict_t &parent_fonts,
-                          std::unordered_set<std::string> &visited_XObjects);
+                          std::unordered_set<unsigned int> &visited_XObjects);
 private:
     const std::string &doc;
     const ObjectStorage &storage;

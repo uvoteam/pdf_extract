@@ -124,6 +124,7 @@ text_line_t Coordinates::adjust_coordinates(string &&s, size_t len, double width
     }
     return text_line_t(std::move(s), coordinates_t(x0, y0, x1, y1));
 }
+
 void Coordinates::ctm_work(const string &token, stack<pair<pdf_object_t, string>> &st)
 {
     if (token == "cm") CTM = get_matrix(st);
@@ -179,15 +180,7 @@ void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, 
     }
     else if (token == "Tm")
     {
-        double f = stod(pop(st).second);
-        double e = stod(pop(st).second);
-        double d = stod(pop(st).second);
-        double c = stod(pop(st).second);
-        double b = stod(pop(st).second);
-        double a = stod(pop(st).second);
-        Tm = matrix_t{{a, b, 0},
-                      {c, d, 0},
-                      {e, f, 1}};
+        Tm = get_matrix(st);
         x = 0;
         y = 0;
     }

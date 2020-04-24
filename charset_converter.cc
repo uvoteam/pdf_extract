@@ -127,11 +127,8 @@ text_line_t CharsetConverter::get_string(const string &s, Coordinates &coordinat
         string decoded;
         for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
         //strings from cmap are returned in big ordering
-        return coordinates.adjust_coordinates(to_utf<char>(decoded, "UTF-16be"),
-                                              decoded.length() / 2,
-                                              get_width(s, fonts),
-                                              Tj,
-                                              fonts);
+        string utf8_string = decoded.empty()? s : to_utf<char>(decoded, "UTF-16be");
+        return coordinates.adjust_coordinates(std::move(utf8_string), decoded.length() / 2, get_width(s, fonts), Tj, fonts);
     }
     }
 }

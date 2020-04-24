@@ -283,6 +283,7 @@ cmap_t get_cmap(const string &doc,
             break;
         case WMODE:
             end = get_wmode(stream, start, result.is_vertical);
+            state = NONE;
             break;
         }
         if (end == string::npos || end > (stream.length() - 2)) break;

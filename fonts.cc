@@ -13,9 +13,7 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
 {
         for (const pair<string, pair<string, pdf_object_t>> &p : fonts_dict)
         {
-            const dict_t font_dict = get_dictionary_data(get_indirect_object_data(p.second.first,
-                                                                                  storage,
-                                                                                  DICTIONARY).first, 0);
+            const dict_t font_dict = get_dict_or_indirect_dict(p.second, storage);
             Font_type_t type = insert_type(p.first, font_dict);
             if (type == TYPE_3) insert_matrix_type3(p.first, font_dict);
             dictionary_per_font.insert(make_pair(p.first, font_dict));

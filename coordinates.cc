@@ -128,7 +128,7 @@ void Coordinates::ctm_work(const string &token, stack<pair<pdf_object_t, string>
 {
     if (token == "cm") CTM = get_matrix(st);
     else if (token == "q") CTMs.push(CTM);
-    else if (token == "Q") CTM = pop(CTMs);
+    else if (token == "Q"  && !CTMs.empty()) CTM = pop(CTMs);
 }
 
 void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, string>> &st)

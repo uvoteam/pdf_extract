@@ -629,7 +629,9 @@ string get_stream(const string &doc,
     if (stream_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "stream must be a dictionary");
     const dict_t props = get_dictionary_data(stream_pair.first, 0);
     const map<size_t, size_t> &id2offsets = storage.get_id2offsets();
-    string content = get_content(doc, get_length(doc, storage, props), id2offsets.at(id_gen.first));
+    size_t offset = efind(doc, "<<", id2offsets.at(id_gen.first));
+    get_dictionary(doc, offset);
+    string content = get_content(doc, get_length(doc, storage, props), offset);
     content = decrypt(id_gen.first, id_gen.second, content, decrypt_data);
 
     return decode(content, props);

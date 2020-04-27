@@ -629,7 +629,7 @@ string get_stream(const string &doc,
     if (stream_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "stream must be a dictionary");
     const dict_t props = get_dictionary_data(stream_pair.first, 0);
     const map<size_t, size_t> &id2offsets = storage.get_id2offsets();
-    string content = get_content(doc, get_length(doc, id2offsets, props), id2offsets.at(id_gen.first));
+    string content = get_content(doc, get_length(doc, storage, props), id2offsets.at(id_gen.first));
     content = decrypt(id_gen.first, id_gen.second, content, decrypt_data);
 
     return decode(content, props);
@@ -669,28 +669,6 @@ size_t efind_number(const string &buffer, size_t offset)
     size_t result = find_number(buffer, offset);
     if (result >= buffer.length()) throw pdf_error(FUNC_STRING + "can`t find number");
     return result;
-}
-
-size_t get_length(const string &buffer,
-                  const map<size_t, size_t> &id2offsets,
-                  const dict_t &props)
-{
-    const pair<string, pdf_object_t> &r = props.at("/Length");
-    if (r.second == VALUE)
-    {
-        return strict_stoul(r.first);
-    }
-    else if (r.second == INDIRECT_OBJECT)
-    {
-        size_t id = strict_stoul(r.first.substr(0, efind_first(r.first, " \r\n\t", 0)));
-        const pair<string, pdf_object_t> content_len_pair = get_object(buffer, id, id2offsets);
-        if (content_len_pair.second != VALUE) throw pdf_error(FUNC_STRING + "length indirect obj must be VALUE");
-        return strict_stoul(content_len_pair.first);
-    }
-    else
-    {
-        throw pdf_error(FUNC_STRING + " wrong type for /Length");
-    }
 }
 
 pair<unsigned int, unsigned int> get_id_gen(const string &data)
@@ -760,6 +738,16 @@ dict_t get_dict_or_indirect_dict(const pair<string, pdf_object_t> &data, const O
     default:
         throw pdf_error(FUNC_STRING + "wrong object type " + to_string(data.second));
     }
+}
+
+pair<string, pdf_object_t> get_content_len_pair(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets)
+{
+    return get_object(buffer, id, id2offsets);
+}
+
+pair<string, pdf_object_t> get_content_len_pair(const string &buffer, size_t id, const ObjectStorage &storage)
+{
+    return storage.get_object(id);
 }
 
 const matrix_t IDENTITY_MATRIX = matrix_t{{1, 0, 0},

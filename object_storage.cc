@@ -53,7 +53,7 @@ void ObjectStorage::insert_obj_stream(size_t id, const dict_t &decrypt_data)
     dict_t dictionary = get_dictionary_data(get_dictionary(doc, offset), 0);
     auto it = dictionary.find("/Type");
     if (it == dictionary.end() || it->second.first != "/ObjStm") return;
-    unsigned int len = get_length(doc, id2offsets, dictionary);
+    unsigned int len = get_length<map<size_t, size_t>>(doc, id2offsets, dictionary);
     string content = get_content(doc, len, offset);
     content = decrypt(id, gen_id, content, decrypt_data);
     content = decode(content, dictionary);

@@ -79,6 +79,39 @@ std::pair<std::string, pdf_object_t> get_indirect_object_data(const std::string 
                                                               const ObjectStorage &storage,
                                                               boost::optional<pdf_object_t> type = boost::none);
 std::vector<std::pair<std::string, pdf_object_t>> get_array_data(const std::string &buffer, size_t offset);
+std::pair<double, double> apply_matrix_norm(const std::array<double, MATRIX_ELEMENTS> &matrix,
+                                            const std::pair<double, double> &point);
+std::string get_dict_val(const dict_t &dict, const std::string &key, const std::string &def);
+size_t utf8_length(const std::string &s);
+matrix_t operator*(const matrix_t &m1, const matrix_t &m2);
+dict_t get_dict_or_indirect_dict(const std::pair<std::string, pdf_object_t> &data, const ObjectStorage &storage);
+
+std::pair<std::string, pdf_object_t> get_content_len_pair(const std::string &buffer,
+                                                          size_t id,
+                                                          const std::map<size_t, size_t> &id2offsets);
+std::pair<std::string, pdf_object_t> get_content_len_pair(const std::string &buffer,
+                                                          size_t id,
+                                                          const ObjectStorage &storage);
+template <class T> size_t get_length(const std::string &buffer, const T &storage, const dict_t &props)
+{
+    const std::pair<std::string, pdf_object_t> &r = props.at("/Length");
+    if (r.second == VALUE)
+    {
+        return strict_stoul(r.first);
+    }
+    else if (r.second == INDIRECT_OBJECT)
+    {
+        size_t id = strict_stoul(r.first.substr(0, efind_first(r.first, " \r\n\t", 0)));
+        const std::pair<std::string, pdf_object_t> content_len_pair = get_content_len_pair(buffer, id, storage);
+        if (content_len_pair.second != VALUE) throw pdf_error(FUNC_STRING + "length indirect obj must be VALUE");
+        return strict_stoul(content_len_pair.first);
+    }
+    else
+    {
+        throw pdf_error(FUNC_STRING + " wrong type for /Length");
+    }
+}
+
 template <class T> T pop(std::stack<T> &st)
 {
     if (st.empty()) throw pdf_error(FUNC_STRING + "stack is empty");
@@ -86,10 +119,5 @@ template <class T> T pop(std::stack<T> &st)
     st.pop();
     return result;
 }
-std::pair<double, double> apply_matrix_norm(const std::array<double, MATRIX_ELEMENTS> &matrix,
-                                            const std::pair<double, double> &point);
-std::string get_dict_val(const dict_t &dict, const std::string &key, const std::string &def);
-size_t utf8_length(const std::string &s);
-matrix_t operator*(const matrix_t &m1, const matrix_t &m2);
-dict_t get_dict_or_indirect_dict(const std::pair<std::string, pdf_object_t> &data, const ObjectStorage &storage);
+
 #endif //COMMON

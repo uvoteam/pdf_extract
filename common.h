@@ -32,6 +32,7 @@ public:
 };
 
 using dict_t = std::map<std::string, std::pair<std::string, pdf_object_t>>;
+using array_t = std::vector<std::pair<std::string, pdf_object_t>>;
 using matrix_t = std::vector<std::vector<double>>;
 
 extern const matrix_t IDENTITY_MATRIX;
@@ -85,6 +86,8 @@ std::string get_dict_val(const dict_t &dict, const std::string &key, const std::
 size_t utf8_length(const std::string &s);
 matrix_t operator*(const matrix_t &m1, const matrix_t &m2);
 dict_t get_dict_or_indirect_dict(const std::pair<std::string, pdf_object_t> &data, const ObjectStorage &storage);
+array_t get_array_or_indirect_array(const std::pair<std::string, pdf_object_t> &data, const ObjectStorage &storage);
+
 
 std::pair<std::string, pdf_object_t> get_content_len_pair(const std::string &buffer,
                                                           size_t id,

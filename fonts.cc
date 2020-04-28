@@ -9,13 +9,19 @@
 
 using namespace std;
 
+namespace
+{
+    enum { DESCENDANT_ARRAY_NUM = 1 };
+}
+
 Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_DEFAULT)
 {
         for (const pair<string, pair<string, pdf_object_t>> &p : fonts_dict)
         {
-            const dict_t font_dict = get_dict_or_indirect_dict(p.second, storage);
+            dict_t font_dict = get_dict_or_indirect_dict(p.second, storage);
             Font_type_t type = insert_type(p.first, font_dict);
             if (type == TYPE_3) insert_matrix_type3(p.first, font_dict);
+            insert_descendant(font_dict, storage);
             dictionary_per_font.insert(make_pair(p.first, font_dict));
             auto it = font_dict.find("/FontDescriptor");
             const dict_t desc_dict = (it == font_dict.end())? dict_t() : get_dict_or_indirect_dict(it->second, storage);
@@ -25,6 +31,20 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
             insert_descent(p.first, desc_dict);
             insert_ascent(p.first, desc_dict);
         }
+}
+
+void Fonts::insert_descendant(dict_t &font, const ObjectStorage &storage)
+{
+    const string type = font.at("/Subtype").first;
+    if (type != "/Type0") return;
+    const array_t array = get_array_or_indirect_array(font.at("/DescendantFonts"), storage);
+    if (array.size() != DESCENDANT_ARRAY_NUM)
+    {
+        throw pdf_error(FUNC_STRING + "DescendantFonts array must have" +
+                        to_string(DESCENDANT_ARRAY_NUM) + " element. Size=" + to_string(array.size()));
+    }
+    const dict_t descendant = get_dict_or_indirect_dict(array[0], storage);
+    font.insert(descendant.begin(), descendant.end());
 }
 
 double Fonts::get_width(unsigned int code) const
@@ -70,6 +90,7 @@ void Fonts::get_widths_from_w(const ObjectStorage &storage, const string &font_n
                 widths.at(font_name).insert(make_pair(start_char, stod(p.first)));
                 ++start_char;
             }
+            i += 2;
             break;
         }
         default:

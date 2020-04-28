@@ -125,7 +125,7 @@ namespace
 
     size_t find_value_end_delimiter(const string &buffer, size_t offset)
     {
-        size_t result = buffer.find_first_of("\r\t\n /](<", offset);
+        size_t result = buffer.find_first_of("\r\t\n /][(<", offset);
         size_t dict_end_offset = buffer.find(">>", offset);
         if (result == string::npos || dict_end_offset < result) result = dict_end_offset;
         if (result == string::npos) throw pdf_error(FUNC_STRING + " can`t find end delimiter for value");
@@ -737,6 +737,19 @@ dict_t get_dict_or_indirect_dict(const pair<string, pdf_object_t> &data, const O
         return get_dictionary_data(data.first, 0);
     case INDIRECT_OBJECT:
         return get_dictionary_data(get_indirect_object_data(data.first, storage, DICTIONARY).first, 0);
+    default:
+        throw pdf_error(FUNC_STRING + "wrong object type " + to_string(data.second));
+    }
+}
+
+array_t get_array_or_indirect_array(const pair<string, pdf_object_t> &data, const ObjectStorage &storage)
+{
+    switch (data.second)
+    {
+    case ARRAY:
+        return get_array_data(data.first, 0);
+    case INDIRECT_OBJECT:
+        return get_array_data(get_indirect_object_data(data.first, storage, ARRAY).first, 0);
     default:
         throw pdf_error(FUNC_STRING + "wrong object type " + to_string(data.second));
     }

@@ -30,7 +30,7 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
 double Fonts::get_width(unsigned int code) const
 {
     auto it = widths.at(current_font).find(code);
-    if (it == widths.at(current_font).end()) return default_width.at(current_font);
+    if (it == widths.at(current_font).end()) return default_width.at(current_font) * get_scales().first;
     return it->second * get_scales().first;
 }
 

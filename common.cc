@@ -755,6 +755,14 @@ array_t get_array_or_indirect_array(const pair<string, pdf_object_t> &data, cons
     }
 }
 
+unsigned int string2num(const std::string &s)
+{
+    if (s.empty()) throw pdf_error(FUNC_STRING + "string is empty");
+    unsigned int result = 0;
+    for (int i = s.length() - 1, j = 0; i >= 0; --i, ++j) result |= s[i] << (8 * j);
+    return result;
+}
+
 pair<string, pdf_object_t> get_content_len_pair(const string &buffer, size_t id, const map<size_t, size_t> &id2offsets)
 {
     return get_object(buffer, id, id2offsets);

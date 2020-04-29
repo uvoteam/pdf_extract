@@ -142,11 +142,11 @@ NEXT:
 
     string render_text(vector<text_line_t> &chunks)
     {
-        // for (const text_line_t &chunk : chunks)
-        // {
-        //     cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.chunks[0].text << endl;
-        // }
-        // return string();
+        for (const text_line_t &chunk : chunks)
+        {
+            cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.chunks[0].text << endl;
+        }
+        return string();
         string result;
         make_text_lines(chunks);
         sort(chunks.begin(), chunks.end(),

@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <map>
 #include <memory>
+#include <utility>
 
 #include <boost/optional.hpp>
 
@@ -29,7 +30,7 @@ public:
 private:
     enum PDFEncode_t {DEFAULT, MAC_EXPERT, MAC_ROMAN, WIN, OTHER, UTF8, IDENTITY, TO_UNICODE, DIFFERENCE_MAP};
 
-    std::string custom_decode_symbol(const std::string &s, size_t &i) const;
+    std::pair<double, std::string> custom_decode_symbol(const std::string &s, size_t &i, const Fonts &fonts) const;
     static std::unique_ptr<CharsetConverter> get_diff_map_converter(PDFEncode_t encoding,
                                                                     const std::string &array,
                                                                     const ObjectStorage &storage);

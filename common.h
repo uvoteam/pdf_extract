@@ -87,6 +87,7 @@ size_t utf8_length(const std::string &s);
 matrix_t operator*(const matrix_t &m1, const matrix_t &m2);
 dict_t get_dict_or_indirect_dict(const std::pair<std::string, pdf_object_t> &data, const ObjectStorage &storage);
 array_t get_array_or_indirect_array(const std::pair<std::string, pdf_object_t> &data, const ObjectStorage &storage);
+unsigned int string2num(const std::string &s);
 
 
 std::pair<std::string, pdf_object_t> get_content_len_pair(const std::string &buffer,

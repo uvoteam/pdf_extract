@@ -25,7 +25,7 @@ namespace
     double get_width(const string &s, const Fonts &fonts)
     {
         double result = 0;
-        for (char c: s) result += fonts.get_width(c);
+        for (char c : s) result += fonts.get_width(c);
         return result;
     }
 
@@ -38,19 +38,20 @@ namespace
     }
 }
 
-string CharsetConverter::custom_decode_symbol(const string &s, size_t &i) const
+pair<double, string> CharsetConverter::custom_decode_symbol(const string &s, size_t &i, const Fonts &fonts) const
 {
     for (unsigned char n : custom_encoding->sizes)
     {
         size_t left = s.length() - i;
         if (left < n) break;
-        auto it = custom_encoding->utf16_map.find(s.substr(i, n));
+        const string symbol = s.substr(i, n);
+        auto it = custom_encoding->utf16_map.find(symbol);
         if (it == custom_encoding->utf16_map.end()) continue;
         i += n;
-        return it->second;
+        return make_pair(fonts.get_width(string2num(symbol)), it->second);
     }
     ++i;
-    return string();
+    return make_pair(0, string());
 }
 
 vector<text_line_t> CharsetConverter::get_strings_from_array(const string &array,
@@ -125,10 +126,18 @@ text_line_t CharsetConverter::get_string(const string &s, Coordinates &coordinat
     case TO_UNICODE:
     {
         string decoded;
-        for (size_t i = 0; i < s.length(); decoded += custom_decode_symbol(s, i));
+        double decoded_width = 0;
+        for (size_t i = 0; i < s.length();)
+        {
+            pair<double, string> decoded_symbol = custom_decode_symbol(s, i, fonts);
+            decoded_width += decoded_symbol.first;
+            decoded += decoded_symbol.second;
+        }
         //strings from cmap are returned in big ordering
         string utf8_string = decoded.empty()? s : to_utf<char>(decoded, "UTF-16be");
-        return coordinates.adjust_coordinates(std::move(utf8_string), decoded.length() / 2, get_width(s, fonts), Tj, fonts);
+        size_t len = decoded.empty()? utf8_length(s) : utf8_string.length() / 2;
+        double width = decoded.empty()? get_width(s, fonts) : decoded_width;
+        return coordinates.adjust_coordinates(std::move(utf8_string), len, width, Tj, fonts);
     }
     }
 }

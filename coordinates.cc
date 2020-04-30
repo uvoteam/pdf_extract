@@ -127,7 +127,7 @@ text_line_t Coordinates::adjust_coordinates(string &&s, size_t len, double width
 
 void Coordinates::ctm_work(const string &token, stack<pair<pdf_object_t, string>> &st)
 {
-    if (token == "cm") CTM = get_matrix(st);
+    if (token == "cm") CTM = get_matrix(st) * CTM;
     else if (token == "q") CTMs.push(CTM);
     else if (token == "Q"  && !CTMs.empty()) CTM = pop(CTMs);
 }

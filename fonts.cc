@@ -1,6 +1,5 @@
 #include <utility>
 #include <string>
-#include <vector>
 #include <array>
 
 #include "fonts.h"
@@ -16,7 +15,7 @@ namespace
 
 Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_DEFAULT)
 {
-        for (const pair<string, pair<string, pdf_object_t>> &p : fonts_dict)
+        for (const dict_t::value_type &p : fonts_dict)
         {
             dict_t font_dict = get_dict_or_indirect_dict(p.second, storage);
             Font_type_t type = insert_type(p.first, font_dict);
@@ -60,10 +59,8 @@ void Fonts::get_widths_from_w(const ObjectStorage &storage, const string &font_n
     default_width.insert(make_pair(font_name, stod(get_dict_val(font, "/DW", DW_DEFAULT))));
     auto it = font.find("/W");
     if (it == font.end()) return;
-    const string array = (it->second.second == ARRAY)? it->second.first :
-                                                       get_indirect_object_data(it->second.first, storage, ARRAY).first;
-    vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
-    for (pair<string, pdf_object_t> &p : result)
+    array_t result = get_array_or_indirect_array(it->second, storage);
+    for (array_t::value_type &p : result)
     {
         if (p.second == INDIRECT_OBJECT) p = get_indirect_object_data(p.first, storage);
     }
@@ -84,8 +81,8 @@ void Fonts::get_widths_from_w(const ObjectStorage &storage, const string &font_n
         case ARRAY:
         {
             unsigned int start_char = strict_stoul(result[i].first);
-            const vector<pair<string, pdf_object_t>> w_array = get_array_data(result[i + 1].first, 0);
-            for (const pair<string, pdf_object_t> &p : w_array)
+            const array_t w_array = get_array_data(result[i + 1].first, 0);
+            for (const array_t::value_type &p : w_array)
             {
                 widths.at(font_name).insert(make_pair(start_char, stod(p.first)));
                 ++start_char;
@@ -108,9 +105,7 @@ void Fonts::get_widths_from_widths(const ObjectStorage &storage,
     const dict_t &font = dictionary_per_font.at(font_name);
     unsigned int first_char = strict_stoul(get_dict_val(font, "/FirstChar", FIRST_CHAR_DEFAULT));
     default_width.insert(make_pair(font_name, stod(get_dict_val(font_desc, "/MissingWidth", MISSING_WIDTH_DEFAULT))));
-    const string array = (array_arg.second == ARRAY)? array_arg.first :
-                                                      get_indirect_object_data(array_arg.first, storage, ARRAY).first;
-    const vector<pair<string, pdf_object_t>> result = get_array_data(array, 0);
+    const array_t result = get_array_or_indirect_array(array_arg, storage);
     for (size_t i = 0; i < result.size(); ++i)
     {
         const pair<string, pdf_object_t> &p = result[i];
@@ -136,7 +131,7 @@ void Fonts::insert_matrix_type3(const string &font_name, const dict_t &font)
     const pair<string, pdf_object_t> p = font.at("/FontMatrix");
     if (p.second != ARRAY) throw pdf_error(FUNC_STRING + "/FontMatrix must be ARRAY. Type=" + to_string(p.second) +
                                            " value=" + p.first);
-    vector<pair<string, pdf_object_t>> data = get_array_data(p.first, 0);
+    const array_t data = get_array_data(p.first, 0);
     if (data.size() != MATRIX_ELEMENTS) throw pdf_error(FUNC_STRING + "/FontMatrix must have " +
                                                         to_string(MATRIX_ELEMENTS) + " elements");
     array<double, MATRIX_ELEMENTS> matrix;
@@ -179,9 +174,7 @@ void Fonts::insert_height(const string &font_name, const dict_t &font_desc, cons
         heights.insert(make_pair(font_name, Fonts::NO_HEIGHT));
         return;
     }
-    const string array_str = (it->second.second == ARRAY)? it->second.first :
-                                                           get_indirect_object_data(it->second.first, storage, ARRAY).first;
-    vector<pair<string, pdf_object_t>> array = get_array_data(array_str, 0);
+    const array_t array = get_array_or_indirect_array(it->second, storage);
     heights.insert(make_pair(font_name, stod(array.at(3).first) - stod(array.at(1).first)));
 }
 

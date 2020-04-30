@@ -138,7 +138,7 @@ namespace
         if (filters.second == NAME_OBJECT) return vector<string>{filters.first};
         if (filters.second != ARRAY) throw pdf_error(FUNC_STRING + "wrong filter type: " + to_string(filters.second));
         vector<string> result;
-        for (const pair<string, pdf_object_t> &p : get_array_data(filters.first, 0)) result.push_back(p.first);
+        for (const array_t::value_type &p : get_array_data(filters.first, 0)) result.push_back(p.first);
         return result;
     }
 
@@ -447,7 +447,7 @@ dict_t get_dictionary_data(const string &buffer, size_t offset)
     }
 }
 
-vector<pair<string, pdf_object_t>> get_array_data(const string &buffer, size_t offset)
+array_t get_array_data(const string &buffer, size_t offset)
 {
     offset = efind(buffer, '[', offset);
     ++offset;

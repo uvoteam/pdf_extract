@@ -67,7 +67,7 @@ vector<text_line_t> CharsetConverter::get_strings_from_array(const string &array
 {
     vector<text_line_t> result;
     double Tj = 0;
-    for (const pair<string, pdf_object_t> &p : get_array_data(array, 0))
+    for (const array_t::value_type &p : get_array_data(array, 0))
     {
         switch (p.second)
         {
@@ -240,7 +240,7 @@ unique_ptr<CharsetConverter> CharsetConverter::get_diff_map_converter(PDFEncode_
                                                                       const ObjectStorage &storage)
 {
     unordered_map<unsigned int, string> code2symbol = standard_encodings.at(encoding);
-    vector<pair<string, pdf_object_t>> array_data = get_array_data(array, 0);
+    const array_t array_data = get_array_data(array, 0);
 
     auto start_it = find_if(array_data.begin(),
                             array_data.end(),

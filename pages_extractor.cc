@@ -350,7 +350,7 @@ void PagesExtractor::get_XObject_data(const string &parent_id,
     }
     else
     {
-        const vector<pair<string, pdf_object_t>> numbers = get_array_data(it->second.first, 0);
+        const array_t numbers = get_array_data(it->second.first, 0);
         if (numbers.size() != MATRIX_ELEMENTS_NUM) throw pdf_error(FUNC_STRING + "matrix must have " +
                                                                    to_string(MATRIX_ELEMENTS_NUM) +
                                                                    "elements. Data = " + it->second.first);
@@ -393,7 +393,7 @@ mediabox_t PagesExtractor::parse_rectangle(const pair<string, pdf_object_t> &rec
     }
     const string array = (rectangle.second == INDIRECT_OBJECT)? storage.get_object(get_id_gen(rectangle.first).first).first :
                                                                 rectangle.first;
-    const vector<pair<string, pdf_object_t>> array_data = get_array_data(array, 0);
+    const array_t array_data = get_array_data(array, 0);
     if (array_data.size() != RECTANGLE_ELEMENTS_NUM)
     {
         throw pdf_error(FUNC_STRING + "wrong size of array. Size:" + to_string(array_data.size()));

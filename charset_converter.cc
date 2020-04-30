@@ -29,6 +29,13 @@ namespace
         return result;
     }
 
+    double get_width_identity(const string &s, const Fonts &fonts)
+    {
+        double result = 0;
+        for (size_t i = 0; i < s.length(); i += 2) result += fonts.get_width(string2num(s.substr(i, 2)));
+        return result;
+    }
+
     unsigned int get_length(const string &s, const string &charset)
     {
         if (charset == "UTF-8") return utf8_length(s);
@@ -90,7 +97,11 @@ text_line_t CharsetConverter::get_string(const string &s, Coordinates &coordinat
     case UTF8:
         return coordinates.adjust_coordinates(string(s), utf8_length(s), get_width(s, fonts), Tj, fonts);
     case IDENTITY:
-        return coordinates.adjust_coordinates(to_utf<char>(s, "UTF-16be"), s.length() / 2, get_width(s, fonts), Tj, fonts);
+        return coordinates.adjust_coordinates(to_utf<char>(s, "UTF-16be"),
+                                              s.length() / 2,
+                                              get_width_identity(s, fonts),
+                                              Tj,
+                                              fonts);
     case DEFAULT:
     case MAC_EXPERT:
     case MAC_ROMAN:

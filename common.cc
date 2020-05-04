@@ -759,7 +759,7 @@ unsigned int string2num(const std::string &s)
 {
     if (s.empty()) throw pdf_error(FUNC_STRING + "string is empty");
     unsigned int result = 0;
-    for (int i = s.length() - 1, j = 0; i >= 0; --i, ++j) result |= s[i] << (8 * j);
+    for (int i = s.length() - 1, j = 0; i >= 0; --i, ++j) result |= static_cast<unsigned char>(s[i]) << (8 * j);
     return result;
 }
 

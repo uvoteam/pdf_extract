@@ -152,7 +152,8 @@ NEXT:
         sort(chunks.begin(), chunks.end(),
              [](const text_line_t &a, const text_line_t &b) -> bool
              {
-                 return a.coordinates.y0 > b.coordinates.y0;
+                 if (a.coordinates.y0 != b.coordinates.y0) return a.coordinates.y0 > b.coordinates.y0;
+                 return a.coordinates.x0 < b.coordinates.x0;
              });
         for (text_line_t &line : chunks)
         {

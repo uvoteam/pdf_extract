@@ -84,11 +84,8 @@ void Coordinates::Td(double x_arg, double y_arg)
 void Coordinates::set_default()
 {
     Tm = IDENTITY_MATRIX;
-    Th = TH_DEFAULT;
-    Tc = TC_DEFAULT;
-    Tw = TW_DEFAULT;
-    Tfs = TFS_DEFAULT;
-    TL = TL_DEFAULT;
+    x = 0;
+    y = 0;
 }
 
 pair<double, double> Coordinates::get_coordinates(const matrix_t &m1, const matrix_t &m2) const

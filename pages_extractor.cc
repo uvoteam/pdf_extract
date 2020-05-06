@@ -26,6 +26,7 @@ namespace
     const double LINE_OVERLAP = 0.5;
     const double CHAR_MARGIN = 2.0;
     const double WORD_MARGIN = 0.1;
+    const double LINE_MARGIN = 0.5;
 
     string get_resource_name(const string &page, const string &object)
     {
@@ -101,33 +102,35 @@ namespace
                (hdistance(obj1.coordinates, obj2.coordinates) < max(width(obj1), width(obj2)) * CHAR_MARGIN);
     }
 
-    // bool is_valign(const coordinates_t &obj1, const coordinates_t &obj2)
-    // {
-    //     return is_hoverlap(obj1, obj2) &&
-    //            (min(width(obj1), width(obj2)) * LINE_OVERLAP < hoverlap(obj1, obj2)) &&
-    //            (vdistance(obj1, obj2) < max(height(obj1), height(obj2)) * CHAR_MARGIN);
-    // }
-
-    bool merge_lines(vector<text_line_t> &lines, size_t j, size_t i)
+    bool is_neighbour(const text_line_t &obj1, const text_line_t &obj2)
     {
-        // if (is_valign(lines[j].coordinates, lines[i].coordinates) &&
-        //     !is_halign(lines[j].coordinates, lines[i].coordinates))
-        //     cout << lines[j] << endl;
-        if (is_halign(lines[j], lines[i]))
+        double height1 = height(obj1.coordinates), height2 = height(obj2.coordinates);
+        double d = LINE_MARGIN * max(height1, height2);
+        if (fabs(height1 - height2) < d &&
+            (fabs(obj1.coordinates.x0 - obj2.coordinates.x0) < d || fabs(obj1.coordinates.x1 - obj2.coordinates.x1) < d))
+           {
+                return true;
+           }
+        return false;
+    }
+
+    bool merge_lines(vector<text_line_t> &lines, size_t j, size_t i, bool (&cmp)(const text_line_t&, const text_line_t&))
+    {
+        if (cmp(lines[j], lines[i]))
         {
             lines[j].string_len += lines[i].string_len;
             for (text_chunk_t &chunk : lines[i].chunks) lines[j].chunks.push_back(std::move(chunk));
             lines[j].coordinates.x0 = min(lines[j].coordinates.x0, lines[i].coordinates.x0);
             lines[j].coordinates.x1 = max(lines[j].coordinates.x1, lines[i].coordinates.x1);
-            lines[j].coordinates.y0 = min(lines[j].coordinates.y0, lines[i].coordinates.y0);
-            lines[j].coordinates.y1 = max(lines[j].coordinates.y1, lines[i].coordinates.y1);
+            lines[j].coordinates.y0 = max(lines[j].coordinates.y0, lines[i].coordinates.y0);
+            lines[j].coordinates.y1 = min(lines[j].coordinates.y1, lines[i].coordinates.y1);
             lines.erase(lines.begin() + i);
             return true;
         }
         return false;
     }
 
-    void make_text_lines(vector<text_line_t> &chunks)
+    void traverse_lines(vector<text_line_t> &chunks, bool (&cmp)(const text_line_t&, const text_line_t&))
     {
 NEXT:
         for (size_t j = 0; j < chunks.size(); ++j)
@@ -135,8 +138,52 @@ NEXT:
             for (size_t i = 0; i < chunks.size(); ++i)
             {
                 if (j == i) continue;
-                if (merge_lines(chunks, i, j)) goto NEXT;
+                if (merge_lines(chunks, i, j, cmp)) goto NEXT;
             }
+        }
+    }
+
+    void make_text_boxes(vector<text_line_t> &chunks)
+    {
+        traverse_lines(chunks, is_neighbour);
+        sort(chunks.begin(), chunks.end(),
+             [](const text_line_t &a, const text_line_t &b) -> bool
+             {
+                 if (a.coordinates.y0 != b.coordinates.y0) return a.coordinates.y0 > b.coordinates.y0;
+                 return a.coordinates.x0 < b.coordinates.x0;
+             });
+    }
+
+    void make_text_lines(vector<text_line_t> &chunks)
+    {
+        traverse_lines(chunks, is_halign);
+        sort(chunks.begin(), chunks.end(),
+             [](const text_line_t &a, const text_line_t &b) -> bool
+             {
+                 if (a.coordinates.y0 != b.coordinates.y0) return a.coordinates.y0 > b.coordinates.y0;
+                 return a.coordinates.x0 < b.coordinates.x0;
+             });
+
+        for (text_line_t &line : chunks)
+        {
+            if (line.chunks.empty()) continue;
+            vector<text_chunk_t> whole_line{text_chunk_t(line.coordinates)};
+            sort(line.chunks.begin(), line.chunks.end(),
+                 [](const text_chunk_t &a, const text_chunk_t &b) -> bool
+                 {
+                     return a.coordinates.x0 < b.coordinates.x0;
+                 });
+            for (size_t i = 0; i < line.chunks.size(); ++i)
+            {
+                whole_line[0].text += line.chunks[i].text;
+                if ((i != line.chunks.size() - 1) &&
+                    line.chunks[i].coordinates.x1 < line.chunks[i + 1].coordinates.x0 -
+                    width(line.chunks[i + 1]) * WORD_MARGIN)
+                {
+                    whole_line[0].text += ' ';
+                }
+            }
+            line.chunks = std::move(whole_line);
         }
     }
 
@@ -149,30 +196,24 @@ NEXT:
         // return string();
         string result;
         make_text_lines(chunks);
-        sort(chunks.begin(), chunks.end(),
-             [](const text_line_t &a, const text_line_t &b) -> bool
-             {
-                 if (a.coordinates.y0 != b.coordinates.y0) return a.coordinates.y0 > b.coordinates.y0;
-                 return a.coordinates.x0 < b.coordinates.x0;
-             });
-        for (text_line_t &line : chunks)
+        make_text_boxes(chunks);
+        for (text_line_t &box : chunks)
         {
-            sort(line.chunks.begin(), line.chunks.end(),
+//            result += to_string(box.coordinates.x0) + ' ' + to_string(box.coordinates.y0) + '\n';
+            //          result += "--------------------------------------------------\n";
+            sort(box.chunks.begin(), box.chunks.end(),
                  [](const text_chunk_t &a, const text_chunk_t &b) -> bool
                  {
+                     if (a.coordinates.y0 != b.coordinates.y0) return a.coordinates.y0 > b.coordinates.y0;
                      return a.coordinates.x0 < b.coordinates.x0;
                  });
-            for (size_t i = 0; i < line.chunks.size(); ++i)
+
+            for (text_chunk_t &line : box.chunks)
             {
-                result += line.chunks[i].text;
-                if ((i != line.chunks.size() - 1) &&
-                    line.chunks[i].coordinates.x1 < line.chunks[i + 1].coordinates.x0 -
-                    width(line.chunks[i + 1]) * WORD_MARGIN)
-                {
-                    result += ' ';
-                }
+                result += std::move(line.text);
+                result += '\n';
             }
-            result += '\n';
+            result += "\n\n";
         }
         return result;
     }

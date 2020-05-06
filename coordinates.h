@@ -28,7 +28,10 @@ struct coordinates_t
 struct text_chunk_t
 {
     text_chunk_t(std::string &&text_arg, const coordinates_t &coordinates_arg) noexcept :
-                 coordinates(std::move(coordinates_arg)), text(std::move(text_arg))
+                 coordinates(coordinates_arg), text(std::move(text_arg))
+    {
+    }
+    text_chunk_t(const coordinates_t &coordinates_arg) noexcept : coordinates(coordinates_arg)
     {
     }
     coordinates_t coordinates;

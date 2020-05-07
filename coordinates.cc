@@ -94,7 +94,7 @@ pair<double, double> Coordinates::get_coordinates(const matrix_t &m1, const matr
     return make_pair(r[0][0], r[0][1]);
 }
 
-text_line_t Coordinates::adjust_coordinates(string &&s, size_t len, double width, double Tj, const Fonts &fonts)
+text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, double width, double Tj, const Fonts &fonts)
 {
     if (Tj != 0)
     {
@@ -119,7 +119,7 @@ text_line_t Coordinates::adjust_coordinates(string &&s, size_t len, double width
     {
         if (c == ' ') x += Tw * Th;
     }
-    return text_line_t(std::move(s), coordinates_t(x0, y0, x1, y1));
+    return text_chunk_t(std::move(s), coordinates_t(x0, y0, x1, y1));
 }
 
 void Coordinates::ctm_work(const string &token, stack<pair<pdf_object_t, string>> &st)

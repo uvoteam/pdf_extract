@@ -61,11 +61,11 @@ pair<double, string> CharsetConverter::custom_decode_symbol(const string &s, siz
     return make_pair(0, string());
 }
 
-vector<text_line_t> CharsetConverter::get_strings_from_array(const string &array,
-                                                             Coordinates &coordinates,
-                                                             const Fonts &fonts) const
+vector<text_chunk_t> CharsetConverter::get_strings_from_array(const string &array,
+                                                              Coordinates &coordinates,
+                                                              const Fonts &fonts) const
 {
-    vector<text_line_t> result;
+    vector<text_chunk_t> result;
     double Tj = 0;
     for (const array_t::value_type &p : get_array_data(array, 0))
     {
@@ -90,7 +90,7 @@ bool CharsetConverter::is_vertical() const
     return false;
 }
 
-text_line_t CharsetConverter::get_string(const string &s, Coordinates &coordinates, double Tj, const Fonts &fonts) const
+text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordinates, double Tj, const Fonts &fonts) const
 {
     switch (PDFencode)
     {

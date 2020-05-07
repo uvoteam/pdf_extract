@@ -40,12 +40,12 @@ struct text_t
     std::string text;
 };
 
-struct text_line_t
+struct text_chunk_t
 {
-    text_line_t(std::string &&text_arg, coordinates_t &&coordinates_arg) :
-                coordinates(std::move(coordinates_arg)),
-                texts{text_t(std::move(text_arg), coordinates)},
-                string_len(utf8_length(texts[0].text))
+    text_chunk_t(std::string &&text_arg, coordinates_t &&coordinates_arg) :
+                 coordinates(std::move(coordinates_arg)),
+                 texts{text_t(std::move(text_arg), coordinates)},
+                 string_len(utf8_length(texts[0].text))
     {
     }
     coordinates_t coordinates;
@@ -59,7 +59,7 @@ public:
     Coordinates(const matrix_t &CTM);
     void set_default();
     matrix_t get_CTM() const;
-    text_line_t adjust_coordinates(std::string &&s, size_t len, double width, double Tj, const Fonts &fonts);
+    text_chunk_t adjust_coordinates(std::string &&s, size_t len, double width, double Tj, const Fonts &fonts);
     void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
     void ctm_work(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:

@@ -21,8 +21,8 @@ public:
     CharsetConverter(std::unordered_map<unsigned int, std::string> &&difference_map_arg);
     CharsetConverter() noexcept;
     CharsetConverter(const cmap_t *cmap_arg);
-    text_line_t get_string(const std::string &s, Coordinates &coordinates, double Tj, const Fonts &fonts) const;
-    std::vector<text_line_t> get_strings_from_array(const std::string &array,
+    text_chunk_t get_string(const std::string &s, Coordinates &coordinates, double Tj, const Fonts &fonts) const;
+    std::vector<text_chunk_t> get_strings_from_array(const std::string &array,
                                                      Coordinates &coordinates,
                                                      const Fonts &fonts) const;
     bool is_vertical() const;

@@ -32,9 +32,9 @@ private:
     boost::optional<mediabox_t> get_box(const dict_t &dictionary,
                                         const boost::optional<mediabox_t> &parent_media_box) const;
     mediabox_t parse_rectangle(const std::pair<std::string, pdf_object_t> &rectangle) const;
-    std::vector<std::vector<text_line_t>> extract_text(const std::string &page_content,
-                                                       const std::string &resource_id,
-                                                       const boost::optional<matrix_t> CTM);
+    std::vector<std::vector<text_chunk_t>> extract_text(const std::string &page_content,
+                                                        const std::string &resource_id,
+                                                        const boost::optional<matrix_t> CTM);
     void get_pages_resources_int(std::unordered_set<unsigned int> &checked_nodes,
                                  const dict_t &parent_dict,
                                  const dict_t &parent_fonts,

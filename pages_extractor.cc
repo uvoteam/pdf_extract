@@ -84,7 +84,7 @@ namespace
         return obj.y1 - obj.y0;
     }
 
-    double width(const text_line_t &obj)
+    double width(const text_chunk_t &obj)
     {
         return (obj.coordinates.x1 - obj.coordinates.x0) / obj.string_len;
     }
@@ -94,7 +94,7 @@ namespace
         return (obj.coordinates.x1 - obj.coordinates.x0) / utf8_length(obj.text);
     }
 
-    bool is_halign(const text_line_t &obj1, const text_line_t &obj2)
+    bool is_halign(const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
         return is_voverlap(obj1.coordinates, obj2.coordinates) &&
                (min(height(obj1.coordinates), height(obj2.coordinates)) * LINE_OVERLAP <
@@ -102,7 +102,7 @@ namespace
                (hdistance(obj1.coordinates, obj2.coordinates) < max(width(obj1), width(obj2)) * CHAR_MARGIN);
     }
 
-    bool is_neighbour(const text_line_t &obj1, const text_line_t &obj2)
+    bool is_neighbour(const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
         double height1 = height(obj1.coordinates), height2 = height(obj2.coordinates);
         double d = LINE_MARGIN * max(height1, height2);
@@ -114,7 +114,7 @@ namespace
         return false;
     }
 
-    bool merge_lines(vector<text_line_t> &lines, size_t j, size_t i, bool (&cmp)(const text_line_t&, const text_line_t&))
+    bool merge_lines(vector<text_chunk_t> &lines, size_t j, size_t i, bool (&cmp)(const text_chunk_t&, const text_chunk_t&))
     {
         if (cmp(lines[j], lines[i]))
         {
@@ -130,7 +130,7 @@ namespace
         return false;
     }
 
-    void traverse_lines(vector<text_line_t> &chunks, bool (&cmp)(const text_line_t&, const text_line_t&))
+    void traverse_lines(vector<text_chunk_t> &chunks, bool (&cmp)(const text_chunk_t&, const text_chunk_t&))
     {
 NEXT:
         for (size_t j = 0; j < chunks.size(); ++j)
@@ -143,28 +143,28 @@ NEXT:
         }
     }
 
-    void make_text_boxes(vector<text_line_t> &chunks)
+    void make_text_boxes(vector<text_chunk_t> &chunks)
     {
         traverse_lines(chunks, is_neighbour);
         sort(chunks.begin(), chunks.end(),
-             [](const text_line_t &a, const text_line_t &b) -> bool
+             [](const text_chunk_t &a, const text_chunk_t &b) -> bool
              {
                  if (a.coordinates.y0 != b.coordinates.y0) return a.coordinates.y0 > b.coordinates.y0;
                  return a.coordinates.x0 < b.coordinates.x0;
              });
     }
 
-    void make_text_lines(vector<text_line_t> &chunks)
+    void make_text_lines(vector<text_chunk_t> &chunks)
     {
         traverse_lines(chunks, is_halign);
         sort(chunks.begin(), chunks.end(),
-             [](const text_line_t &a, const text_line_t &b) -> bool
+             [](const text_chunk_t &a, const text_chunk_t &b) -> bool
              {
                  if (a.coordinates.y0 != b.coordinates.y0) return a.coordinates.y0 > b.coordinates.y0;
                  return a.coordinates.x0 < b.coordinates.x0;
              });
 
-        for (text_line_t &line : chunks)
+        for (text_chunk_t &line : chunks)
         {
             if (line.texts.empty()) continue;
             vector<text_t> whole_line{text_t(line.coordinates)};
@@ -187,9 +187,9 @@ NEXT:
         }
     }
 
-    string render_text(vector<text_line_t> &chunks)
+    string render_text(vector<text_chunk_t> &chunks)
     {
-        // for (const text_line_t &chunk : chunks)
+        // for (const text_chunk_t &chunk : chunks)
         // {
         //     cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.chunks[0].text << endl;
         // }
@@ -197,7 +197,7 @@ NEXT:
         string result;
         make_text_lines(chunks);
         make_text_boxes(chunks);
-        for (text_line_t &box : chunks)
+        for (text_chunk_t &box : chunks)
         {
 //            result += to_string(box.coordinates.x0) + ' ' + to_string(box.coordinates.y0) + '\n';
             //          result += "--------------------------------------------------\n";
@@ -465,7 +465,7 @@ string PagesExtractor::get_text()
         {
             page_content += output_content(visited_contents, doc, storage, id_gen, decrypt_data);
         }
-        for (vector<text_line_t> r : extract_text(page_content, to_string(page_id), boost::none)) text += render_text(r);
+        for (vector<text_chunk_t> r : extract_text(page_content, to_string(page_id), boost::none)) text += render_text(r);
     }
     return text;
 }
@@ -519,9 +519,9 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(c
     }
 }
 
-vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_content,
-                                                         const string &resource_id,
-                                                         const optional<matrix_t> CTM)
+vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_content,
+                                                          const string &resource_id,
+                                                          const optional<matrix_t> CTM)
 {
     static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
     static const unordered_set<string> ctm_tokens = {"cm", "q", "Q"};
@@ -529,8 +529,8 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
     stack<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
-    vector<vector<text_line_t>> result;
-    result.push_back(vector<text_line_t>());
+    vector<vector<text_chunk_t>> result;
+    result.push_back(vector<text_chunk_t>());
     for (size_t i = 0; i < page_content.length();)
     {
         i = skip_spaces(page_content, i, false);
@@ -562,7 +562,7 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
             if (it != XObject_streams.end())
             {
                 const matrix_t ctm = XObject_matrices.at(resource_name) * coordinates.get_CTM();
-                for (const vector<text_line_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(r);
+                for (const vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(r);
             }
         }
         else if (token == "Tf")
@@ -605,9 +605,9 @@ vector<vector<text_line_t>> PagesExtractor::extract_text(const string &page_cont
         //vertical fonts are not implemented
         else if (token == "TJ" && !encoding->is_vertical())
         {
-            const vector<text_line_t> tj_texts = encoding->get_strings_from_array(pop(st).second,
-                                                                                  coordinates,
-                                                                                  fonts.at(resource_id));
+            const vector<text_chunk_t> tj_texts = encoding->get_strings_from_array(pop(st).second,
+                                                                                   coordinates,
+                                                                                   fonts.at(resource_id));
             result[0].insert(result[0].end(), tj_texts.begin(), tj_texts.end());
         }
         else

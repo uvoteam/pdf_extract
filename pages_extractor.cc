@@ -89,7 +89,7 @@ namespace
         return (obj.coordinates.x1 - obj.coordinates.x0) / obj.string_len;
     }
 
-    double width(const text_chunk_t &obj)
+    double width(const text_t &obj)
     {
         return (obj.coordinates.x1 - obj.coordinates.x0) / utf8_length(obj.text);
     }
@@ -119,7 +119,7 @@ namespace
         if (cmp(lines[j], lines[i]))
         {
             lines[j].string_len += lines[i].string_len;
-            for (text_chunk_t &chunk : lines[i].chunks) lines[j].chunks.push_back(std::move(chunk));
+            for (text_t &text : lines[i].texts) lines[j].texts.push_back(std::move(text));
             lines[j].coordinates.x0 = min(lines[j].coordinates.x0, lines[i].coordinates.x0);
             lines[j].coordinates.x1 = max(lines[j].coordinates.x1, lines[i].coordinates.x1);
             lines[j].coordinates.y0 = max(lines[j].coordinates.y0, lines[i].coordinates.y0);
@@ -166,24 +166,24 @@ NEXT:
 
         for (text_line_t &line : chunks)
         {
-            if (line.chunks.empty()) continue;
-            vector<text_chunk_t> whole_line{text_chunk_t(line.coordinates)};
-            sort(line.chunks.begin(), line.chunks.end(),
-                 [](const text_chunk_t &a, const text_chunk_t &b) -> bool
+            if (line.texts.empty()) continue;
+            vector<text_t> whole_line{text_t(line.coordinates)};
+            sort(line.texts.begin(), line.texts.end(),
+                 [](const text_t &a, const text_t &b) -> bool
                  {
                      return a.coordinates.x0 < b.coordinates.x0;
                  });
-            for (size_t i = 0; i < line.chunks.size(); ++i)
+            for (size_t i = 0; i < line.texts.size(); ++i)
             {
-                whole_line[0].text += line.chunks[i].text;
-                if ((i != line.chunks.size() - 1) &&
-                    line.chunks[i].coordinates.x1 < line.chunks[i + 1].coordinates.x0 -
-                    width(line.chunks[i + 1]) * WORD_MARGIN)
+                whole_line[0].text += line.texts[i].text;
+                if ((i != line.texts.size() - 1) &&
+                    line.texts[i].coordinates.x1 < line.texts[i + 1].coordinates.x0 -
+                    width(line.texts[i + 1]) * WORD_MARGIN)
                 {
                     whole_line[0].text += ' ';
                 }
             }
-            line.chunks = std::move(whole_line);
+            line.texts = std::move(whole_line);
         }
     }
 
@@ -201,14 +201,14 @@ NEXT:
         {
 //            result += to_string(box.coordinates.x0) + ' ' + to_string(box.coordinates.y0) + '\n';
             //          result += "--------------------------------------------------\n";
-            sort(box.chunks.begin(), box.chunks.end(),
-                 [](const text_chunk_t &a, const text_chunk_t &b) -> bool
+            sort(box.texts.begin(), box.texts.end(),
+                 [](const text_t &a, const text_t &b) -> bool
                  {
                      if (a.coordinates.y0 != b.coordinates.y0) return a.coordinates.y0 > b.coordinates.y0;
                      return a.coordinates.x0 < b.coordinates.x0;
                  });
 
-            for (text_chunk_t &line : box.chunks)
+            for (text_t &line : box.texts)
             {
                 result += std::move(line.text);
                 result += '\n';

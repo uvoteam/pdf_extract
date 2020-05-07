@@ -25,15 +25,17 @@ struct coordinates_t
     double y1;
 };
 
-struct text_chunk_t
+struct text_t
 {
-    text_chunk_t(std::string &&text_arg, const coordinates_t &coordinates_arg) noexcept :
-                 coordinates(coordinates_arg), text(std::move(text_arg))
+    text_t(std::string &&text_arg, const coordinates_t &coordinates_arg) noexcept :
+           coordinates(coordinates_arg), text(std::move(text_arg))
     {
     }
-    text_chunk_t(const coordinates_t &coordinates_arg) noexcept : coordinates(coordinates_arg)
+
+    text_t(const coordinates_t &coordinates_arg) noexcept : coordinates(coordinates_arg)
     {
     }
+
     coordinates_t coordinates;
     std::string text;
 };
@@ -42,12 +44,12 @@ struct text_line_t
 {
     text_line_t(std::string &&text_arg, coordinates_t &&coordinates_arg) :
                 coordinates(std::move(coordinates_arg)),
-                chunks{text_chunk_t(std::move(text_arg), coordinates)},
-                string_len(utf8_length(chunks[0].text))
+                texts{text_t(std::move(text_arg), coordinates)},
+                string_len(utf8_length(texts[0].text))
     {
     }
     coordinates_t coordinates;
-    std::vector<text_chunk_t> chunks;
+    std::vector<text_t> texts;
     size_t string_len;
 };
 

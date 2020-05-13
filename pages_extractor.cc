@@ -17,16 +17,68 @@
 #include "cmap.h"
 #include "pages_extractor.h"
 #include "coordinates.h"
+#include "plane.h"
 
 using namespace std;
 using namespace boost;
 namespace
 {
-    enum { MATRIX_ELEMENTS_NUM = 6 };
+    struct dist_t
+    {
+        dist_t(unsigned char c_arg,
+               double d_arg,
+               const text_chunk_t &obj1_arg,
+               const text_chunk_t &obj2_arg) noexcept : c(c_arg), d(d_arg), obj1(obj1_arg), obj2(obj2_arg)
+        {
+        }
+
+        unsigned char c;
+        double d;
+        text_chunk_t obj1;
+        text_chunk_t obj2;
+    };
+
+    enum { MATRIX_ELEMENTS_NUM = 6, GRID_SIZE = 50 };
     const double LINE_OVERLAP = 0.5;
     const double CHAR_MARGIN = 2.0;
     const double WORD_MARGIN = 0.1;
     const double LINE_MARGIN = 0.5;
+    const double BOXES_FLOW = 0.5;
+
+    dist_t pop(vector<dist_t> &dists)
+    {
+        if (dists.empty()) throw pdf_error(FUNC_STRING + "dists is empty");
+        dist_t dist = std::move(dists[0]);
+        dists.erase(dists.begin());
+        return dist;
+    }
+
+    text_chunk_t create_group(const text_chunk_t &obj1, const text_chunk_t &obj2)
+    {
+        text_chunk_t result = obj1;
+        for (const text_t &text : obj2.texts)
+        {
+            result.coordinates.x0 = min(result.coordinates.x0, text.coordinates.x0);
+            result.coordinates.x1 = max(result.coordinates.x1, text.coordinates.x1);
+            result.coordinates.y0 = min(result.coordinates.y0, text.coordinates.y0);
+            result.coordinates.y1 = max(result.coordinates.y1, text.coordinates.y1);
+            result.texts.push_back(text);
+        }
+        result.is_group = true;
+        return result;
+    }
+
+    bool is_any(Plane &plane, const text_chunk_t &obj1, const text_chunk_t &obj2)
+    {
+        double x0 = min(obj1.coordinates.x0, obj2.coordinates.x0);
+        double y0 = min(obj1.coordinates.y0, obj2.coordinates.y0);
+        double x1 = max(obj1.coordinates.x1, obj2.coordinates.x1);
+        double y1 = max(obj1.coordinates.y1, obj2.coordinates.y1);
+        unordered_set<text_chunk_t> objs = plane.find(x0, y0, x1, y1);
+        objs.erase(obj1);
+        objs.erase(obj2);
+        return !objs.empty();
+    }
 
     string get_resource_name(const string &page, const string &object)
     {
@@ -122,8 +174,8 @@ namespace
             for (text_t &text : lines[i].texts) lines[j].texts.push_back(std::move(text));
             lines[j].coordinates.x0 = min(lines[j].coordinates.x0, lines[i].coordinates.x0);
             lines[j].coordinates.x1 = max(lines[j].coordinates.x1, lines[i].coordinates.x1);
-            lines[j].coordinates.y0 = max(lines[j].coordinates.y0, lines[i].coordinates.y0);
-            lines[j].coordinates.y1 = min(lines[j].coordinates.y1, lines[i].coordinates.y1);
+            lines[j].coordinates.y0 = min(lines[j].coordinates.y0, lines[i].coordinates.y0);
+            lines[j].coordinates.y1 = max(lines[j].coordinates.y1, lines[i].coordinates.y1);
             lines.erase(lines.begin() + i);
             return true;
         }
@@ -146,12 +198,6 @@ NEXT:
     void make_text_boxes(vector<text_chunk_t> &chunks)
     {
         traverse_lines(chunks, is_neighbour);
-        sort(chunks.begin(), chunks.end(),
-             [](const text_chunk_t &a, const text_chunk_t &b) -> bool
-             {
-                 if (a.coordinates.y0 != b.coordinates.y0) return a.coordinates.y0 > b.coordinates.y0;
-                 return a.coordinates.x0 < b.coordinates.x0;
-             });
     }
 
     void make_text_lines(vector<text_chunk_t> &chunks)
@@ -187,35 +233,93 @@ NEXT:
         }
     }
 
-    string render_text(vector<text_chunk_t> &chunks)
+    void dsort(vector<dist_t> &dists)
+    {
+        sort(dists.begin(), dists.end(),
+             [](const dist_t &a, const dist_t &b) -> bool
+             {
+                 if (a.c != b.c) return a.c < b.c;
+                 return a.d < b.d;
+             });
+    }
+
+    double get_dist(const text_chunk_t &obj1, const text_chunk_t &obj2)
+    {
+        double x0 = min(obj1.coordinates.x0, obj2.coordinates.x0);
+        double y0 = min(obj1.coordinates.y0, obj2.coordinates.y0);
+        double x1 = max(obj1.coordinates.x1, obj2.coordinates.x1);
+        double y1 = max(obj1.coordinates.y1, obj2.coordinates.y1);
+        return (x1 - x0) * (y1 - y0) -
+               width(obj1.coordinates) * height(obj1.coordinates) - width(obj2.coordinates) * height(obj2.coordinates);
+    }
+
+    Plane make_plane(vector<text_chunk_t> &chunks, const mediabox_t &mediabox)
+    {
+        vector<dist_t> dists;
+        Plane plane(mediabox[0], mediabox[1], mediabox[2], mediabox[3], GRID_SIZE);
+        for (size_t i = 0; i < chunks.size(); ++i)
+        {
+            plane.add(chunks[i]);
+            for (size_t j = i + 1; j < chunks.size(); ++j) dists.push_back(dist_t(0,
+                                                                                  get_dist(chunks[i], chunks[j]),
+                                                                                  chunks[i],
+                                                                                  chunks[j]));
+        }
+
+        dsort(dists);
+        while (!dists.empty())
+        {
+            dist_t dist = pop(dists);
+            if (dist.c == 0 && is_any(plane, dist.obj1, dist.obj2))
+            {
+                dists.push_back(dist_t(1, dist.d, dist.obj1, dist.obj2));
+                continue;
+            }
+            text_chunk_t group = create_group(dist.obj1, dist.obj2);
+            plane.remove(dist.obj1);
+            plane.remove(dist.obj2);
+            dists.erase(remove_if(dists.begin(),
+                                  dists.end(),
+                                  [&plane](const dist_t &d) {
+                                      return !plane.contains(d.obj1) || !plane.contains(d.obj2);
+                                  }),
+                        dists.end());
+            for (const text_chunk_t &obj : plane.get_objects()) dists.push_back(dist_t(0, get_dist(group, obj), group, obj));
+            dsort(dists);
+            plane.add(group);
+        }
+        return plane;
+    }
+
+    string make_string(const Plane &plane)
+    {
+        unordered_set<text_chunk_t> groups_set = plane.get_objects();
+        vector<text_chunk_t> groups(groups_set.begin(), groups_set.end());
+        for (text_chunk_t &group : groups)
+        {
+            stable_sort(group.texts.begin(), group.texts.end(), [](const text_t &a, const text_t &b) {
+                                                                   return a.coordinates.y1 > b.coordinates.y1;});
+        }
+        stable_sort(groups.begin(), groups.end(), [](const text_chunk_t &a, const text_chunk_t &b) {
+                return (1 - BOXES_FLOW)*(a.coordinates.x0) - (1 + BOXES_FLOW)*(a.coordinates.y0 + a.coordinates.y1) <
+                       (1 - BOXES_FLOW)*(b.coordinates.x0) - (1 + BOXES_FLOW)*(b.coordinates.y0 + b.coordinates.y1);
+            });
+        string result;
+        for (const text_chunk_t &group : groups)
+            for (const text_t &box : group.texts) result += box.text + "\n";
+        return result;
+    }
+
+    string render_text(vector<text_chunk_t> &chunks, const mediabox_t &mediabox)
     {
         // for (const text_chunk_t &chunk : chunks)
         // {
         //     cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.chunks[0].text << endl;
         // }
         // return string();
-        string result;
         make_text_lines(chunks);
         make_text_boxes(chunks);
-        for (text_chunk_t &box : chunks)
-        {
-//            result += to_string(box.coordinates.x0) + ' ' + to_string(box.coordinates.y0) + '\n';
-            //          result += "--------------------------------------------------\n";
-            sort(box.texts.begin(), box.texts.end(),
-                 [](const text_t &a, const text_t &b) -> bool
-                 {
-                     if (a.coordinates.y0 != b.coordinates.y0) return a.coordinates.y0 > b.coordinates.y0;
-                     return a.coordinates.x0 < b.coordinates.x0;
-                 });
-
-            for (text_t &line : box.texts)
-            {
-                result += std::move(line.text);
-                result += '\n';
-            }
-            result += "\n\n";
-        }
-        return result;
+        return make_string(make_plane(chunks, mediabox));
     }
 
     string output_content(unordered_set<unsigned int> &visited_contents,
@@ -465,7 +569,10 @@ string PagesExtractor::get_text()
         {
             page_content += output_content(visited_contents, doc, storage, id_gen, decrypt_data);
         }
-        for (vector<text_chunk_t> r : extract_text(page_content, to_string(page_id), boost::none)) text += render_text(r);
+        for (vector<text_chunk_t> r : extract_text(page_content, to_string(page_id), boost::none))
+        {
+            text += render_text(r, media_boxes.at(to_string(page_id)));
+        }
     }
     return text;
 }

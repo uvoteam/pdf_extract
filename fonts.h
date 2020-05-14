@@ -5,6 +5,7 @@
 #include <string>
 #include <array>
 #include <utility>
+#include <unordered_map>
 
 #include "object_storage.h"
 #include "common.h"
@@ -26,9 +27,12 @@ private:
     enum Font_type_t { TYPE_3, OTHER };
     Font_type_t insert_type(const std::string &font_name, const dict_t &font_desc);
     void insert_descendant(dict_t &font, const ObjectStorage &storage);
-    void insert_descent(const std::string &font_name, const dict_t &font_desc);
-    void insert_ascent(const std::string &font_name, const dict_t &font_desc);
-    void insert_height(const std::string &font_name, const dict_t &font_desc, const ObjectStorage &storage);
+    void insert_descent(const std::string &font_name, const dict_t &font_desc, const std::string &base_font);
+    void insert_ascent(const std::string &font_name, const dict_t &font_desc, const std::string &base_font);
+    void insert_height(const std::string &font_name,
+                       const dict_t &font_desc,
+                       const ObjectStorage &storage,
+                       const std::string &base_font);
     void validate_current_font() const;
     void insert_matrix_type3(const std::string &font_name, const dict_t &font_desc);
     void insert_width(const ObjectStorage &storage, const std::string &font_name, const dict_t &font_desc);
@@ -47,6 +51,20 @@ private:
     std::map<std::string, double> default_width;
     std::map<std::string, std::array<double, MATRIX_ELEMENTS>> font_matrix_type_3;
     double rise;
+
+    struct font_metric_t
+    {
+        font_metric_t(double ascent_arg, double descent_arg, double height_arg) noexcept :
+                      ascent(ascent_arg),
+                      descent(descent_arg),
+                      height(height_arg)
+        {
+        }
+        double ascent;
+        double descent;
+        double height;
+    };
+
     static const double VSCALE_NO_TYPE_3;
     static const double HSCALE_NO_TYPE_3;
     static const std::string FIRST_CHAR_DEFAULT;
@@ -56,6 +74,7 @@ private:
     static const double NO_DESCENT;
     static const double RISE_DEFAULT;
     static const double NO_ASCENT;
+    static const std::unordered_map<std::string, font_metric_t> std_metrics;
 };
 
 #endif

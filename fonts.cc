@@ -1,6 +1,7 @@
 #include <utility>
 #include <string>
 #include <array>
+#include <unordered_map>
 
 #include "fonts.h"
 #include "object_storage.h"
@@ -25,10 +26,11 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
             auto it = font_dict.find("/FontDescriptor");
             const dict_t desc_dict = (it == font_dict.end())? dict_t() : get_dict_or_indirect_dict(it->second, storage);
 
+            const string base_font = font_dict.at("/BaseFont").first;
             insert_width(storage, p.first, desc_dict);
-            insert_height(p.first, desc_dict, storage);
-            insert_descent(p.first, desc_dict);
-            insert_ascent(p.first, desc_dict);
+            insert_height(p.first, desc_dict, storage, base_font);
+            insert_descent(p.first, desc_dict, base_font);
+            insert_ascent(p.first, desc_dict, base_font);
         }
 }
 
@@ -166,35 +168,56 @@ double Fonts::get_rise() const
     return rise;
 }
 
-void Fonts::insert_height(const string &font_name, const dict_t &font_desc, const ObjectStorage &storage)
+void Fonts::insert_height(const string &font_name,
+                          const dict_t &font_desc,
+                          const ObjectStorage &storage,
+                          const string &base_font)
 {
     auto it = font_desc.find("/FontBBox");
     if (it == font_desc.end())
     {
-        heights.insert(make_pair(font_name, Fonts::NO_HEIGHT));
+        auto it = std_metrics.find(base_font);
+        if (it == std_metrics.end())
+        {
+            heights.insert(make_pair(font_name, Fonts::NO_HEIGHT));
+            return;
+        }
+        heights.insert(make_pair(font_name, it->second.height));
         return;
     }
     const array_t array = get_array_or_indirect_array(it->second, storage);
     heights.insert(make_pair(font_name, stod(array.at(3).first) - stod(array.at(1).first)));
 }
 
-void Fonts::insert_descent(const string &font_name, const dict_t &font_desc)
+void Fonts::insert_descent(const string &font_name, const dict_t &font_desc, const string &base_font)
 {
     auto it = font_desc.find("/Descent");
     if (it == font_desc.end())
     {
-        descents.insert(make_pair(font_name, Fonts::NO_DESCENT));
+        auto it = std_metrics.find(base_font);
+        if (it == std_metrics.end())
+        {
+            descents.insert(make_pair(font_name, Fonts::NO_DESCENT));
+            return;
+        }
+        descents.insert(make_pair(font_name, it->second.descent));
         return;
     }
     descents.insert(make_pair(font_name, stod(it->second.first)));
 }
 
-void Fonts::insert_ascent(const string &font_name, const dict_t &font_desc)
+void Fonts::insert_ascent(const string &font_name, const dict_t &font_desc, const string &base_font)
 {
     auto it = font_desc.find("/Ascent");
     if (it == font_desc.end())
     {
-        ascents.insert(make_pair(font_name, Fonts::NO_ASCENT));
+        auto it = std_metrics.find(base_font);
+        if (it == std_metrics.end())
+        {
+            ascents.insert(make_pair(font_name, Fonts::NO_ASCENT));
+            return;
+        }
+        ascents.insert(make_pair(font_name, it->second.ascent));
         return;
     }
     ascents.insert(make_pair(font_name, stod(it->second.first)));
@@ -251,3 +274,18 @@ const double Fonts::NO_ASCENT = 0;
 const string Fonts::FIRST_CHAR_DEFAULT = "0";
 const string Fonts::MISSING_WIDTH_DEFAULT = "0";
 const string Fonts::DW_DEFAULT = "1000";
+const unordered_map<string, Fonts::font_metric_t> Fonts::std_metrics = {
+    {"/Courier", font_metric_t(627, -194, 1052)},
+    {"/Courier-Bold", font_metric_t(627, -194, 1060)},
+    {"/Courier-BoldOblique", font_metric_t(627, -194, 1060)},
+    {"/Courier-Oblique", font_metric_t(627, -194, 1052)},
+    {"/Helvetica", font_metric_t(718, -207, 1156)},
+    {"/Helvetica-Bold", font_metric_t(718, -207, 1190)},
+    {"/Helvetica-BoldOblique", font_metric_t(718, -207, 1190)},
+    {"/Helvetica-Oblique", font_metric_t(718, -207, 1156)},
+    {"/Symbol", font_metric_t(NO_ASCENT, NO_DESCENT, 1303)},
+    {"/Times-Bold", font_metric_t(683, -217, 1153)},
+    {"/Times-BoldItalic", font_metric_t(683, -217, 1139)},
+    {"/Times-Italic", font_metric_t(683, -217, 1100)},
+    {"/Times-Roman", font_metric_t(683, -217, 1116)},
+    {"/ZapfDingbats", font_metric_t(NO_ASCENT, NO_DESCENT, 963)}};

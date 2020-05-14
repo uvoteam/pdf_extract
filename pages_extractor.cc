@@ -198,6 +198,11 @@ NEXT:
     void make_text_boxes(vector<text_chunk_t> &chunks)
     {
         traverse_lines(chunks, is_neighbour);
+        chunks.erase(remove_if(chunks.begin(),
+                               chunks.end(),
+                               [](const text_chunk_t& chunk) {
+                                   return width(chunk.coordinates) <= 0 || height(chunk.coordinates) <= 0;}),
+                     chunks.end());
     }
 
     void make_text_lines(vector<text_chunk_t> &chunks)

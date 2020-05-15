@@ -43,7 +43,6 @@ namespace
     const double CHAR_MARGIN = 2.0;
     const double WORD_MARGIN = 0.1;
     const double LINE_MARGIN = 0.5;
-    const double BOXES_FLOW = 0.5;
 
     dist_t pop(vector<dist_t> &dists)
     {
@@ -101,14 +100,14 @@ namespace
                         {-media_box.at(0), -media_box.at(1), 0}};
     }
 
-    bool is_hoverlap(const coordinates_t &obj1, const coordinates_t &obj2)
-    {
-        return obj2.x0 <= obj1.x1 && obj1.x0 <= obj2.x1;
-    }
-
     bool is_voverlap(const coordinates_t &obj1, const coordinates_t &obj2)
     {
         return obj2.y0 <= obj1.y1 && obj1.y0 <= obj2.y1;
+    }
+
+    bool is_hoverlap(const coordinates_t &obj1, const coordinates_t &obj2)
+    {
+        return obj2.x0 <= obj1.x1 && obj1.x0 <= obj2.x1;
     }
 
     double hoverlap(const coordinates_t &obj1, const coordinates_t &obj2)
@@ -118,12 +117,12 @@ namespace
 
     double voverlap(const coordinates_t &obj1, const coordinates_t &obj2)
     {
-        return min(fabs(obj1.y0 - obj2.y1), fabs(obj1.y1 - obj2.y0));
+        return is_voverlap(obj1, obj2)? min(fabs(obj1.y0 - obj2.y1), fabs(obj1.y1 - obj2.y0)) : 0;
     }
 
     double hdistance(const coordinates_t &obj1, const coordinates_t &obj2)
     {
-        return min(fabs(obj1.x0 - obj2.x1), fabs(obj1.x1 - obj2.x0));
+        return is_hoverlap(obj1, obj2)? 0 : min(fabs(obj1.x0 - obj2.x1), fabs(obj1.x1 - obj2.x0));
     }
 
     double vdistance(const coordinates_t &obj1, const coordinates_t &obj2)
@@ -157,11 +156,13 @@ namespace
     bool is_neighbour(const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
         double height1 = height(obj1.coordinates), height2 = height(obj2.coordinates);
-        double d = LINE_MARGIN * max(height1, height2);
+        double d = LINE_MARGIN * height1;
         if (fabs(height1 - height2) < d &&
+            obj2.coordinates.x1 > obj1.coordinates.x0 && obj2.coordinates.x0 < obj1.coordinates.x1 &&
+            obj2.coordinates.y0 < obj1.coordinates.y1 + d && obj2.coordinates.y1 > obj1.coordinates.y0 -d &&
             (fabs(obj1.coordinates.x0 - obj2.coordinates.x0) < d || fabs(obj1.coordinates.x1 - obj2.coordinates.x1) < d))
            {
-                return true;
+               return true;
            }
         return false;
     }
@@ -203,18 +204,35 @@ NEXT:
                                [](const text_chunk_t& chunk) {
                                    return width(chunk.coordinates) <= 0 || height(chunk.coordinates) <= 0;}),
                      chunks.end());
+        stable_sort(chunks.begin(), chunks.end(), [](const text_chunk_t &a, const text_chunk_t &b) {
+                                                     return a.coordinates.y1 > b.coordinates.y1;});
+        for (text_chunk_t &box : chunks)
+        {
+            if (box.texts.empty()) continue;
+            vector<text_t> whole_box{text_t(box.coordinates)};
+            sort(box.texts.begin(), box.texts.end(),
+                 [](const text_t &a, const text_t &b) -> bool
+                 {
+                     return a.coordinates.y1 > b.coordinates.y1;
+                 });
+            for (size_t i = 0; i < box.texts.size(); ++i)
+            {
+                whole_box[0].text += box.texts[i].text;
+            }
+            box.texts = std::move(whole_box);
+        }
+
     }
 
     void make_text_lines(vector<text_chunk_t> &chunks)
     {
+        chunks.erase(remove_if(chunks.begin(),
+                               chunks.end(),
+                               [](const text_chunk_t& chunk) {
+                                   return chunk.string_len == 0;
+                               }),
+                     chunks.end());
         traverse_lines(chunks, is_halign);
-        sort(chunks.begin(), chunks.end(),
-             [](const text_chunk_t &a, const text_chunk_t &b) -> bool
-             {
-                 if (a.coordinates.y0 != b.coordinates.y0) return a.coordinates.y0 > b.coordinates.y0;
-                 return a.coordinates.x0 < b.coordinates.x0;
-             });
-
         for (text_chunk_t &line : chunks)
         {
             if (line.texts.empty()) continue;
@@ -258,7 +276,7 @@ NEXT:
                width(obj1.coordinates) * height(obj1.coordinates) - width(obj2.coordinates) * height(obj2.coordinates);
     }
 
-    Plane make_plane(vector<text_chunk_t> &chunks, const mediabox_t &mediabox)
+    Plane make_plane(const vector<text_chunk_t> &chunks, const mediabox_t &mediabox)
     {
         vector<dist_t> dists;
         Plane plane(mediabox[0], mediabox[1], mediabox[2], mediabox[3], GRID_SIZE);
@@ -298,20 +316,11 @@ NEXT:
 
     string make_string(const Plane &plane)
     {
-        unordered_set<text_chunk_t> groups_set = plane.get_objects();
-        vector<text_chunk_t> groups(groups_set.begin(), groups_set.end());
-        for (text_chunk_t &group : groups)
-        {
-            stable_sort(group.texts.begin(), group.texts.end(), [](const text_t &a, const text_t &b) {
-                                                                   return a.coordinates.y1 > b.coordinates.y1;});
-        }
-        stable_sort(groups.begin(), groups.end(), [](const text_chunk_t &a, const text_chunk_t &b) {
-                return (1 - BOXES_FLOW)*(a.coordinates.x0) - (1 + BOXES_FLOW)*(a.coordinates.y0 + a.coordinates.y1) <
-                       (1 - BOXES_FLOW)*(b.coordinates.x0) - (1 + BOXES_FLOW)*(b.coordinates.y0 + b.coordinates.y1);
-            });
         string result;
-        for (const text_chunk_t &group : groups)
-            for (const text_t &box : group.texts) result += box.text + "\n";
+        for (const text_chunk_t &group : plane.get_objects()) //must be 1
+        {
+            for (const text_t &box : group.texts) result += box.text;
+        }
         return result;
     }
 
@@ -319,7 +328,7 @@ NEXT:
     {
         // for (const text_chunk_t &chunk : chunks)
         // {
-        //     cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.chunks[0].text << endl;
+        //     cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.texts[0].text << endl;
         // }
         // return string();
         make_text_lines(chunks);

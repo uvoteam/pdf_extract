@@ -2,6 +2,7 @@
 #include <string>
 #include <array>
 #include <unordered_map>
+#include <map>
 
 #include "fonts.h"
 #include "object_storage.h"
@@ -27,7 +28,7 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
             const dict_t desc_dict = (it == font_dict.end())? dict_t() : get_dict_or_indirect_dict(it->second, storage);
 
             const string base_font = font_dict.at("/BaseFont").first;
-            insert_width(storage, p.first, desc_dict);
+            insert_width(storage, p.first, desc_dict, base_font);
             insert_height(p.first, desc_dict, storage, base_font);
             insert_descent(p.first, desc_dict, base_font);
             insert_ascent(p.first, desc_dict, base_font);
@@ -55,12 +56,16 @@ double Fonts::get_width(unsigned int code) const
     return it->second * get_scales().first;
 }
 
-void Fonts::get_widths_from_w(const ObjectStorage &storage, const string &font_name)
+void Fonts::get_widths_from_w(const ObjectStorage &storage, const string &font_name, const string &base_font)
 {
     const dict_t &font = dictionary_per_font.at(font_name);
     default_width.insert(make_pair(font_name, stod(get_dict_val(font, "/DW", DW_DEFAULT))));
     auto it = font.find("/W");
-    if (it == font.end()) return;
+    if (it == font.end())
+    {
+        if (standard_widths.count(base_font)) widths[font_name] = standard_widths.at(base_font);
+        return;
+    }
     array_t result = get_array_or_indirect_array(it->second, storage);
     for (array_t::value_type &p : result)
     {
@@ -101,13 +106,19 @@ void Fonts::get_widths_from_w(const ObjectStorage &storage, const string &font_n
 
 void Fonts::get_widths_from_widths(const ObjectStorage &storage,
                                    const string &font_name,
-                                   const pair<string, pdf_object_t> &array_arg,
-                                   const dict_t &font_desc)
+                                   const dict_t &font_desc,
+                                   const string &base_font)
 {
     const dict_t &font = dictionary_per_font.at(font_name);
     unsigned int first_char = strict_stoul(get_dict_val(font, "/FirstChar", FIRST_CHAR_DEFAULT));
     default_width.insert(make_pair(font_name, stod(get_dict_val(font_desc, "/MissingWidth", MISSING_WIDTH_DEFAULT))));
-    const array_t result = get_array_or_indirect_array(array_arg, storage);
+    auto it = font.find("/Widths");
+    if (it == font.end())
+    {
+        if (standard_widths.count(base_font)) widths[font_name] = standard_widths.at(base_font);
+        return;
+    }
+    const array_t result = get_array_or_indirect_array(it->second, storage);
     for (size_t i = 0; i < result.size(); ++i)
     {
         const pair<string, pdf_object_t> &p = result[i];
@@ -116,16 +127,19 @@ void Fonts::get_widths_from_widths(const ObjectStorage &storage,
     }
 }
 
-void Fonts::insert_width(const ObjectStorage &storage, const string &font_name, const dict_t &font_desc)
+void Fonts::insert_width(const ObjectStorage &storage,
+                         const string &font_name,
+                         const dict_t &font_desc,
+                         const string &base_font)
 {
     widths.insert(make_pair(font_name, map<unsigned int, double>()));
-    auto it = dictionary_per_font.at(font_name).find("/Widths");
-    if (it != dictionary_per_font.at(font_name).end())
+    const string type = dictionary_per_font.at(font_name).at("/Subtype").first;
+    if (type == "/CIDFontType0" || type == "/CIDFontType0")
     {
-        get_widths_from_widths(storage, font_name, it->second, font_desc);
+        get_widths_from_w(storage, font_name, base_font);
         return;
     }
-    get_widths_from_w(storage, font_name);
+    get_widths_from_widths(storage, font_name, font_desc, base_font);
 }
 
 void Fonts::insert_matrix_type3(const string &font_name, const dict_t &font)
@@ -289,3 +303,7 @@ const unordered_map<string, Fonts::font_metric_t> Fonts::std_metrics = {
     {"/Times-Italic", font_metric_t(683, -217, 1100)},
     {"/Times-Roman", font_metric_t(683, -217, 1116)},
     {"/ZapfDingbats", font_metric_t(NO_ASCENT, NO_DESCENT, 963)}};
+
+const unordered_map<string, map<unsigned int, double>> Fonts::standard_widths =
+    #include "standard_widths.h"
+    ;

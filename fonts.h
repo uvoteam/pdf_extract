@@ -35,12 +35,15 @@ private:
                        const std::string &base_font);
     void validate_current_font() const;
     void insert_matrix_type3(const std::string &font_name, const dict_t &font_desc);
-    void insert_width(const ObjectStorage &storage, const std::string &font_name, const dict_t &font_desc);
+    void insert_width(const ObjectStorage &storage,
+                      const std::string &font_name,
+                      const dict_t &font_desc,
+                      const std::string &base_font);
     void get_widths_from_widths(const ObjectStorage &storage,
                                 const std::string &font_name,
-                                const std::pair<std::string, pdf_object_t> &array_arg,
-                                const dict_t &font_desc);
-    void get_widths_from_w(const ObjectStorage &storage, const std::string &font_name);
+                                const dict_t &font_desc,
+                                const std::string &base_font);
+    void get_widths_from_w(const ObjectStorage &storage, const std::string &font_name, const std::string &base_font);
     std::string current_font;
     std::map<std::string, dict_t> dictionary_per_font;
     std::map<std::string, double> heights;
@@ -75,6 +78,7 @@ private:
     static const double RISE_DEFAULT;
     static const double NO_ASCENT;
     static const std::unordered_map<std::string, font_metric_t> std_metrics;
+    static const std::unordered_map<std::string, std::map<unsigned int, double>> standard_widths;
 };
 
 #endif

@@ -290,7 +290,7 @@ const unordered_map<unsigned int, string> CharsetConverter::standard_encoding = 
                                                                                  {41, ")"},
                                                                                  {42, "*"},
                                                                                  {43, "+"},
-                                                                                 {44, "",},
+                                                                                 {44, ",",},
                                                                                  {45, "-"},
                                                                                  {46, "."},
                                                                                  {47, "/"},

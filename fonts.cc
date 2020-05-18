@@ -56,7 +56,7 @@ double Fonts::get_width(unsigned int code) const
     return it->second * get_scales().first;
 }
 
-void Fonts::get_widths_from_w(const ObjectStorage &storage, const string &font_name, const string &base_font)
+void Fonts::insert_widths_from_w(const ObjectStorage &storage, const string &font_name, const string &base_font)
 {
     const dict_t &font = dictionary_per_font.at(font_name);
     default_width.insert(make_pair(font_name, stod(get_dict_val(font, "/DW", DW_DEFAULT))));
@@ -104,10 +104,10 @@ void Fonts::get_widths_from_w(const ObjectStorage &storage, const string &font_n
     }
 }
 
-void Fonts::get_widths_from_widths(const ObjectStorage &storage,
-                                   const string &font_name,
-                                   const dict_t &font_desc,
-                                   const string &base_font)
+void Fonts::insert_widths_from_widths(const ObjectStorage &storage,
+                                      const string &font_name,
+                                      const dict_t &font_desc,
+                                      const string &base_font)
 {
     const dict_t &font = dictionary_per_font.at(font_name);
     unsigned int first_char = strict_stoul(get_dict_val(font, "/FirstChar", FIRST_CHAR_DEFAULT));
@@ -136,10 +136,10 @@ void Fonts::insert_width(const ObjectStorage &storage,
     const string type = dictionary_per_font.at(font_name).at("/Subtype").first;
     if (type == "/CIDFontType0" || type == "/CIDFontType0")
     {
-        get_widths_from_w(storage, font_name, base_font);
+        insert_widths_from_w(storage, font_name, base_font);
         return;
     }
-    get_widths_from_widths(storage, font_name, font_desc, base_font);
+    insert_widths_from_widths(storage, font_name, font_desc, base_font);
 }
 
 void Fonts::insert_matrix_type3(const string &font_name, const dict_t &font)

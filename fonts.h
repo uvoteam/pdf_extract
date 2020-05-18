@@ -39,11 +39,11 @@ private:
                       const std::string &font_name,
                       const dict_t &font_desc,
                       const std::string &base_font);
-    void get_widths_from_widths(const ObjectStorage &storage,
-                                const std::string &font_name,
-                                const dict_t &font_desc,
-                                const std::string &base_font);
-    void get_widths_from_w(const ObjectStorage &storage, const std::string &font_name, const std::string &base_font);
+    void insert_widths_from_widths(const ObjectStorage &storage,
+                                   const std::string &font_name,
+                                   const dict_t &font_desc,
+                                   const std::string &base_font);
+    void insert_widths_from_w(const ObjectStorage &storage, const std::string &font_name, const std::string &base_font);
     std::string current_font;
     std::map<std::string, dict_t> dictionary_per_font;
     std::map<std::string, double> heights;

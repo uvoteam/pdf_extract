@@ -213,7 +213,8 @@ NEXT:
             sort(box.texts.begin(), box.texts.end(),
                  [](const text_t &a, const text_t &b) -> bool
                  {
-                     return a.coordinates.y1 > b.coordinates.y1;
+                     if (a.coordinates.y1 != b.coordinates.y1) return a.coordinates.y1 > b.coordinates.y1;
+                     return a.coordinates.x0 < b.coordinates.x0;
                  });
             for (size_t i = 0; i < box.texts.size(); ++i)
             {

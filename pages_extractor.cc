@@ -326,11 +326,11 @@ NEXT:
 
     string render_text(vector<text_chunk_t> &chunks, const mediabox_t &mediabox)
     {
-        for (const text_chunk_t &chunk : chunks)
-        {
-            cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.texts[0].text << endl;
-        }
-        return string();
+        // for (const text_chunk_t &chunk : chunks)
+        // {
+        //     cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.texts[0].text << endl;
+        // }
+        // return string();
         make_text_lines(chunks);
         make_text_boxes(chunks);
         return make_string(make_plane(chunks, mediabox));

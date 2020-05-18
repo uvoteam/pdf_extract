@@ -116,17 +116,23 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             if (it != standard_encoding.end()) str.append(it->second);
         }
         return coordinates.adjust_coordinates(std::move(str), s.length(), get_width(s, fonts), Tj, fonts);
+
     }
     case DIFFERENCE_MAP:
     {
         string str;
         str.reserve(s.length());
+        double width = 0;
         for (char c : s)
         {
             auto it = difference_map.find(static_cast<unsigned char>(c));
-            if (it != difference_map.end()) str.append(it->second);
+            if (it != difference_map.end() && !it->second.empty())
+            {
+                str.append(it->second);
+                width += fonts.get_width(string2num(from_utf(it->second, "UTF-16be")));
+            }
         }
-        return coordinates.adjust_coordinates(std::move(str), s.length(), get_width(s, fonts), Tj, fonts);
+        return coordinates.adjust_coordinates(std::move(str), s.length(), width, Tj, fonts);
     }
     case OTHER:
         return coordinates.adjust_coordinates(to_utf<char>(s, charset),

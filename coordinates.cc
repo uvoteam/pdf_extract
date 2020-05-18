@@ -114,7 +114,7 @@ text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, double widt
     double y0 = min(start_coordinates.second, end_coordinates.second);
     double y1 = max(start_coordinates.second, end_coordinates.second);
     x += adv;
-//    cout << '(' << x0 << ", " << y0 << ")(" << x1 << ", " << y1 << ") " << endl;
+//    cout << s << " (" << x0 << ", " << y0 << ")(" << x1 << ", " << y1 << ") " << width << endl;
     for (char c : s)
     {
         if (c == ' ') x += Tw * Th;

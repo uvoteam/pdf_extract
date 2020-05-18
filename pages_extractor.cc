@@ -217,7 +217,7 @@ NEXT:
                  });
             for (size_t i = 0; i < box.texts.size(); ++i)
             {
-                whole_box[0].text += box.texts[i].text;
+                whole_box[0].text += box.texts[i].text + '\n';
             }
             box.texts = std::move(whole_box);
         }

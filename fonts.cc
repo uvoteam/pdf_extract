@@ -119,7 +119,7 @@ void Fonts::insert_widths_from_widths(const ObjectStorage &storage,
         return;
     }
     const array_t result = get_array_or_indirect_array(it->second, storage);
-    for (size_t i = 0; i < result.size(); ++i)
+    for (unsigned int i = 0; i < result.size(); ++i)
     {
         const pair<string, pdf_object_t> &p = result[i];
         const string val = (p.second == INDIRECT_OBJECT)? get_indirect_object_data(p.first, storage).first : p.first;

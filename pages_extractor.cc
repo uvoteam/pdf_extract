@@ -43,6 +43,7 @@ namespace
     const double CHAR_MARGIN = 2.0;
     const double WORD_MARGIN = 0.1;
     const double LINE_MARGIN = 0.5;
+    const double BOXES_FLOW = 0.5;
 
     dist_t pop(vector<dist_t> &dists)
     {
@@ -54,8 +55,15 @@ namespace
 
     text_chunk_t create_group(const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
-        text_chunk_t result = obj1;
-        for (const text_t &text : obj2.texts)
+        double pos1 = (1 - BOXES_FLOW) * (obj1.coordinates.x0) -
+                      (1 + BOXES_FLOW) * (obj1.coordinates.y0 + obj1.coordinates.y1);
+        double pos2 = (1 - BOXES_FLOW) * (obj2.coordinates.x0) -
+                      (1 + BOXES_FLOW) * (obj2.coordinates.y0 + obj2.coordinates.y1);
+        const text_chunk_t &o1 = (pos1 <= pos2)? obj1 : obj2;
+        const text_chunk_t &o2 = (pos1 <= pos2)? obj2 : obj1;
+
+        text_chunk_t result = o1;
+        for (const text_t &text : o2.texts)
         {
             result.coordinates.x0 = min(result.coordinates.x0, text.coordinates.x0);
             result.coordinates.x1 = max(result.coordinates.x1, text.coordinates.x1);
@@ -256,8 +264,6 @@ namespace
                                [](const text_chunk_t& chunk) {
                                    return width(chunk.coordinates) <= 0 || height(chunk.coordinates) <= 0;}),
                      chunks.end());
-        stable_sort(chunks.begin(), chunks.end(), [](const text_chunk_t &a, const text_chunk_t &b) {
-                                                     return a.coordinates.y1 > b.coordinates.y1;});
         for (text_chunk_t &box : chunks)
         {
             if (box.texts.empty()) continue;
@@ -329,10 +335,11 @@ namespace
                width(obj1.coordinates) * height(obj1.coordinates) - width(obj2.coordinates) * height(obj2.coordinates);
     }
 
-    Plane make_plane(const vector<text_chunk_t> &chunks, const mediabox_t &mediabox)
+    Plane make_plane(vector<text_chunk_t> &chunks, const mediabox_t &mediabox)
     {
         vector<dist_t> dists;
         Plane plane(mediabox[0], mediabox[1], mediabox[2], mediabox[3], GRID_SIZE);
+
         for (size_t i = 0; i < chunks.size(); ++i)
         {
             plane.add(chunks[i]);

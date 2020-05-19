@@ -153,7 +153,7 @@ namespace
                (hdistance(obj1.coordinates, obj2.coordinates) < max(width(obj1), width(obj2)) * CHAR_MARGIN);
     }
 
-    bool is_neighbour(const text_chunk_t &obj1, const text_chunk_t &obj2)
+    bool is_neighbour(const text_t &obj1, const text_t &obj2)
     {
         double height1 = height(obj1.coordinates), height2 = height(obj2.coordinates);
         double d = LINE_MARGIN * height1;
@@ -167,38 +167,90 @@ namespace
         return false;
     }
 
-    bool merge_lines(vector<text_chunk_t> &lines, size_t j, size_t i, bool (&cmp)(const text_chunk_t&, const text_chunk_t&))
+    bool merge_lines(vector<text_chunk_t> &lines, size_t j, size_t i)
     {
-        if (cmp(lines[j], lines[i]))
+        bool merge = false;
+        for (size_t jj = 0; jj < lines[j].texts.size() && !merge; ++jj)
         {
-            lines[j].string_len += lines[i].string_len;
-            for (text_t &text : lines[i].texts) lines[j].texts.push_back(std::move(text));
-            lines[j].coordinates.x0 = min(lines[j].coordinates.x0, lines[i].coordinates.x0);
-            lines[j].coordinates.x1 = max(lines[j].coordinates.x1, lines[i].coordinates.x1);
-            lines[j].coordinates.y0 = min(lines[j].coordinates.y0, lines[i].coordinates.y0);
-            lines[j].coordinates.y1 = max(lines[j].coordinates.y1, lines[i].coordinates.y1);
-            lines.erase(lines.begin() + i);
-            return true;
+            for (size_t ii = 0; ii < lines[i].texts.size(); ++ii)
+            {
+                if (is_neighbour(lines[j].texts[jj], lines[i].texts[ii]))
+                {
+                    merge = true;
+                    break;
+                }
+            }
         }
-        return false;
+        if (!merge) return false;
+        lines[j].string_len += lines[i].string_len;
+        for (text_t &text : lines[i].texts) lines[j].texts.push_back(std::move(text));
+        lines[j].coordinates.x0 = min(lines[j].coordinates.x0, lines[i].coordinates.x0);
+        lines[j].coordinates.x1 = max(lines[j].coordinates.x1, lines[i].coordinates.x1);
+        lines[j].coordinates.y0 = min(lines[j].coordinates.y0, lines[i].coordinates.y0);
+        lines[j].coordinates.y1 = max(lines[j].coordinates.y1, lines[i].coordinates.y1);
+        lines.erase(lines.begin() + i);
+        return true;
     }
 
-    void traverse_lines(vector<text_chunk_t> &chunks, bool (&cmp)(const text_chunk_t&, const text_chunk_t&))
+    void add2line(text_chunk_t &line, const text_chunk_t &obj)
     {
-NEXT:
+        line.string_len += obj.string_len;
+        for (const text_t &text : obj.texts) line.texts.push_back(std::move(text));
+        line.coordinates.x0 = min(line.coordinates.x0, obj.coordinates.x0);
+        line.coordinates.x1 = max(line.coordinates.x1, obj.coordinates.x1);
+        line.coordinates.y0 = min(line.coordinates.y0, obj.coordinates.y0);
+        line.coordinates.y1 = max(line.coordinates.y1, obj.coordinates.y1);
+    }
+
+    vector<text_chunk_t> traverse_lines(const vector<text_chunk_t> &chunks)
+    {
+        if (chunks.empty()) vector<text_chunk_t>();
+        vector<text_chunk_t> result;
+        text_chunk_t line;
+        const text_chunk_t *obj0 = nullptr;
+        for (const text_chunk_t &obj1 : chunks)
+        {
+            if (obj0)
+            {
+                bool is_cmp = is_halign(*obj0, obj1);
+                if (is_cmp && line.is_group)
+                {
+                    add2line(line, obj1);
+                }
+                else if (line.is_group)
+                {
+                    result.push_back(line);
+                    line.is_group = false;
+                }
+                else
+                {
+                    line = *obj0;
+                    line.is_group = true;
+                    if (is_cmp) add2line(line, obj1);
+                }
+            }
+            obj0 = &obj1;
+        }
+        if (!line.is_group) result.push_back(*obj0);
+        return result;
+    }
+
+    void traverse_groups(vector<text_chunk_t> &chunks)
+    {
+    NEXT:
         for (size_t j = 0; j < chunks.size(); ++j)
         {
             for (size_t i = 0; i < chunks.size(); ++i)
             {
                 if (j == i) continue;
-                if (merge_lines(chunks, i, j, cmp)) goto NEXT;
+                if (merge_lines(chunks, i, j)) goto NEXT;
             }
         }
     }
 
     void make_text_boxes(vector<text_chunk_t> &chunks)
     {
-        traverse_lines(chunks, is_neighbour);
+        traverse_groups(chunks);
         chunks.erase(remove_if(chunks.begin(),
                                chunks.end(),
                                [](const text_chunk_t& chunk) {
@@ -222,10 +274,9 @@ NEXT:
             }
             box.texts = std::move(whole_box);
         }
-
     }
 
-    void make_text_lines(vector<text_chunk_t> &chunks)
+    vector<text_chunk_t> make_text_lines(vector<text_chunk_t> &chunks)
     {
         chunks.erase(remove_if(chunks.begin(),
                                chunks.end(),
@@ -233,8 +284,8 @@ NEXT:
                                    return chunk.string_len == 0;
                                }),
                      chunks.end());
-        traverse_lines(chunks, is_halign);
-        for (text_chunk_t &line : chunks)
+        vector<text_chunk_t> result = traverse_lines(chunks);
+        for (text_chunk_t &line : result)
         {
             if (line.texts.empty()) continue;
             vector<text_t> whole_line{text_t(line.coordinates)};
@@ -255,6 +306,7 @@ NEXT:
             }
             line.texts = std::move(whole_line);
         }
+        return result;
     }
 
     void dsort(vector<dist_t> &dists)
@@ -332,9 +384,9 @@ NEXT:
         //     cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.texts[0].text << endl;
         // }
         // return string();
-        make_text_lines(chunks);
-        make_text_boxes(chunks);
-        return make_string(make_plane(chunks, mediabox));
+        vector<text_chunk_t> lines = make_text_lines(chunks);
+        make_text_boxes(lines);
+        return make_string(make_plane(lines, mediabox));
     }
 
     string output_content(unordered_set<unsigned int> &visited_contents,

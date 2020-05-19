@@ -53,6 +53,10 @@ struct text_t
 
 struct text_chunk_t
 {
+    text_chunk_t() : is_group(false)
+    {
+    }
+
     text_chunk_t(std::string &&text_arg, coordinates_t &&coordinates_arg) :
                  coordinates(std::move(coordinates_arg)),
                  texts{text_t(std::move(text_arg), coordinates)},

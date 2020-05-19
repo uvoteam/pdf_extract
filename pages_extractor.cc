@@ -153,6 +153,11 @@ namespace
         return (obj.coordinates.x1 - obj.coordinates.x0) / utf8_length(obj.text);
     }
 
+    double width(const coordinates_t &obj)
+    {
+        return obj.x1 - obj.x0;
+    }
+
     bool is_halign(const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
         return is_voverlap(obj1.coordinates, obj2.coordinates) &&

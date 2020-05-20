@@ -403,6 +403,7 @@ namespace
         // }
         // return string();
         vector<text_chunk_t> lines = make_text_lines(chunks);
+
         make_text_boxes(lines);
 
         return make_string(make_plane(lines, mediabox));

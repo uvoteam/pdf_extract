@@ -134,7 +134,7 @@ void Fonts::insert_width(const ObjectStorage &storage,
 {
     widths.insert(make_pair(font_name, map<unsigned int, double>()));
     const string type = dictionary_per_font.at(font_name).at("/Subtype").first;
-    if (type == "/CIDFontType0" || type == "/CIDFontType0")
+    if (type == "/CIDFontType0" || type == "/CIDFontType2" || type == "/Type0")
     {
         insert_widths_from_w(storage, font_name, base_font);
         return;

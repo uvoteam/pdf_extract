@@ -215,7 +215,7 @@ namespace
         line.coordinates.y1 = max(line.coordinates.y1, obj.coordinates.y1);
     }
 
-    vector<text_chunk_t> traverse_lines(const vector<text_chunk_t> &chunks)
+    vector<text_chunk_t> traverse_symbols(const vector<text_chunk_t> &chunks)
     {
         if (chunks.empty()) vector<text_chunk_t>();
         vector<text_chunk_t> result;
@@ -253,7 +253,7 @@ namespace
         return result;
     }
 
-    void traverse_groups(vector<text_chunk_t> &chunks)
+    void traverse_lines(vector<text_chunk_t> &chunks)
     {
     NEXT:
         for (size_t j = 0; j < chunks.size(); ++j)
@@ -268,7 +268,7 @@ namespace
 
     void make_text_boxes(vector<text_chunk_t> &chunks)
     {
-        traverse_groups(chunks);
+        traverse_lines(chunks);
         chunks.erase(remove_if(chunks.begin(),
                                chunks.end(),
                                [](const text_chunk_t& chunk) {
@@ -301,7 +301,7 @@ namespace
                                }),
                      chunks.end());
 
-        vector<text_chunk_t> result = traverse_lines(chunks);
+        vector<text_chunk_t> result = traverse_symbols(chunks);
         for (text_chunk_t &line : result)
         {
             if (line.texts.empty()) continue;

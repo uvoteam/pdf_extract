@@ -249,6 +249,7 @@ namespace
             obj0 = &obj1;
         }
         if (!line.is_group && obj0) result.push_back(*obj0);
+        if (line.is_group) result.push_back(line);
         return result;
     }
 
@@ -299,6 +300,7 @@ namespace
                                    return chunk.string_len == 0;
                                }),
                      chunks.end());
+
         vector<text_chunk_t> result = traverse_lines(chunks);
         for (text_chunk_t &line : result)
         {
@@ -397,11 +399,10 @@ namespace
     {
         // for (const text_chunk_t &chunk : chunks)
         // {
-        //     cout << '(' << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.texts[0].text << endl;
+        //     cout << "(" << chunk.coordinates.x0 << "," << chunk.coordinates.y0 << ")("  << chunk.coordinates.x1 << "," << chunk.coordinates.y1 << ")" << chunk.texts[0].text << endl;
         // }
         // return string();
         vector<text_chunk_t> lines = make_text_lines(chunks);
-
         make_text_boxes(lines);
 
         return make_string(make_plane(lines, mediabox));

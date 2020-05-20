@@ -235,16 +235,20 @@ namespace
                     result.push_back(line);
                     line.is_group = false;
                 }
-                else
+                else if (is_cmp)
                 {
                     line = *obj0;
                     line.is_group = true;
-                    if (is_cmp) add2line(line, obj1);
+                    add2line(line, obj1);
+                }
+                else
+                {
+                    result.push_back(*obj0);
                 }
             }
             obj0 = &obj1;
         }
-        if (!line.is_group) result.push_back(*obj0);
+        if (!line.is_group && obj0) result.push_back(*obj0);
         return result;
     }
 
@@ -397,7 +401,9 @@ namespace
         // }
         // return string();
         vector<text_chunk_t> lines = make_text_lines(chunks);
+
         make_text_boxes(lines);
+
         return make_string(make_plane(lines, mediabox));
     }
 

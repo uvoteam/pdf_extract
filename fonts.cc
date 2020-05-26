@@ -27,7 +27,9 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
             auto it = font_dict.find("/FontDescriptor");
             const dict_t desc_dict = (it == font_dict.end())? dict_t() : get_dict_or_indirect_dict(it->second, storage);
 
-            const string base_font = font_dict.at("/BaseFont").first;
+            it = font_dict.find("/BaseFont");
+            string base_font;
+            if (it != font_dict.end()) base_font = it->second.first;
             insert_width(storage, p.first, desc_dict, base_font);
             insert_height(p.first, desc_dict, storage, base_font);
             insert_descent(p.first, desc_dict, base_font);

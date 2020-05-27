@@ -129,7 +129,7 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             if (it != difference_map.end() && !it->second.empty())
             {
                 str.append(it->second);
-                width += fonts.get_width(string2num(from_utf(it->second, "UTF-16be")));
+                width += fonts.get_width(string2num(from_utf(string(1, c), "UTF-16be")));
             }
         }
         return coordinates.adjust_coordinates(std::move(str), s.length(), width, Tj, fonts);

@@ -144,17 +144,26 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
     {
         string decoded;
         double decoded_width = 0;
+        size_t len = 0;
         for (size_t i = 0; i < s.length();)
         {
             pair<double, string> decoded_symbol = custom_decode_symbol(s, i, fonts);
-            decoded_width += decoded_symbol.first;
-            decoded += decoded_symbol.second;
+            if (decoded_symbol.second.empty())
+            {
+                decoded_width += fonts.get_width(static_cast<unsigned char>(s[i - 1]));
+                decoded += s[i - 1];
+                ++len;
+            }
+            else
+            {
+                decoded_width += decoded_symbol.first;
+                //strings from cmap are returned in big ordering
+                string utf8 = to_utf<char>(decoded_symbol.second, "UTF-16be");
+                len += utf8_length(utf8);
+                decoded += std::move(utf8);
+            }
         }
-        //strings from cmap are returned in big ordering
-        string utf8_string = decoded.empty()? s : to_utf<char>(decoded, "UTF-16be");
-        size_t len = decoded.empty()? utf8_length(s) : utf8_string.length() / 2;
-        double width = decoded.empty()? get_width(s, fonts) : decoded_width;
-        return coordinates.adjust_coordinates(std::move(utf8_string), len, width, Tj, fonts);
+        return coordinates.adjust_coordinates(std::move(decoded), len, decoded_width, Tj, fonts);
     }
     }
 }

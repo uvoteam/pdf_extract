@@ -150,8 +150,8 @@ text_chunk_t CharsetConverter::get_string(const string &s, Coordinates &coordina
             pair<double, string> decoded_symbol = custom_decode_symbol(s, i, fonts);
             if (decoded_symbol.second.empty())
             {
-                decoded_width += fonts.get_width(static_cast<unsigned char>(s[i - 1]));
-                decoded += s[i - 1];
+                decoded_width += fonts.get_width(static_cast<unsigned char>(s.at(i - 1)));
+                decoded += s.at(i - 1);
                 ++len;
             }
             else

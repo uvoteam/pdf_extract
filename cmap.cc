@@ -221,7 +221,7 @@ namespace
             default:
                 throw pdf_error(FUNC_STRING + "wrong token type.");
             }
-            unsigned char v = get_nbytes(strict_stoul(token.val, base));
+            unsigned char v = base == 10? get_nbytes(strict_stoul(token.val)) : token.val.size() / 2;
             if (v > sizeof(unsigned int)) throw pdf_error(FUNC_STRING + "wrong size number. val= " + token.val);
             if (v > max) max = v;
         }

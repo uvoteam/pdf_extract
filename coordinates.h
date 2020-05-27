@@ -39,7 +39,7 @@ struct text_t
     {
     }
 
-    text_t(const coordinates_t &coordinates_arg) noexcept : coordinates(coordinates_arg)
+    explicit text_t(const coordinates_t &coordinates_arg) noexcept : coordinates(coordinates_arg)
     {
     }
     bool operator==(const text_t &obj) const

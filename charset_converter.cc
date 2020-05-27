@@ -25,7 +25,7 @@ namespace
     double get_width(const string &s, const Fonts &fonts)
     {
         double result = 0;
-        for (char c : s) result += fonts.get_width(c);
+        for (char c : s) result += fonts.get_width(static_cast<unsigned char>(c));
         return result;
     }
 

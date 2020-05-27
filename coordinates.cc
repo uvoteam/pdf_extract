@@ -106,6 +106,10 @@ text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, double widt
     const matrix_t bll{{0, ty, 1}}, bur{{adv, ty + fonts.get_height() * Tfs, 1}};
     const matrix_t T_start = translate_matrix(Tm * CTM, x, y);
     if (len > 1) x += Tc * Th * (len - 1);
+    for (char c : s)
+    {
+        if (c == ' ') x += Tw * Th;
+    }
     const matrix_t T_end = translate_matrix(Tm * CTM, x, y);
     const pair<double, double> start_coordinates = get_coordinates(bll, T_start);
     const pair<double, double> end_coordinates = get_coordinates(bur, T_end);
@@ -115,10 +119,6 @@ text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, double widt
     double y1 = max(start_coordinates.second, end_coordinates.second);
     x += adv;
 //    cout << s << " (" << x0 << ", " << y0 << ")(" << x1 << ", " << y1 << ") " << width << endl;
-    for (char c : s)
-    {
-        if (c == ' ') x += Tw * Th;
-    }
     return text_chunk_t(std::move(s), coordinates_t(x0, y0, x1, y1));
 }
 

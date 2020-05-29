@@ -14,9 +14,10 @@
 #include "cmap.h"
 #include "fonts.h"
 #include "coordinates.h"
+#include "diff_converter.h"
+#include "to_unicode_converter.h"
+#include "converter_engine.h"
 
-
-class CharsetConverter;
 enum {RECTANGLE_ELEMENTS_NUM = 4};
 using mediabox_t = std::array<double, RECTANGLE_ELEMENTS_NUM>;
 
@@ -29,6 +30,8 @@ public:
                    const std::string &doc_arg);
     std::string get_text();
 private:
+    DiffConverter get_diff_converter(const boost::optional<std::pair<std::string, pdf_object_t>> &encoding) const;
+    ToUnicodeConverter get_to_unicode_converter(const dict_t &font_dict);
     boost::optional<mediabox_t> get_box(const dict_t &dictionary,
                                         const boost::optional<mediabox_t> &parent_media_box) const;
     mediabox_t parse_rectangle(const std::pair<std::string, pdf_object_t> &rectangle) const;
@@ -41,9 +44,8 @@ private:
                                  const boost::optional<mediabox_t> &parent_media_box,
                                  unsigned int parent_rotate);
     dict_t get_fonts(const dict_t &dictionary, const dict_t &parent_fonts) const;
-    std::unique_ptr<CharsetConverter> get_font_encoding(const std::string &font, const std::string &resource_id);
-    boost::optional<std::unique_ptr<CharsetConverter>> get_font_from_encoding(const dict_t &font_dict) const;
-    boost::optional<std::unique_ptr<CharsetConverter>> get_font_from_tounicode(const dict_t &font_dict);
+    std::unique_ptr<ConverterEngine> get_font_encoding(const std::string &font, const std::string &resource_id);
+    boost::optional<std::pair<std::string, pdf_object_t>> get_encoding(const dict_t &font_dict) const;
     void get_XObjects_data(const std::string &page_id,
                            const dict_t &page,
                            const dict_t &parent_fonts,

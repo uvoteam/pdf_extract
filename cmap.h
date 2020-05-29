@@ -9,12 +9,13 @@
 #include "object_storage.h"
 #include "common.h"
 
+
 struct cmap_t
 {
     cmap_t() : is_vertical(false)
     {
     }
-    std::unordered_map<std::string, std::string> utf16_map;
+    std::unordered_map<std::string, std::string> utf8_map;
 //how many bytes to read(see codespacerange)
     std::vector<unsigned char> sizes;
     bool is_vertical;

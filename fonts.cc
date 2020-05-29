@@ -58,6 +58,13 @@ double Fonts::get_width(unsigned int code) const
     return it->second * get_scales().first;
 }
 
+double Fonts::get_width(const string &s) const
+{
+    double result = 0;
+    for (char c : s) result += get_width(static_cast<unsigned char>(c));
+    return result;
+}
+
 void Fonts::insert_widths_from_w(const ObjectStorage &storage, const string &font_name, const string &base_font)
 {
     const dict_t &font = dictionary_per_font.at(font_name);

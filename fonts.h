@@ -23,6 +23,7 @@ public:
     double get_ascent() const;
     std::pair<double, double> get_scales() const;
     double get_width(unsigned int code) const;
+    double get_width(const std::string &s) const;
 private:
     enum Font_type_t { TYPE_3, OTHER };
     Font_type_t insert_type(const std::string &font_name, const dict_t &font_desc);

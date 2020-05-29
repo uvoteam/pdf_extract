@@ -6,6 +6,7 @@
 #include <stack>
 #include <algorithm>
 #include <iostream> //temp
+#include <new>
 
 #include <boost/optional.hpp>
 
@@ -14,10 +15,13 @@
 #include "common.h"
 #include "object_storage.h"
 #include "charset_converter.h"
+#include "diff_converter.h"
+#include "to_unicode_converter.h"
 #include "cmap.h"
 #include "pages_extractor.h"
 #include "coordinates.h"
 #include "plane.h"
+#include "converter_engine.h"
 
 using namespace std;
 using namespace boost;
@@ -485,6 +489,17 @@ namespace
         }
         return parent_rotate;
     }
+
+    CharsetConverter get_charset_converter(const optional<pair<string, pdf_object_t>> &encoding)
+    {
+        if (!encoding) return CharsetConverter();
+        if (encoding->second == NAME_OBJECT) return CharsetConverter(encoding->first);
+        const dict_t dictionary = get_dictionary_data(encoding->first, 0);
+        auto it = dictionary.find("/Differences");
+        if (it != dictionary.end()) return CharsetConverter();
+        it = dictionary.find("/BaseEncoding");
+        return (it == dictionary.end())? CharsetConverter(string()) : CharsetConverter(it->second.first);
+    }
 }
 
 PagesExtractor::PagesExtractor(unsigned int catalog_pages_id,
@@ -664,37 +679,36 @@ string PagesExtractor::get_text()
     return text;
 }
 
-optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_encoding(const dict_t &font_dict) const
+optional<pair<string, pdf_object_t>> PagesExtractor::get_encoding(const dict_t &font_dict) const
 {
     auto it = font_dict.find("/Encoding");
     if (it == font_dict.end()) return boost::none;
     const pair<string, pdf_object_t> encoding = (it->second.second == INDIRECT_OBJECT)?
                                                 get_indirect_object_data(it->second.first, storage) : it->second;
-    switch (encoding.second)
+    if (encoding.second != DICTIONARY && encoding.second != NAME_OBJECT)
     {
-    case DICTIONARY:
-        return CharsetConverter::get_from_dictionary(get_dictionary_data(encoding.first, 0), storage);
-    case NAME_OBJECT:
-        return unique_ptr<CharsetConverter>(new CharsetConverter(encoding.first));
-    default:
         throw pdf_error(FUNC_STRING + "wrong /Encoding type: " + to_string(encoding.second) + " val=" + encoding.first);
     }
+    return encoding;
 }
 
-unique_ptr<CharsetConverter> PagesExtractor::get_font_encoding(const string &font, const string &resource_id)
+DiffConverter PagesExtractor::get_diff_converter(const optional<pair<string, pdf_object_t>> &encoding) const
 {
-    const dict_t &font_dict = fonts.at(resource_id).get_current_font_dictionary();
-    optional<unique_ptr<CharsetConverter>> r = get_font_from_tounicode(font_dict);
-    if (r) return std::move(*r);
-    r = get_font_from_encoding(font_dict);
-    if (r) return std::move(*r);
-    return unique_ptr<CharsetConverter>(new CharsetConverter());
+    if (!encoding || encoding->second == NAME_OBJECT) return DiffConverter();
+    const dict_t dictionary = get_dictionary_data(encoding->first, 0);
+    auto it2 = dictionary.find("/Differences");
+    if (it2 == dictionary.end()) return DiffConverter();
+    if (it2->second.second != ARRAY)
+    {
+        throw pdf_error(FUNC_STRING + "/Differences is not array. Type=" + to_string(it2->second.second));
+    }
+    return DiffConverter::get_converter(dictionary, it2->second.first, storage);
 }
 
-optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(const dict_t &font_dict)
+ToUnicodeConverter PagesExtractor::get_to_unicode_converter(const dict_t &font_dict)
 {
     auto it = font_dict.find("/ToUnicode");
-    if (it == font_dict.end()) return boost::none;
+    if (it == font_dict.end()) return ToUnicodeConverter();
     switch (it->second.second)
     {
     case INDIRECT_OBJECT:
@@ -704,13 +718,22 @@ optional<unique_ptr<CharsetConverter>> PagesExtractor::get_font_from_tounicode(c
         {
             cmap_storage.insert(make_pair(cmap_id_gen.first, get_cmap(doc, storage, cmap_id_gen, decrypt_data)));
         }
-        return unique_ptr<CharsetConverter>(new CharsetConverter(&cmap_storage[cmap_id_gen.first]));
+        return ToUnicodeConverter(&cmap_storage[cmap_id_gen.first]);
     }
     case NAME_OBJECT:
-        return boost::none;
+        return ToUnicodeConverter();
     default:
         throw pdf_error(FUNC_STRING + "/ToUnicode wrong type: " + to_string(it->second.second) + " val:" + it->second.first);
     }
+}
+
+unique_ptr<ConverterEngine> PagesExtractor::get_font_encoding(const string &font, const string &resource_id)
+{
+    const dict_t &font_dict = fonts.at(resource_id).get_current_font_dictionary();
+    optional<pair<string, pdf_object_t>> encoding = get_encoding(font_dict);
+    return unique_ptr<ConverterEngine>(new ConverterEngine(get_charset_converter(encoding),
+                                                           get_diff_converter(encoding),
+                                                           get_to_unicode_converter(font_dict)));
 }
 
 vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_content,
@@ -719,7 +742,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
 {
     static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
     static const unordered_set<string> ctm_tokens = {"cm", "q", "Q"};
-    unique_ptr<CharsetConverter> encoding(new CharsetConverter());
+    unique_ptr<ConverterEngine> encoding(new ConverterEngine());
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
     stack<pair<pdf_object_t, string>> st;
     bool in_text_block = false;

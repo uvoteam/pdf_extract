@@ -93,21 +93,11 @@ pair<string, double> CharsetConverter::get_string(const string &s, const Fonts &
 
 boost::optional<string> CharsetConverter::get_char(char c) const
 {
-    switch (encode)
-    {
-    case DEFAULT:
-    case MAC_EXPERT:
-    case MAC_ROMAN:
-    case WIN:
-    {
-        const unordered_map<unsigned int, string> &standard_encoding = standard_encodings.at(encode);
-        auto it = standard_encoding.find(static_cast<unsigned char>(c));
-        if (it != standard_encoding.end()) return it->second;
-        return boost::none;
-    }
-    default:
-        throw pdf_error(FUNC_STRING + "wrong encode value: " + to_string(encode));
-    }
+    PDFEncode_t enc = (encode == MAC_EXPERT || encode == MAC_ROMAN || encode == WIN)? encode : DEFAULT;
+    const unordered_map<unsigned int, string> &standard_encoding = standard_encodings.at(enc);
+    auto it = standard_encoding.find(static_cast<unsigned char>(c));
+    if (it != standard_encoding.end()) return it->second;
+    return boost::none;
 }
 
 bool CharsetConverter::is_empty() const

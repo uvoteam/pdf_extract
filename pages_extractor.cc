@@ -492,7 +492,7 @@ namespace
 
     CharsetConverter get_charset_converter(const optional<pair<string, pdf_object_t>> &encoding)
     {
-        if (!encoding) return CharsetConverter();
+        if (!encoding) return CharsetConverter(string());
         if (encoding->second == NAME_OBJECT) return CharsetConverter(encoding->first);
         const dict_t dictionary = get_dictionary_data(encoding->first, 0);
         auto it = dictionary.find("/Differences");

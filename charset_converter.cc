@@ -23,7 +23,7 @@ namespace
     }
 }
 
-CharsetConverter::CharsetConverter() noexcept : encode(NONE), charset(nullptr)
+CharsetConverter::CharsetConverter() noexcept : encode(), charset(nullptr)
 {
 }
 

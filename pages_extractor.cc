@@ -2,7 +2,6 @@
 #include <utility>
 #include <unordered_set>
 #include <vector>
-#include <memory>
 #include <stack>
 #include <algorithm>
 #include <iostream> //temp
@@ -552,6 +551,7 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
             fonts.insert(make_pair(id_str, Fonts(storage, fonts_dict)));
             media_boxes.insert(make_pair(id_str, get_box(dict_data, parent_media_box).value()));
             rotates.insert(make_pair(id_str, get_rotate(dict_data, parent_rotate)));
+            converter_engine_cache.insert(make_pair(id_str, map<string, ConverterEngine>()));;
             //avoiding infinite recursion
             unordered_set<unsigned int> visited_XObjects;
             get_XObjects_data(id_str, dict_data, fonts_dict, visited_XObjects);
@@ -587,6 +587,7 @@ void PagesExtractor::get_XObject_data(const string &parent_id,
     const string resource_name = get_resource_name(parent_id, XObject.first);
     const dict_t font = get_fonts(dict, parent_fonts);
     fonts.insert(make_pair(resource_name, Fonts(storage, font)));
+    converter_engine_cache.insert(make_pair(resource_name, map<string, ConverterEngine>()));
     XObject_streams.insert(make_pair(resource_name, get_stream(doc,
                                                                get_id_gen(XObject.second.first),
                                                                storage,
@@ -712,14 +713,7 @@ ToUnicodeConverter PagesExtractor::get_to_unicode_converter(const dict_t &font_d
     switch (it->second.second)
     {
     case INDIRECT_OBJECT:
-    {
-        const pair<unsigned int, unsigned int> cmap_id_gen = get_id_gen(it->second.first);
-        if (cmap_storage.count(cmap_id_gen.first) == 0)
-        {
-            cmap_storage.insert(make_pair(cmap_id_gen.first, get_cmap(doc, storage, cmap_id_gen, decrypt_data)));
-        }
-        return ToUnicodeConverter(&cmap_storage[cmap_id_gen.first]);
-    }
+        return ToUnicodeConverter(get_cmap(doc, storage, get_id_gen(it->second.first), decrypt_data));
     case NAME_OBJECT:
         return ToUnicodeConverter();
     default:
@@ -727,13 +721,16 @@ ToUnicodeConverter PagesExtractor::get_to_unicode_converter(const dict_t &font_d
     }
 }
 
-unique_ptr<ConverterEngine> PagesExtractor::get_font_encoding(const string &font, const string &resource_id)
+ConverterEngine* PagesExtractor::get_font_encoding(const string &font, const string &resource_id)
 {
+    auto it = converter_engine_cache.at(resource_id).find(font);
+    if (it != converter_engine_cache[resource_id].end()) return &it->second;
     const dict_t &font_dict = fonts.at(resource_id).get_current_font_dictionary();
     optional<pair<string, pdf_object_t>> encoding = get_encoding(font_dict);
-    return unique_ptr<ConverterEngine>(new ConverterEngine(get_charset_converter(encoding),
-                                                           get_diff_converter(encoding),
-                                                           get_to_unicode_converter(font_dict)));
+    converter_engine_cache[resource_id].insert(make_pair(font, ConverterEngine(get_charset_converter(encoding),
+                                                                               get_diff_converter(encoding),
+                                                                               get_to_unicode_converter(font_dict))));
+    return &converter_engine_cache[resource_id][font];
 }
 
 vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_content,
@@ -742,7 +739,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
 {
     static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
     static const unordered_set<string> ctm_tokens = {"cm", "q", "Q"};
-    unique_ptr<ConverterEngine> encoding(new ConverterEngine());
+    ConverterEngine *encoding = nullptr;
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
     stack<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
@@ -796,7 +793,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
             continue;
         }
         //vertical fonts are not implemented
-        if (token == "Tj" && !encoding->is_vertical())
+        if (token == "Tj" && encoding && !encoding->is_vertical())
         {
             result[0].push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
         }
@@ -804,7 +801,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         {
             coordinates.set_coordinates(token, st);
         }
-        else if (token == "'")
+        else if (token == "'" && encoding)
         {
             coordinates.set_coordinates(token, st);
             result[0].push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
@@ -813,14 +810,14 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         {
             fonts.at(resource_id).set_rise(stod(pop(st).second));
         }
-        else if (token == "\"")
+        else if (token == "\"" && encoding)
         {
             const string str = pop(st).second;
             coordinates.set_coordinates(token, st);
             result[0].push_back(encoding->get_string(str, coordinates, 0, fonts.at(resource_id)));
         }
         //vertical fonts are not implemented
-        else if (token == "TJ" && !encoding->is_vertical())
+        else if (token == "TJ" && encoding && !encoding->is_vertical())
         {
             const vector<text_chunk_t> tj_texts = encoding->get_strings_from_array(pop(st).second,
                                                                                    coordinates,

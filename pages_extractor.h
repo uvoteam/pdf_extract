@@ -4,14 +4,12 @@
 #include <string>
 #include <utility>
 #include <map>
-#include <memory>
 #include <unordered_set>
 
 #include <boost/optional.hpp>
 
 #include "common.h"
 #include "object_storage.h"
-#include "cmap.h"
 #include "fonts.h"
 #include "coordinates.h"
 #include "diff_converter.h"
@@ -44,7 +42,7 @@ private:
                                  const boost::optional<mediabox_t> &parent_media_box,
                                  unsigned int parent_rotate);
     dict_t get_fonts(const dict_t &dictionary, const dict_t &parent_fonts) const;
-    std::unique_ptr<ConverterEngine> get_font_encoding(const std::string &font, const std::string &resource_id);
+    ConverterEngine* get_font_encoding(const std::string &font, const std::string &resource_id);
     boost::optional<std::pair<std::string, pdf_object_t>> get_encoding(const dict_t &font_dict) const;
     void get_XObjects_data(const std::string &page_id,
                            const dict_t &page,
@@ -62,7 +60,7 @@ private:
     std::vector<unsigned int> pages;
     std::map<std::string, mediabox_t> media_boxes;
     std::map<std::string, unsigned int> rotates;
-    std::map<unsigned int, cmap_t> cmap_storage;
+    std::map<std::string, std::map<std::string, ConverterEngine>> converter_engine_cache;
     std::map<std::string, std::string> XObject_streams;
     std::map<std::string, matrix_t> XObject_matrices;
 };

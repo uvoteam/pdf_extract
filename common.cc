@@ -4,7 +4,6 @@
 #include <vector>
 #include <map>
 #include <stack>
-#include <regex>
 #include <cctype>
 #include <utility>
 #include <stack>
@@ -171,6 +170,29 @@ namespace
         }
         return result;
     }
+    bool is_indirect_number(const string &s, size_t &offset)
+    {
+        static const char* DIGITS = "0123456789";
+        static const char* SPACE = "\n\t\r ";
+
+        if (!isdigit(s[offset])) return false;
+        offset = s.find_first_not_of(DIGITS, offset);
+        if (offset == string::npos) return false;
+        if (!isspace(s[offset])) return false;
+        offset = s.find_first_not_of(SPACE, offset);
+        if (offset == string::npos) return false;
+        return true;
+    }
+
+    bool is_indirect_object(const string &s, size_t offset)
+    {
+        static const unsigned int INDIRECT_NUMBERS = 2;
+        for (unsigned int i = 0; i < INDIRECT_NUMBERS; ++i)
+        {
+            if (!is_indirect_number(s, offset)) return false;
+        }
+        return (s[offset] == 'R')? true : false;
+    }
 
     const map<string, string (&)(const string&, const map<string, pair<string, pdf_object_t>>&)> FILTER2FUNC =
                                                            {{"/FlateDecode", flate_decode},
@@ -275,7 +297,7 @@ pdf_object_t get_object_type(const string &buffer, size_t &offset)
     if (str[0] == '[') return ARRAY;
     if (str[0] == '<' || str[0] == '(') return STRING;
     if (str[0] == '/') return NAME_OBJECT;
-    if (regex_search(buffer.substr(offset), regex("^[0-9]+[\r\t\n ]+[0-9]+[\r\t\n ]+R"))) return INDIRECT_OBJECT;
+    if (is_indirect_object(buffer, offset)) return INDIRECT_OBJECT;
     return VALUE;
 }
 
@@ -662,7 +684,7 @@ string decode(const string &content, const dict_t &props)
 
 size_t find_number(const string &buffer, size_t offset)
 {
-    while (offset < buffer.length() && (strchr("0123456789", buffer[offset]) == NULL)) ++offset;
+    while (offset < buffer.length() && !isdigit(buffer[offset])) ++offset;
     return offset;
 }
 

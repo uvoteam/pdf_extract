@@ -5,7 +5,7 @@
 #include <stack>
 #include <algorithm>
 #include <iostream> //temp
-#include <new>
+#include <set>
 
 #include <boost/optional.hpp>
 
@@ -34,7 +34,15 @@ namespace
                const text_chunk_t &obj2_arg) noexcept : c(c_arg), d(d_arg), obj1(obj1_arg), obj2(obj2_arg)
         {
         }
-
+        bool operator<(const dist_t &arg) const
+        {
+            if (c != arg.c) return c < arg.c;
+            return d < arg.d;
+        }
+        dist_t& operator=(dist_t &&arg) = default;
+        dist_t& operator=(const dist_t &arg) = default;
+        dist_t(dist_t &&arg) = default;
+        dist_t(const dist_t &arg) = default;
         unsigned char c;
         double d;
         text_chunk_t obj1;
@@ -48,10 +56,10 @@ namespace
     const double LINE_MARGIN = 0.5;
     const double BOXES_FLOW = 0.5;
 
-    dist_t pop(vector<dist_t> &dists)
+    dist_t pop(set<dist_t> &dists)
     {
         if (dists.empty()) throw pdf_error(FUNC_STRING + "dists is empty");
-        dist_t dist = std::move(dists[0]);
+        dist_t dist = std::move(*dists.begin());
         dists.erase(dists.begin());
         return dist;
     }
@@ -329,16 +337,6 @@ namespace
         return result;
     }
 
-    void dsort(vector<dist_t> &dists)
-    {
-        sort(dists.begin(), dists.end(),
-             [](const dist_t &a, const dist_t &b) -> bool
-             {
-                 if (a.c != b.c) return a.c < b.c;
-                 return a.d < b.d;
-             });
-    }
-
     double get_dist(const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
         double x0 = min(obj1.coordinates.x0, obj2.coordinates.x0);
@@ -351,38 +349,35 @@ namespace
 
     Plane make_plane(vector<text_chunk_t> &chunks, const mediabox_t &mediabox)
     {
-        vector<dist_t> dists;
+        set<dist_t> dists;
         Plane plane(mediabox[0], mediabox[1], mediabox[2], mediabox[3], GRID_SIZE);
 
         for (size_t i = 0; i < chunks.size(); ++i)
         {
             plane.add(chunks[i]);
-            for (size_t j = i + 1; j < chunks.size(); ++j) dists.push_back(dist_t(0,
-                                                                                  get_dist(chunks[i], chunks[j]),
-                                                                                  chunks[i],
-                                                                                  chunks[j]));
+            for (size_t j = i + 1; j < chunks.size(); ++j) dists.insert(dist_t(0,
+                                                                               get_dist(chunks[i], chunks[j]),
+                                                                               chunks[i],
+                                                                               chunks[j]));
         }
 
-        dsort(dists);
         while (!dists.empty())
         {
             dist_t dist = pop(dists);
             if (dist.c == 0 && is_any(plane, dist.obj1, dist.obj2))
             {
-                dists.push_back(dist_t(1, dist.d, dist.obj1, dist.obj2));
+                dists.insert(dist_t(1, dist.d, dist.obj1, dist.obj2));
                 continue;
             }
             text_chunk_t group = create_group(dist.obj1, dist.obj2);
             plane.remove(dist.obj1);
             plane.remove(dist.obj2);
-            dists.erase(remove_if(dists.begin(),
-                                  dists.end(),
-                                  [&plane](const dist_t &d) {
-                                      return !plane.contains(d.obj1) || !plane.contains(d.obj2);
-                                  }),
-                        dists.end());
-            for (const text_chunk_t &obj : plane.get_objects()) dists.push_back(dist_t(0, get_dist(group, obj), group, obj));
-            dsort(dists);
+            for (auto it = dists.begin(); it != dists.end();)
+            {
+                if (!plane.contains(it->obj1) || !plane.contains(it->obj2)) it = dists.erase(it);
+                else ++it;
+            }
+            for (const text_chunk_t &obj : plane.get_objects()) dists.insert(dist_t(0, get_dist(group, obj), group, obj));
             plane.add(group);
         }
         return plane;
@@ -408,7 +403,6 @@ namespace
         vector<text_chunk_t> lines = make_text_lines(chunks);
 
         make_text_boxes(lines);
-
         return make_string(make_plane(lines, mediabox));
     }
 

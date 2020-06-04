@@ -47,6 +47,11 @@ struct text_t
         if (!(coordinates == obj.coordinates)) return false;
         return text == obj.text;
     }
+    text_t& operator=(text_t &&arg) = default;
+    text_t& operator=(const text_t &arg) = default;
+    text_t(text_t &&arg) = default;
+    text_t(const text_t &arg) = default;
+
     coordinates_t coordinates;
     std::string text;
 };
@@ -71,6 +76,10 @@ struct text_chunk_t
         if (obj.is_group != is_group) return false;
         return true;
     }
+    text_chunk_t& operator=(text_chunk_t &&arg) = default;
+    text_chunk_t& operator=(const text_chunk_t &arg) = default;
+    text_chunk_t(text_chunk_t &&arg) = default;
+    text_chunk_t(const text_chunk_t &arg) = default;
     coordinates_t coordinates;
     std::vector<text_t> texts;
     size_t string_len;

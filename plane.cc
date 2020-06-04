@@ -68,7 +68,6 @@ unordered_set<text_chunk_t> Plane::find(double x0_arg, double y0_arg, double x1_
         if (!grid.count(k)) continue;
         for (const text_chunk_t &obj : grid[k])
         {
-            result.insert(obj);
             if (obj.coordinates.x1 <= x0_arg ||
                 x1_arg <= obj.coordinates.x0 ||
                 obj.coordinates.y1 <= y0_arg ||

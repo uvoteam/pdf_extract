@@ -92,7 +92,7 @@ namespace
         double y0 = min(obj1.coordinates.y0, obj2.coordinates.y0);
         double x1 = max(obj1.coordinates.x1, obj2.coordinates.x1);
         double y1 = max(obj1.coordinates.y1, obj2.coordinates.y1);
-        unordered_set<text_chunk_t> objs = plane.find(x0, y0, x1, y1);
+        set<text_chunk_t> objs = plane.find(x0, y0, x1, y1);
         objs.erase(obj1);
         objs.erase(obj2);
         return !objs.empty();

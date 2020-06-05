@@ -3,8 +3,7 @@
 
 #include <vector>
 #include <utility>
-#include <unordered_map>
-#include <unordered_set>
+#include <set>
 #include <map>
 
 #include "coordinates.h"
@@ -21,8 +20,8 @@ public:
     Plane(double x0_arg, double y0_arg, double x1_arg, double y1_arg, unsigned int gridsize_arg) noexcept;
     void add(const text_chunk_t &obj);
     void remove(const text_chunk_t &obj);
-    std::unordered_set<text_chunk_t> find(double x0_arg, double y0_arg, double x1_arg, double y1_arg);
-    std::unordered_set<text_chunk_t> get_objects() const;
+    std::set<text_chunk_t> find(double x0_arg, double y0_arg, double x1_arg, double y1_arg);
+    std::set<text_chunk_t> get_objects() const;
     bool contains(const text_chunk_t &obj) const;
 private:
     std::vector<std::pair<unsigned int, unsigned int>> get_range(double x0_arg,
@@ -31,7 +30,7 @@ private:
                                                                  double y1_arg) const;
 
     std::map<std::pair<unsigned int, unsigned int>, std::vector<text_chunk_t>> grid;
-    std::unordered_set<text_chunk_t> objs;
+    std::set<text_chunk_t> objs;
     unsigned int gridsize;
     double x0;
     double y0;

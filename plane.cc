@@ -2,7 +2,7 @@
 #include <utility>
 #include <string>
 #include <algorithm>
-#include <unordered_set>
+#include <set>
 
 #include "plane.h"
 
@@ -27,7 +27,7 @@ bool Plane::contains(const text_chunk_t &obj) const
     return objs.count(obj);
 }
 
-unordered_set<text_chunk_t> Plane::get_objects() const
+set<text_chunk_t> Plane::get_objects() const
 {
     return objs;
 }
@@ -60,9 +60,9 @@ void Plane::add(const text_chunk_t &obj)
     }
 }
 
-unordered_set<text_chunk_t> Plane::find(double x0_arg, double y0_arg, double x1_arg, double y1_arg)
+set<text_chunk_t> Plane::find(double x0_arg, double y0_arg, double x1_arg, double y1_arg)
 {
-    unordered_set<text_chunk_t> result;
+    set<text_chunk_t> result;
     for (const pair<unsigned int, unsigned int> &k : get_range(x0_arg, y0_arg, x1_arg, y1_arg))
     {
         if (!grid.count(k)) continue;

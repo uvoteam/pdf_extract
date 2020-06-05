@@ -26,6 +26,14 @@ struct coordinates_t
         if (obj.x0 != x0 || obj.y0 != y0 || obj.x1 != x1 || obj.y1 != y1) return false;
         return true;
     }
+    bool operator<(const coordinates_t &arg) const
+    {
+        if (y0 != arg.y0) return y0 < arg.y0;
+        if (x0 != arg.x0) return x0 < arg.x0;
+        if (y1 != arg.y1) return y1 < arg.y1;
+        return x1 < arg.x1;
+    }
+
     double x0;
     double y0;
     double x1;
@@ -80,23 +88,15 @@ struct text_chunk_t
     text_chunk_t& operator=(const text_chunk_t &arg) = default;
     text_chunk_t(text_chunk_t &&arg) = default;
     text_chunk_t(const text_chunk_t &arg) = default;
+    bool operator<(const text_chunk_t &arg) const
+    {
+        return coordinates < arg.coordinates;
+    }
     coordinates_t coordinates;
     std::vector<text_t> texts;
     size_t string_len;
     bool is_group;
 };
-
-namespace std
-{
-    template<> struct hash<text_chunk_t>
-    {
-        size_t operator()(const text_chunk_t &obj) const
-        {
-            if (!obj.texts.empty()) return hash<string>()(obj.texts[0].text);
-            return 0;
-        }
-    };
-}
 
 class Coordinates
 {

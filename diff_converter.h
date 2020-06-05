@@ -19,7 +19,9 @@ public:
     boost::optional<std::string> get_char(char c) const;
     std::pair<std::string, double> get_string(const std::string &s, const Fonts &fonts) const;
     bool is_empty() const;
-    static DiffConverter get_converter(const dict_t &dictionary, const std::string &array, const ObjectStorage &storage);
+    static DiffConverter get_converter(const dict_t &dictionary,
+                                       const std::pair<std::string, pdf_object_t> &differences,
+                                       const ObjectStorage &storage);
 private:
     bool empty;
     const std::unordered_map<unsigned int, std::string> difference_map;

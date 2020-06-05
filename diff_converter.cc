@@ -34,12 +34,16 @@ DiffConverter::DiffConverter(unordered_map<unsigned int, string> &&difference_ma
 {
 }
 
-DiffConverter DiffConverter::get_converter(const dict_t &dictionary, const string &array, const ObjectStorage &storage)
+DiffConverter DiffConverter::get_converter(const dict_t &dictionary,
+                                           const pair<string, pdf_object_t> &differences,
+                                           const ObjectStorage &storage)
 {
     auto it = dictionary.find("/BaseEncoding");
     PDFEncode_t encoding = (it == dictionary.end())? DEFAULT : get_encoding(it->second.first);
+
+    const array_t array_data = get_array_or_indirect_array(differences, storage);
+
     unordered_map<unsigned int, string> code2symbol = standard_encodings.at(encoding);
-    const array_t array_data = get_array_data(array, 0);
 
     auto start_it = find_if(array_data.begin(),
                             array_data.end(),

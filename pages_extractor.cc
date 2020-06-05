@@ -693,11 +693,7 @@ DiffConverter PagesExtractor::get_diff_converter(const optional<pair<string, pdf
     const dict_t dictionary = get_dictionary_data(encoding->first, 0);
     auto it2 = dictionary.find("/Differences");
     if (it2 == dictionary.end()) return DiffConverter();
-    if (it2->second.second != ARRAY)
-    {
-        throw pdf_error(FUNC_STRING + "/Differences is not array. Type=" + to_string(it2->second.second));
-    }
-    return DiffConverter::get_converter(dictionary, it2->second.first, storage);
+    return DiffConverter::get_converter(dictionary, it2->second, storage);
 }
 
 ToUnicodeConverter PagesExtractor::get_to_unicode_converter(const dict_t &font_dict)

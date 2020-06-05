@@ -19,7 +19,7 @@ ConverterEngine::ConverterEngine(CharsetConverter &&charset_converter_arg,
     to_unicode_converter(std::move(to_unicode_converter_arg))
 {
 }
-                      
+
 bool ConverterEngine::is_vertical() const
 {
     if (to_unicode_converter.is_empty()) return false;

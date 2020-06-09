@@ -32,8 +32,8 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
             if (it != font_dict.end()) base_font = it->second.first;
             insert_width(storage, p.first, desc_dict, base_font);
             insert_height(p.first, desc_dict, storage, base_font);
-            insert_descent(p.first, desc_dict, base_font);
-            insert_ascent(p.first, desc_dict, base_font);
+            insert_descent(p.first, desc_dict, font_dict, base_font, type, storage);
+            insert_ascent(p.first, desc_dict, font_dict, base_font, type, storage);
         }
 }
 
@@ -172,7 +172,7 @@ void Fonts::insert_matrix_type3(const string &font_name, const dict_t &font)
 Fonts::Font_type_t Fonts::insert_type(const string &font_name, const dict_t &font)
 {
     const string type = font.at("/Subtype").first;
-    if (type == "Type3")
+    if (type == "/Type3")
     {
         types.insert(make_pair(font_name, TYPE_3));
         return TYPE_3;
@@ -212,38 +212,72 @@ void Fonts::insert_height(const string &font_name,
     heights.insert(make_pair(font_name, stod(array.at(3).first) - stod(array.at(1).first)));
 }
 
-void Fonts::insert_descent(const string &font_name, const dict_t &font_desc, const string &base_font)
+void Fonts::insert_descent(const string &font_name,
+                           const dict_t &font_desc,
+                           const dict_t &font,
+                           const string &base_font,
+                           Font_type_t type,
+                           const ObjectStorage &storage)
 {
     auto it = font_desc.find("/Descent");
-    if (it == font_desc.end())
+    if (it != font_desc.end())
     {
-        auto it = std_metrics.find(base_font);
-        if (it == std_metrics.end())
-        {
-            descents.insert(make_pair(font_name, Fonts::NO_DESCENT));
-            return;
-        }
-        descents.insert(make_pair(font_name, it->second.descent));
+        descents.insert(make_pair(font_name, stod(it->second.first)));
         return;
     }
-    descents.insert(make_pair(font_name, stod(it->second.first)));
+    if (type == TYPE_3)
+    {
+        auto it = font.find("/FontBBox");
+        if (it != font.end())
+        {
+            const array_t array = get_array_or_indirect_array(it->second, storage);
+            descents.insert(make_pair(font_name, stod(array.at(1).first)));
+            return;
+        }
+    }
+
+    auto it2 = std_metrics.find(base_font);
+    if (it2 != std_metrics.end())
+    {
+        descents.insert(make_pair(font_name, it2->second.descent));
+        return;
+    }
+
+    descents.insert(make_pair(font_name, Fonts::NO_DESCENT));
 }
 
-void Fonts::insert_ascent(const string &font_name, const dict_t &font_desc, const string &base_font)
+void Fonts::insert_ascent(const string &font_name,
+                          const dict_t &font_desc,
+                          const dict_t &font,
+                          const string &base_font,
+                          Font_type_t type,
+                          const ObjectStorage &storage)
 {
     auto it = font_desc.find("/Ascent");
-    if (it == font_desc.end())
+    if (it != font_desc.end())
     {
-        auto it = std_metrics.find(base_font);
-        if (it == std_metrics.end())
-        {
-            ascents.insert(make_pair(font_name, Fonts::NO_ASCENT));
-            return;
-        }
-        ascents.insert(make_pair(font_name, it->second.ascent));
+        ascents.insert(make_pair(font_name, stod(it->second.first)));
         return;
     }
-    ascents.insert(make_pair(font_name, stod(it->second.first)));
+    if (type == TYPE_3)
+    {
+        auto it = font.find("/FontBBox");
+        if (it != font.end())
+        {
+            const array_t array = get_array_or_indirect_array(it->second, storage);
+            ascents.insert(make_pair(font_name, stod(array.at(3).first)));
+            return;
+        }
+    }
+
+    auto it2 = std_metrics.find(base_font);
+    if (it2 != std_metrics.end())
+    {
+        ascents.insert(make_pair(font_name, it2->second.ascent));
+        return;
+    }
+
+    ascents.insert(make_pair(font_name, Fonts::NO_ASCENT));
 }
 
 double Fonts::get_height() const

@@ -28,8 +28,18 @@ private:
     enum Font_type_t { TYPE_3, OTHER };
     Font_type_t insert_type(const std::string &font_name, const dict_t &font_desc);
     void insert_descendant(dict_t &font, const ObjectStorage &storage);
-    void insert_descent(const std::string &font_name, const dict_t &font_desc, const std::string &base_font);
-    void insert_ascent(const std::string &font_name, const dict_t &font_desc, const std::string &base_font);
+    void insert_descent(const std::string &font_name,
+                        const dict_t &font_desc,
+                        const dict_t &font,
+                        const std::string &base_font,
+                        Font_type_t type,
+                        const ObjectStorage &storage);
+    void insert_ascent(const std::string &font_name,
+                       const dict_t &font_desc,
+                       const dict_t &font,
+                       const std::string &base_font,
+                       Font_type_t type,
+                       const ObjectStorage &storage);
     void insert_height(const std::string &font_name,
                        const dict_t &font_desc,
                        const ObjectStorage &storage,

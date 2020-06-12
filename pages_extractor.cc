@@ -144,11 +144,6 @@ namespace
         return is_hoverlap(obj1, obj2)? 0 : min(fabs(obj1.x0 - obj2.x1), fabs(obj1.x1 - obj2.x0));
     }
 
-    double vdistance(const coordinates_t &obj1, const coordinates_t &obj2)
-    {
-        return min(fabs(obj1.y0 - obj2.y1), fabs(obj1.y1 - obj2.y0));
-    }
-
     double height(const coordinates_t &obj)
     {
         return obj.y1 - obj.y0;

@@ -14,7 +14,7 @@ class CharsetConverter
 public:
     CharsetConverter() noexcept;
     explicit CharsetConverter(const std::string &encoding);
-    std::pair<std::string, double> get_string(const std::string &s, const Fonts &fonts) const;
+    std::pair<std::string, float> get_string(const std::string &s, const Fonts &fonts) const;
     boost::optional<std::string> get_char(char c) const;
     bool is_empty() const;
 private:

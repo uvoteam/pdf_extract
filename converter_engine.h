@@ -17,7 +17,7 @@ public:
                     ToUnicodeConverter &&to_unicode_converter_arg);
     ConverterEngine() = default;
     bool is_vertical() const;
-    text_chunk_t get_string(const std::string &s, Coordinates &coordinates, double Tj, const Fonts &fonts) const;
+    text_chunk_t get_string(const std::string &s, Coordinates &coordinates, float Tj, const Fonts &fonts) const;
     std::vector<text_chunk_t> get_strings_from_array(const std::string &array,
                                                      Coordinates &coordinates,
                                                      const Fonts &fonts) const;

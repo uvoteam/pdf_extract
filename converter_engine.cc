@@ -26,21 +26,21 @@ bool ConverterEngine::is_vertical() const
     return to_unicode_converter.is_vertical();
 }
 
-text_chunk_t ConverterEngine::get_string(const string &s, Coordinates &coordinates, double Tj, const Fonts &fonts) const
+text_chunk_t ConverterEngine::get_string(const string &s, Coordinates &coordinates, float Tj, const Fonts &fonts) const
 {
     if (to_unicode_converter.is_empty())
     {
-        pair<string, double> p = diff_converter.is_empty()? charset_converter.get_string(s, fonts) :
+        pair<string, float> p = diff_converter.is_empty()? charset_converter.get_string(s, fonts) :
                                                             diff_converter.get_string(s, fonts);
         return coordinates.adjust_coordinates(std::move(p.first), s.length(), p.second, Tj, fonts);
 
     }
     string decoded;
-    double decoded_width = 0;
+    float decoded_width = 0;
     size_t len = 0;
     for (size_t i = 0; i < s.length();)
     {
-        pair<string, double> decoded_symbol = to_unicode_converter.custom_decode_symbol(s, i, fonts);
+        pair<string, float> decoded_symbol = to_unicode_converter.custom_decode_symbol(s, i, fonts);
         if (decoded_symbol.first.empty())
         {
             boost::optional<string> c = (diff_converter.is_empty())? charset_converter.get_char(s[i]) :
@@ -68,13 +68,13 @@ vector<text_chunk_t> ConverterEngine::get_strings_from_array(const string &array
                                                              const Fonts &fonts) const
 {
     vector<text_chunk_t> result;
-    double Tj = 0;
+    float Tj = 0;
     for (const array_t::value_type &p : get_array_data(array, 0))
     {
         switch (p.second)
         {
         case VALUE:
-            Tj = stod(p.first);
+            Tj = stof(p.first);
             break;
         case STRING:
             result.push_back(get_string(decode_string(p.first), coordinates, Tj, fonts));

@@ -15,15 +15,15 @@ class Fonts
 public:
     Fonts(const ObjectStorage &storage, const dict_t &fonts_dict);
     const dict_t& get_current_font_dictionary() const;
-    double get_height() const;
+    float get_height() const;
     void set_current_font(const std::string &font_arg);
-    void set_rise(double rise_arg);
-    double get_rise() const;
-    double get_descent() const;
-    double get_ascent() const;
-    std::pair<double, double> get_scales() const;
-    double get_width(unsigned int code) const;
-    double get_width(const std::string &s) const;
+    void set_rise(float rise_arg);
+    float get_rise() const;
+    float get_descent() const;
+    float get_ascent() const;
+    std::pair<float, float> get_scales() const;
+    float get_width(unsigned int code) const;
+    float get_width(const std::string &s) const;
 private:
     enum Font_type_t { TYPE_3, OTHER };
     Font_type_t insert_type(const std::string &font_name, const dict_t &font_desc);
@@ -57,39 +57,39 @@ private:
     void insert_widths_from_w(const ObjectStorage &storage, const std::string &font_name, const std::string &base_font);
     std::string current_font;
     std::map<std::string, dict_t> dictionary_per_font;
-    std::map<std::string, double> heights;
-    std::map<std::string, double> descents;
-    std::map<std::string, double> ascents;
+    std::map<std::string, float> heights;
+    std::map<std::string, float> descents;
+    std::map<std::string, float> ascents;
     std::map<std::string, Font_type_t> types;
-    std::map<std::string, std::map<unsigned int, double>> widths;
-    std::map<std::string, double> default_width;
-    std::map<std::string, std::array<double, MATRIX_ELEMENTS>> font_matrix_type_3;
-    double rise;
+    std::map<std::string, std::map<unsigned int, float>> widths;
+    std::map<std::string, float> default_width;
+    std::map<std::string, std::array<float, MATRIX_ELEMENTS>> font_matrix_type_3;
+    float rise;
 
     struct font_metric_t
     {
-        font_metric_t(double ascent_arg, double descent_arg, double height_arg) noexcept :
+        font_metric_t(float ascent_arg, float descent_arg, float height_arg) noexcept :
                       ascent(ascent_arg),
                       descent(descent_arg),
                       height(height_arg)
         {
         }
-        double ascent;
-        double descent;
-        double height;
+        float ascent;
+        float descent;
+        float height;
     };
 
-    static const double VSCALE_NO_TYPE_3;
-    static const double HSCALE_NO_TYPE_3;
+    static const float VSCALE_NO_TYPE_3;
+    static const float HSCALE_NO_TYPE_3;
     static const std::string FIRST_CHAR_DEFAULT;
     static const std::string MISSING_WIDTH_DEFAULT;
     static const std::string DW_DEFAULT;
-    static const double NO_HEIGHT;
-    static const double NO_DESCENT;
-    static const double RISE_DEFAULT;
-    static const double NO_ASCENT;
+    static const float NO_HEIGHT;
+    static const float NO_DESCENT;
+    static const float RISE_DEFAULT;
+    static const float NO_ASCENT;
     static const std::unordered_map<std::string, font_metric_t> std_metrics;
-    static const std::unordered_map<std::string, std::map<unsigned int, double>> standard_widths;
+    static const std::unordered_map<std::string, std::map<unsigned int, float>> standard_widths;
 };
 
 #endif

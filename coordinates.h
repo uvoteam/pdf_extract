@@ -6,38 +6,66 @@
 #include <stack>
 #include <utility>
 
+#include <boost/geometry/geometries/point.hpp>
+#include <boost/geometry/geometries/box.hpp>
+
 #include "common.h"
 #include "fonts.h"
 
-
-
-
 struct coordinates_t
 {
-    coordinates_t() noexcept : x0(0), y0(0), x1(0), y1(0)
-    {
-    }
-    coordinates_t(double x0_arg, double y0_arg, double x1_arg, double y1_arg) noexcept :
-                  x0(x0_arg), y0(y0_arg), x1(x1_arg), y1(y1_arg)
+    using point_t = boost::geometry::model::point<float, 2, boost::geometry::cs::cartesian>;
+    using box_t = boost::geometry::model::box<point_t>;
+    coordinates_t() = default;
+    coordinates_t(float x0_arg, float y0_arg, float x1_arg, float y1_arg) :
+                  coordinates(point_t(x0_arg, y0_arg), point_t(x1_arg, y1_arg))
     {
     }
     bool operator==(const coordinates_t &obj) const
     {
-        if (obj.x0 != x0 || obj.y0 != y0 || obj.x1 != x1 || obj.y1 != y1) return false;
+        if (x0() != obj.x0() || y0() != obj.y0() || x1() != obj.x1() || y1() != obj.y1()) return false;
         return true;
     }
-    bool operator<(const coordinates_t &arg) const
+    void set_x0(const float x0_arg)
     {
-        if (y0 != arg.y0) return y0 < arg.y0;
-        if (x0 != arg.x0) return x0 < arg.x0;
-        if (y1 != arg.y1) return y1 < arg.y1;
-        return x1 < arg.x1;
+        coordinates.min_corner().set<0>(x0_arg);
     }
 
-    double x0;
-    double y0;
-    double x1;
-    double y1;
+    void set_y0(const float y0_arg)
+    {
+        coordinates.min_corner().set<1>(y0_arg);
+    }
+
+    void set_x1(const float x1_arg)
+    {
+        coordinates.max_corner().set<0>(x1_arg);
+    }
+
+    void set_y1(const float y1_arg)
+    {
+        coordinates.max_corner().set<1>(y1_arg);
+    }
+
+    const float& x0() const
+    {
+        return coordinates.min_corner().get<0>();
+    }
+
+    const float& x1() const
+    {
+        return coordinates.max_corner().get<0>();
+    }
+
+    const float& y0() const
+    {
+        return coordinates.min_corner().get<1>();
+    }
+
+    const float& y1() const
+    {
+        return coordinates.max_corner().get<1>();
+    }
+    box_t coordinates;
 };
 
 struct text_t
@@ -47,7 +75,7 @@ struct text_t
     {
     }
 
-    explicit text_t(const coordinates_t &coordinates_arg) noexcept : coordinates(coordinates_arg)
+    explicit text_t(const coordinates_t &coordinates_arg) : coordinates(coordinates_arg)
     {
     }
     bool operator==(const text_t &obj) const
@@ -90,7 +118,8 @@ struct text_chunk_t
     text_chunk_t(const text_chunk_t &arg) = default;
     bool operator<(const text_chunk_t &arg) const
     {
-        return coordinates < arg.coordinates;
+        if (coordinates.x0() != arg.coordinates.x0()) return coordinates.x0() < arg.coordinates.x0();
+        return coordinates.y0() < arg.coordinates.y0();
     }
     coordinates_t coordinates;
     std::vector<text_t> texts;
@@ -104,14 +133,14 @@ public:
     Coordinates(const matrix_t &CTM);
     void set_default();
     matrix_t get_CTM() const;
-    text_chunk_t adjust_coordinates(std::string &&s, size_t len, double width, double Tj, const Fonts &fonts);
+    text_chunk_t adjust_coordinates(std::string &&s, size_t len, float width, float Tj, const Fonts &fonts);
     void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
     void ctm_work(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:
-    std::pair<double, double> get_coordinates(const matrix_t &m1, const matrix_t &m2) const;
+    std::pair<float, float> get_coordinates(const matrix_t &m1, const matrix_t &m2) const;
     void T_quote();
     void T_star();
-    void Td(double x, double y);
+    void Td(float x, float y);
     enum
     {
         TH_DEFAULT = 1,
@@ -123,12 +152,12 @@ private:
     };
     matrix_t Tm;
     matrix_t CTM;
-    double Tfs;
-    double Th;
-    double Tc;
-    double Tw;
-    double TL;
-    double x, y;
+    float Tfs;
+    float Th;
+    float Tc;
+    float Tw;
+    float TL;
+    float x, y;
     std::stack<matrix_t> CTMs;
 };
 

@@ -717,7 +717,7 @@ pair<string, pdf_object_t> get_indirect_object_data(const string &indirect_objec
     return r;
 }
 
-pair<double, double> apply_matrix_norm(const array<double, MATRIX_ELEMENTS> &matrix, const pair<double, double> &point)
+pair<float, float> apply_matrix_norm(const array<float, MATRIX_ELEMENTS> &matrix, const pair<float, float> &point)
 {
     return make_pair(matrix.at(0) * point.first + matrix.at(2) * point.second,
                      matrix.at(1) * point.first + matrix.at(3) * point.second);
@@ -739,7 +739,7 @@ size_t utf8_length(const string &s)
 
 matrix_t operator*(const matrix_t &m1, const matrix_t &m2)
 {
-    matrix_t result(m1.size(), vector<double>(m2.at(0).size(), 0));
+    matrix_t result(m1.size(), vector<float>(m2.at(0).size(), 0));
     for (size_t i = 0; i < m1.size(); i++)
     {
         for (size_t j = 0; j < m2.at(0).size(); j++)

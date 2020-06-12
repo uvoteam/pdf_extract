@@ -29,7 +29,7 @@ namespace
     struct dist_t
     {
         dist_t(unsigned char c_arg,
-               double d_arg,
+               float d_arg,
                const text_chunk_t &obj1_arg,
                const text_chunk_t &obj2_arg) noexcept : c(c_arg), d(d_arg), obj1(obj1_arg), obj2(obj2_arg)
         {
@@ -44,17 +44,17 @@ namespace
         dist_t(dist_t &&arg) = default;
         dist_t(const dist_t &arg) = default;
         unsigned char c;
-        double d;
+        float d;
         text_chunk_t obj1;
         text_chunk_t obj2;
     };
 
     enum { MATRIX_ELEMENTS_NUM = 6, GRID_SIZE = 50 };
-    const double LINE_OVERLAP = 0.5;
-    const double CHAR_MARGIN = 2.0;
-    const double WORD_MARGIN = 0.1;
-    const double LINE_MARGIN = 0.5;
-    const double BOXES_FLOW = 0.5;
+    const float LINE_OVERLAP = 0.5;
+    const float CHAR_MARGIN = 2.0;
+    const float WORD_MARGIN = 0.1;
+    const float LINE_MARGIN = 0.5;
+    const float BOXES_FLOW = 0.5;
 
     dist_t pop(set<dist_t> &dists)
     {
@@ -66,20 +66,20 @@ namespace
 
     text_chunk_t create_group(const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
-        double pos1 = (1 - BOXES_FLOW) * (obj1.coordinates.x0) -
-                      (1 + BOXES_FLOW) * (obj1.coordinates.y0 + obj1.coordinates.y1);
-        double pos2 = (1 - BOXES_FLOW) * (obj2.coordinates.x0) -
-                      (1 + BOXES_FLOW) * (obj2.coordinates.y0 + obj2.coordinates.y1);
+        float pos1 = (1 - BOXES_FLOW) * (obj1.coordinates.x0()) -
+                     (1 + BOXES_FLOW) * (obj1.coordinates.y0() + obj1.coordinates.y1());
+        float pos2 = (1 - BOXES_FLOW) * (obj2.coordinates.x0()) -
+                     (1 + BOXES_FLOW) * (obj2.coordinates.y0() + obj2.coordinates.y1());
         const text_chunk_t &o1 = (pos1 <= pos2)? obj1 : obj2;
         const text_chunk_t &o2 = (pos1 <= pos2)? obj2 : obj1;
 
         text_chunk_t result = o1;
         for (const text_t &text : o2.texts)
         {
-            result.coordinates.x0 = min(result.coordinates.x0, text.coordinates.x0);
-            result.coordinates.x1 = max(result.coordinates.x1, text.coordinates.x1);
-            result.coordinates.y0 = min(result.coordinates.y0, text.coordinates.y0);
-            result.coordinates.y1 = max(result.coordinates.y1, text.coordinates.y1);
+            result.coordinates.set_x0(min(result.coordinates.x0(), text.coordinates.x0()));
+            result.coordinates.set_x1(max(result.coordinates.x1(), text.coordinates.x1()));
+            result.coordinates.set_y0(min(result.coordinates.y0(), text.coordinates.y0()));
+            result.coordinates.set_y1(max(result.coordinates.y1(), text.coordinates.y1()));
             result.texts.push_back(text);
         }
         result.is_group = true;
@@ -88,10 +88,10 @@ namespace
 
     bool is_any(Plane &plane, const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
-        double x0 = min(obj1.coordinates.x0, obj2.coordinates.x0);
-        double y0 = min(obj1.coordinates.y0, obj2.coordinates.y0);
-        double x1 = max(obj1.coordinates.x1, obj2.coordinates.x1);
-        double y1 = max(obj1.coordinates.y1, obj2.coordinates.y1);
+        float x0 = min(obj1.coordinates.x0(), obj2.coordinates.x0());
+        float y0 = min(obj1.coordinates.y0(), obj2.coordinates.y0());
+        float x1 = max(obj1.coordinates.x1(), obj2.coordinates.x1());
+        float y1 = max(obj1.coordinates.y1(), obj2.coordinates.y1());
         set<text_chunk_t> objs = plane.find(x0, y0, x1, y1);
         objs.erase(obj1);
         objs.erase(obj2);
@@ -121,47 +121,47 @@ namespace
 
     bool is_voverlap(const coordinates_t &obj1, const coordinates_t &obj2)
     {
-        return obj2.y0 <= obj1.y1 && obj1.y0 <= obj2.y1;
+        return obj2.y0() <= obj1.y1() && obj1.y0() <= obj2.y1();
     }
 
     bool is_hoverlap(const coordinates_t &obj1, const coordinates_t &obj2)
     {
-        return obj2.x0 <= obj1.x1 && obj1.x0 <= obj2.x1;
+        return obj2.x0() <= obj1.x1() && obj1.x0() <= obj2.x1();
     }
 
-    double hoverlap(const coordinates_t &obj1, const coordinates_t &obj2)
+    float hoverlap(const coordinates_t &obj1, const coordinates_t &obj2)
     {
-        return min(fabs(obj1.x0 - obj2.x1), fabs(obj1.x1 - obj2.x0));
+        return min(fabs(obj1.x0() - obj2.x1()), fabs(obj1.x1() - obj2.x0()));
     }
 
-    double voverlap(const coordinates_t &obj1, const coordinates_t &obj2)
+    float voverlap(const coordinates_t &obj1, const coordinates_t &obj2)
     {
-        return is_voverlap(obj1, obj2)? min(fabs(obj1.y0 - obj2.y1), fabs(obj1.y1 - obj2.y0)) : 0;
+        return is_voverlap(obj1, obj2)? min(fabs(obj1.y0() - obj2.y1()), fabs(obj1.y1() - obj2.y0())) : 0;
     }
 
-    double hdistance(const coordinates_t &obj1, const coordinates_t &obj2)
+    float hdistance(const coordinates_t &obj1, const coordinates_t &obj2)
     {
-        return is_hoverlap(obj1, obj2)? 0 : min(fabs(obj1.x0 - obj2.x1), fabs(obj1.x1 - obj2.x0));
+        return is_hoverlap(obj1, obj2)? 0 : min(fabs(obj1.x0() - obj2.x1()), fabs(obj1.x1() - obj2.x0()));
     }
 
-    double height(const coordinates_t &obj)
+    float height(const coordinates_t &obj)
     {
-        return obj.y1 - obj.y0;
+        return obj.y1() - obj.y0();
     }
 
-    double width(const text_chunk_t &obj)
+    float width(const text_chunk_t &obj)
     {
-        return (obj.coordinates.x1 - obj.coordinates.x0) / obj.string_len;
+        return (obj.coordinates.x1() - obj.coordinates.x0()) / obj.string_len;
     }
 
-    double width(const text_t &obj)
+    float width(const text_t &obj)
     {
-        return (obj.coordinates.x1 - obj.coordinates.x0) / utf8_length(obj.text);
+        return (obj.coordinates.x1() - obj.coordinates.x0()) / utf8_length(obj.text);
     }
 
-    double width(const coordinates_t &obj)
+    float width(const coordinates_t &obj)
     {
-        return obj.x1 - obj.x0;
+        return obj.x1() - obj.x0();
     }
 
     bool is_halign(const text_chunk_t &obj1, const text_chunk_t &obj2)
@@ -174,12 +174,13 @@ namespace
 
     bool is_neighbour(const text_t &obj1, const text_t &obj2)
     {
-        double height1 = height(obj1.coordinates), height2 = height(obj2.coordinates);
-        double d = LINE_MARGIN * height1;
+        float height1 = height(obj1.coordinates), height2 = height(obj2.coordinates);
+        float d = LINE_MARGIN * height1;
         if (fabs(height1 - height2) < d &&
-            obj2.coordinates.x1 > obj1.coordinates.x0 && obj2.coordinates.x0 < obj1.coordinates.x1 &&
-            obj2.coordinates.y0 < obj1.coordinates.y1 + d && obj2.coordinates.y1 > obj1.coordinates.y0 -d &&
-            (fabs(obj1.coordinates.x0 - obj2.coordinates.x0) < d || fabs(obj1.coordinates.x1 - obj2.coordinates.x1) < d))
+            obj2.coordinates.x1() > obj1.coordinates.x0() && obj2.coordinates.x0() < obj1.coordinates.x1() &&
+            obj2.coordinates.y0() < obj1.coordinates.y1() + d && obj2.coordinates.y1() > obj1.coordinates.y0() - d &&
+            (fabs(obj1.coordinates.x0() - obj2.coordinates.x0()) < d ||
+             fabs(obj1.coordinates.x1() - obj2.coordinates.x1()) < d))
            {
                return true;
            }
@@ -203,10 +204,10 @@ namespace
         if (!merge) return false;
         lines[j].string_len += lines[i].string_len;
         for (text_t &text : lines[i].texts) lines[j].texts.push_back(std::move(text));
-        lines[j].coordinates.x0 = min(lines[j].coordinates.x0, lines[i].coordinates.x0);
-        lines[j].coordinates.x1 = max(lines[j].coordinates.x1, lines[i].coordinates.x1);
-        lines[j].coordinates.y0 = min(lines[j].coordinates.y0, lines[i].coordinates.y0);
-        lines[j].coordinates.y1 = max(lines[j].coordinates.y1, lines[i].coordinates.y1);
+        lines[j].coordinates.set_x0(min(lines[j].coordinates.x0(), lines[i].coordinates.x0()));
+        lines[j].coordinates.set_x1(max(lines[j].coordinates.x1(), lines[i].coordinates.x1()));
+        lines[j].coordinates.set_y0(min(lines[j].coordinates.y0(), lines[i].coordinates.y0()));
+        lines[j].coordinates.set_y1(max(lines[j].coordinates.y1(), lines[i].coordinates.y1()));
         lines.erase(lines.begin() + i);
         return true;
     }
@@ -215,10 +216,10 @@ namespace
     {
         line.string_len += obj.string_len;
         for (const text_t &text : obj.texts) line.texts.push_back(std::move(text));
-        line.coordinates.x0 = min(line.coordinates.x0, obj.coordinates.x0);
-        line.coordinates.x1 = max(line.coordinates.x1, obj.coordinates.x1);
-        line.coordinates.y0 = min(line.coordinates.y0, obj.coordinates.y0);
-        line.coordinates.y1 = max(line.coordinates.y1, obj.coordinates.y1);
+        line.coordinates.set_x0(min(line.coordinates.x0(), obj.coordinates.x0()));
+        line.coordinates.set_x1(max(line.coordinates.x1(), obj.coordinates.x1()));
+        line.coordinates.set_y0(min(line.coordinates.y0(), obj.coordinates.y0()));
+        line.coordinates.set_y1(max(line.coordinates.y1(), obj.coordinates.y1()));
     }
 
     vector<text_chunk_t> traverse_symbols(const vector<text_chunk_t> &chunks)
@@ -287,8 +288,8 @@ namespace
             sort(box.texts.begin(), box.texts.end(),
                  [](const text_t &a, const text_t &b) -> bool
                  {
-                     if (a.coordinates.y1 != b.coordinates.y1) return a.coordinates.y1 > b.coordinates.y1;
-                     return a.coordinates.x0 < b.coordinates.x0;
+                     if (a.coordinates.y1() != b.coordinates.y1()) return a.coordinates.y1() > b.coordinates.y1();
+                     return a.coordinates.x0() < b.coordinates.x0();
                  });
             for (size_t i = 0; i < box.texts.size(); ++i)
             {
@@ -315,13 +316,13 @@ namespace
             sort(line.texts.begin(), line.texts.end(),
                  [](const text_t &a, const text_t &b) -> bool
                  {
-                     return a.coordinates.x0 < b.coordinates.x0;
+                     return a.coordinates.x0() < b.coordinates.x0();
                  });
             for (size_t i = 0; i < line.texts.size(); ++i)
             {
                 whole_line[0].text += line.texts[i].text;
                 if ((i != line.texts.size() - 1) &&
-                    line.texts[i].coordinates.x1 < line.texts[i + 1].coordinates.x0 -
+                    line.texts[i].coordinates.x1() < line.texts[i + 1].coordinates.x0() -
                     width(line.texts[i + 1]) * WORD_MARGIN)
                 {
                     whole_line[0].text += ' ';
@@ -332,12 +333,12 @@ namespace
         return result;
     }
 
-    double get_dist(const text_chunk_t &obj1, const text_chunk_t &obj2)
+    float get_dist(const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
-        double x0 = min(obj1.coordinates.x0, obj2.coordinates.x0);
-        double y0 = min(obj1.coordinates.y0, obj2.coordinates.y0);
-        double x1 = max(obj1.coordinates.x1, obj2.coordinates.x1);
-        double y1 = max(obj1.coordinates.y1, obj2.coordinates.y1);
+        float x0 = min(obj1.coordinates.x0(), obj2.coordinates.x0());
+        float y0 = min(obj1.coordinates.y0(), obj2.coordinates.y0());
+        float x1 = max(obj1.coordinates.x1(), obj2.coordinates.x1());
+        float y1 = max(obj1.coordinates.y1(), obj2.coordinates.y1());
         return (x1 - x0) * (y1 - y0) -
                width(obj1.coordinates) * height(obj1.coordinates) - width(obj2.coordinates) * height(obj2.coordinates);
     }
@@ -588,9 +589,9 @@ void PagesExtractor::get_XObject_data(const string &parent_id,
         if (numbers.size() != MATRIX_ELEMENTS_NUM) throw pdf_error(FUNC_STRING + "matrix must have " +
                                                                    to_string(MATRIX_ELEMENTS_NUM) +
                                                                    "elements. Data = " + it->second.first);
-        XObject_matrices.insert(make_pair(resource_name, matrix_t{{stod(numbers[0].first), stod(numbers[1].first), 0},
-                                                                  {stod(numbers[2].first), stod(numbers[3].first), 0},
-                                                                  {stod(numbers[4].first), stod(numbers[5].first), 0}}));
+        XObject_matrices.insert(make_pair(resource_name, matrix_t{{stof(numbers[0].first), stof(numbers[1].first), 0},
+                                                                  {stof(numbers[2].first), stof(numbers[3].first), 0},
+                                                                  {stof(numbers[4].first), stof(numbers[5].first), 0}}));
     }
     get_XObjects_data(resource_name, dict, font, visited_XObjects);
 }
@@ -633,7 +634,7 @@ mediabox_t PagesExtractor::parse_rectangle(const pair<string, pdf_object_t> &rec
         throw pdf_error(FUNC_STRING + "wrong size of array. Size:" + to_string(array_data.size()));
     }
     mediabox_t result;
-    for (size_t i = 0; i < result.size(); ++i) result[i] = stod(array_data.at(i).first);
+    for (size_t i = 0; i < result.size(); ++i) result[i] = stof(array_data.at(i).first);
     return result;
 }
 
@@ -789,7 +790,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         }
         else if (token == "Ts")
         {
-            fonts.at(resource_id).set_rise(stod(pop(st).second));
+            fonts.at(resource_id).set_rise(stof(pop(st).second));
         }
         else if (token == "\"" && encoding)
         {

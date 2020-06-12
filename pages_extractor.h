@@ -17,7 +17,7 @@
 #include "converter_engine.h"
 
 enum {RECTANGLE_ELEMENTS_NUM = 4};
-using mediabox_t = std::array<double, RECTANGLE_ELEMENTS_NUM>;
+using mediabox_t = std::array<float, RECTANGLE_ELEMENTS_NUM>;
 
 class PagesExtractor
 {

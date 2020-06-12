@@ -14,7 +14,7 @@ public:
     ToUnicodeConverter() noexcept;
     bool is_empty() const;
     bool is_vertical() const;
-    std::pair<std::string, double> custom_decode_symbol(const std::string &s, size_t &i, const Fonts &fonts) const;
+    std::pair<std::string, float> custom_decode_symbol(const std::string &s, size_t &i, const Fonts &fonts) const;
 private:
     const cmap_t custom_encoding;
     bool empty;

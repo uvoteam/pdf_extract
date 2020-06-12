@@ -75,11 +75,11 @@ DiffConverter DiffConverter::get_converter(const dict_t &dictionary,
     return DiffConverter(std::move(code2symbol));
 }
 
-pair<string, double> DiffConverter::get_string(const string &s, const Fonts &fonts) const
+pair<string, float> DiffConverter::get_string(const string &s, const Fonts &fonts) const
 {
         string str;
         str.reserve(s.length());
-        double width = 0;
+        float width = 0;
         for (char c : s)
         {
             auto it = difference_map.find(static_cast<unsigned char>(c));

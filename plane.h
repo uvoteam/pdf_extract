@@ -17,25 +17,25 @@
 class Plane
 {
 public:
-    Plane(double x0_arg, double y0_arg, double x1_arg, double y1_arg, unsigned int gridsize_arg) noexcept;
+    Plane(float x0_arg, float y0_arg, float x1_arg, float y1_arg, unsigned int gridsize_arg) noexcept;
     void add(const text_chunk_t &obj);
     void remove(const text_chunk_t &obj);
-    std::set<text_chunk_t> find(double x0_arg, double y0_arg, double x1_arg, double y1_arg);
+    std::set<text_chunk_t> find(float x0_arg, float y0_arg, float x1_arg, float y1_arg);
     std::set<text_chunk_t> get_objects() const;
     bool contains(const text_chunk_t &obj) const;
 private:
-    std::vector<std::pair<unsigned int, unsigned int>> get_range(double x0_arg,
-                                                                 double y0_arg,
-                                                                 double x1_arg,
-                                                                 double y1_arg) const;
+    std::vector<std::pair<unsigned int, unsigned int>> get_range(float x0_arg,
+                                                                 float y0_arg,
+                                                                 float x1_arg,
+                                                                 float y1_arg) const;
 
     std::map<std::pair<unsigned int, unsigned int>, std::vector<text_chunk_t>> grid;
     std::set<text_chunk_t> objs;
     unsigned int gridsize;
-    double x0;
-    double y0;
-    double x1;
-    double y1;
+    float x0;
+    float y0;
+    float x1;
+    float y1;
 };
 
 #endif //PLANE_H

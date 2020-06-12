@@ -15,9 +15,9 @@ using namespace boost::locale::conv;
 
 namespace
 {
-    double get_width_identity(const string &s, const Fonts &fonts)
+    float get_width_identity(const string &s, const Fonts &fonts)
     {
-        double result = 0;
+        float result = 0;
         for (size_t i = 0; i < s.length(); i += 2) result += fonts.get_width(string2num(s.substr(i, 2)));
         return result;
     }
@@ -61,7 +61,7 @@ CharsetConverter::CharsetConverter(const std::string &encoding)
     }
 }
 
-pair<string, double> CharsetConverter::get_string(const string &s, const Fonts &fonts) const
+pair<string, float> CharsetConverter::get_string(const string &s, const Fonts &fonts) const
 {
     switch (encode)
     {

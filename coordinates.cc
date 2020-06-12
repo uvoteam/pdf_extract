@@ -10,14 +10,14 @@ using namespace std;
 
 namespace
 {
-    matrix_t translate_matrix(const matrix_t &m1, double x, double y)
+    matrix_t translate_matrix(const matrix_t &m1, float x, float y)
     {
-        double a = m1.at(0).at(0);
-        double b = m1.at(0).at(1);
-        double c = m1.at(1).at(0);
-        double d = m1.at(1).at(1);
-        double e = m1.at(2).at(0);
-        double f = m1.at(2).at(1);
+        float a = m1.at(0).at(0);
+        float b = m1.at(0).at(1);
+        float c = m1.at(1).at(0);
+        float d = m1.at(1).at(1);
+        float e = m1.at(2).at(0);
+        float f = m1.at(2).at(1);
         return matrix_t{{a, b, 0},
                         {c, d, 0},
                         {x*a + y*c + e, x*b + y*d + f, 1}};
@@ -25,12 +25,12 @@ namespace
 
     matrix_t get_matrix(stack<pair<pdf_object_t, string>> &st)
     {
-        double f = stod(pop(st).second);
-        double e = stod(pop(st).second);
-        double d = stod(pop(st).second);
-        double c = stod(pop(st).second);
-        double b = stod(pop(st).second);
-        double a = stod(pop(st).second);
+        float f = stof(pop(st).second);
+        float e = stof(pop(st).second);
+        float d = stof(pop(st).second);
+        float c = stof(pop(st).second);
+        float b = stof(pop(st).second);
+        float a = stof(pop(st).second);
         return matrix_t{{a, b, 0},
                         {c, d, 0},
                         {e, f, 1}};
@@ -66,14 +66,14 @@ void Coordinates::T_star()
     Td(0, -TL);
 }
 
-void Coordinates::Td(double x_arg, double y_arg)
+void Coordinates::Td(float x_arg, float y_arg)
 {
-    double a = Tm.at(0).at(0);
-    double b = Tm.at(0).at(1);
-    double c = Tm.at(1).at(0);
-    double d = Tm.at(1).at(1);
-    double e = Tm.at(2).at(0);
-    double f = Tm.at(2).at(1);
+    float a = Tm.at(0).at(0);
+    float b = Tm.at(0).at(1);
+    float c = Tm.at(1).at(0);
+    float d = Tm.at(1).at(1);
+    float e = Tm.at(2).at(0);
+    float f = Tm.at(2).at(1);
     Tm = matrix_t{{a, b, 0},
                   {c, d, 0},
                   {x_arg*a + y_arg*c + e , x_arg*b + y_arg*d + f, 1}};
@@ -88,21 +88,21 @@ void Coordinates::set_default()
     y = 0;
 }
 
-pair<double, double> Coordinates::get_coordinates(const matrix_t &m1, const matrix_t &m2) const
+pair<float, float> Coordinates::get_coordinates(const matrix_t &m1, const matrix_t &m2) const
 {
     matrix_t r = m1 * m2;
     return make_pair(r[0][0], r[0][1]);
 }
 
-text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, double width, double Tj, const Fonts &fonts)
+text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, float width, float Tj, const Fonts &fonts)
 {
     if (Tj != 0)
     {
         x -= Tj * Tfs * Th * 0.001;
         x += Tc * Th;
     }
-    double ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
-    double adv = width * Tfs * Th;
+    float ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
+    float adv = width * Tfs * Th;
     const matrix_t bll{{0, ty, 1}}, bur{{adv, ty + fonts.get_height() * Tfs, 1}};
     const matrix_t T_start = translate_matrix(Tm * CTM, x, y);
     if (len > 1) x += Tc * Th * (len - 1);
@@ -111,12 +111,12 @@ text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, double widt
         if (c == ' ') x += Tw * Th;
     }
     const matrix_t T_end = translate_matrix(Tm * CTM, x, y);
-    const pair<double, double> start_coordinates = get_coordinates(bll, T_start);
-    const pair<double, double> end_coordinates = get_coordinates(bur, T_end);
-    double x0 = min(start_coordinates.first, end_coordinates.first);
-    double x1 = max(start_coordinates.first, end_coordinates.first);
-    double y0 = min(start_coordinates.second, end_coordinates.second);
-    double y1 = max(start_coordinates.second, end_coordinates.second);
+    const pair<float, float> start_coordinates = get_coordinates(bll, T_start);
+    const pair<float, float> end_coordinates = get_coordinates(bur, T_end);
+    float x0 = min(start_coordinates.first, end_coordinates.first);
+    float x1 = max(start_coordinates.first, end_coordinates.first);
+    float y0 = min(start_coordinates.second, end_coordinates.second);
+    float y1 = max(start_coordinates.second, end_coordinates.second);
     x += adv;
 //    cout << s << " (" << x0 << ", " << y0 << ")(" << x1 << ", " << y1 << ") " << width << endl;
     return text_chunk_t(std::move(s), coordinates_t(x0, y0, x1, y1));
@@ -134,7 +134,7 @@ void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, 
     if (token == "Tz")
     {
         //Th in percentages
-        Th = stod(pop(st).second) / 100;
+        Th = stof(pop(st).second) / 100;
     }
     else if (token == "'")
     {
@@ -142,13 +142,13 @@ void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, 
     }
     else if (token == "\"")
     {
-        Tc = stod(pop(st).second);
-        Tw = stod(pop(st).second);
+        Tc = stof(pop(st).second);
+        Tw = stof(pop(st).second);
         T_quote();
     }
     else if (token == "TL")
     {
-        TL = stod(pop(st).second);
+        TL = stof(pop(st).second);
     }
     else if (token == "T*")
     {
@@ -156,22 +156,22 @@ void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, 
     }
     else if (token == "Tc")
     {
-        Tc = stod(pop(st).second);
+        Tc = stof(pop(st).second);
     }
     else if (token == "Tw")
     {
-        Tw = stod(pop(st).second);
+        Tw = stof(pop(st).second);
     }
     else if (token == "Td")
     {
-        double y = stod(pop(st).second);
-        double x = stod(pop(st).second);
+        float y = stof(pop(st).second);
+        float x = stof(pop(st).second);
         Td(x, y);
     }
     else if (token == "TD")
     {
-        double y = stod(pop(st).second);
-        double x = stod(pop(st).second);
+        float y = stof(pop(st).second);
+        float x = stof(pop(st).second);
         Td(x, y);
         TL = -y;
     }
@@ -183,7 +183,7 @@ void Coordinates::set_coordinates(const string &token, stack<pair<pdf_object_t, 
     }
     else if (token == "Tf")
     {
-        Tfs = stod(pop(st).second);
+        Tfs = stof(pop(st).second);
     }
     else
     {

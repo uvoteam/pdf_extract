@@ -29,7 +29,7 @@ bool ToUnicodeConverter::is_vertical() const
     return false;
 }
 
-pair<string, double> ToUnicodeConverter::custom_decode_symbol(const string &s, size_t &i, const Fonts &fonts) const
+pair<string, float> ToUnicodeConverter::custom_decode_symbol(const string &s, size_t &i, const Fonts &fonts) const
 {
     for (unsigned char n : custom_encoding.sizes)
     {

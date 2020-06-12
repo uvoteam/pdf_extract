@@ -33,7 +33,7 @@ public:
 
 using dict_t = std::map<std::string, std::pair<std::string, pdf_object_t>>;
 using array_t = std::vector<std::pair<std::string, pdf_object_t>>;
-using matrix_t = std::vector<std::vector<double>>;
+using matrix_t = std::vector<std::vector<float>>;
 
 extern const matrix_t IDENTITY_MATRIX;
 
@@ -80,8 +80,8 @@ std::pair<std::string, pdf_object_t> get_indirect_object_data(const std::string 
                                                               const ObjectStorage &storage,
                                                               boost::optional<pdf_object_t> type = boost::none);
 array_t get_array_data(const std::string &buffer, size_t offset);
-std::pair<double, double> apply_matrix_norm(const std::array<double, MATRIX_ELEMENTS> &matrix,
-                                            const std::pair<double, double> &point);
+std::pair<float, float> apply_matrix_norm(const std::array<float, MATRIX_ELEMENTS> &matrix,
+                                          const std::pair<float, float> &point);
 std::string get_dict_val(const dict_t &dict, const std::string &key, const std::string &def);
 size_t utf8_length(const std::string &s);
 matrix_t operator*(const matrix_t &m1, const matrix_t &m2);

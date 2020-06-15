@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <vector>
 
 #include <boost/geometry.hpp>
 #include <boost/geometry/index/adaptors/query.hpp>
@@ -8,6 +9,9 @@
 using namespace std;
 using namespace boost::geometry::index;
 
+Plane::Plane(const vector<text_chunk_t> &arg) : tree(arg)
+{
+}
 
 bool Plane::contains(const text_chunk_t &obj) const
 {

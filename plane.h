@@ -1,6 +1,8 @@
 #ifndef PLANE_H
 #define PLANE_H
 
+#include <vector>
+
 #include <boost/geometry/index/rtree.hpp>
 
 #include "coordinates.h"
@@ -26,6 +28,7 @@ public:
     using rtree_t = boost::geometry::index::rtree<text_chunk_t, boost::geometry::index::quadratic<16>, indexable_t, cmp_t>;
 
 public:
+    Plane(const std::vector<text_chunk_t> &arg);
     void add(const text_chunk_t &obj);
     void remove(const text_chunk_t &obj);
     bool is_any(const text_chunk_t &obj1, const text_chunk_t &obj2) const;

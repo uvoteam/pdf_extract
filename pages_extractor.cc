@@ -334,11 +334,10 @@ namespace
     Plane make_plane(vector<text_chunk_t> &chunks)
     {
         set<dist_t> dists;
-        Plane plane;
+        Plane plane(chunks);
 
         for (size_t i = 0; i < chunks.size(); ++i)
         {
-            plane.add(chunks[i]);
             for (size_t j = i + 1; j < chunks.size(); ++j) dists.insert(dist_t(0,
                                                                                get_dist(chunks[i], chunks[j]),
                                                                                chunks[i],

@@ -49,7 +49,7 @@ namespace
         text_chunk_t obj2;
     };
 
-    enum { MATRIX_ELEMENTS_NUM = 6, GRID_SIZE = 50 };
+    enum { MATRIX_ELEMENTS_NUM = 6 };
     const float LINE_OVERLAP = 0.5;
     const float CHAR_MARGIN = 2.0;
     const float WORD_MARGIN = 0.1;
@@ -84,18 +84,6 @@ namespace
         }
         result.is_group = true;
         return result;
-    }
-
-    bool is_any(Plane &plane, const text_chunk_t &obj1, const text_chunk_t &obj2)
-    {
-        float x0 = min(obj1.coordinates.x0(), obj2.coordinates.x0());
-        float y0 = min(obj1.coordinates.y0(), obj2.coordinates.y0());
-        float x1 = max(obj1.coordinates.x1(), obj2.coordinates.x1());
-        float y1 = max(obj1.coordinates.y1(), obj2.coordinates.y1());
-        set<text_chunk_t> objs = plane.find(x0, y0, x1, y1);
-        objs.erase(obj1);
-        objs.erase(obj2);
-        return !objs.empty();
     }
 
     string get_resource_name(const string &page, const string &object)
@@ -343,10 +331,10 @@ namespace
                width(obj1.coordinates) * height(obj1.coordinates) - width(obj2.coordinates) * height(obj2.coordinates);
     }
 
-    Plane make_plane(vector<text_chunk_t> &chunks, const mediabox_t &mediabox)
+    Plane make_plane(vector<text_chunk_t> &chunks)
     {
         set<dist_t> dists;
-        Plane plane(mediabox[0], mediabox[1], mediabox[2], mediabox[3], GRID_SIZE);
+        Plane plane;
 
         for (size_t i = 0; i < chunks.size(); ++i)
         {
@@ -360,7 +348,7 @@ namespace
         while (!dists.empty())
         {
             dist_t dist = pop(dists);
-            if (dist.c == 0 && is_any(plane, dist.obj1, dist.obj2))
+            if (dist.c == 0 && plane.is_any(dist.obj1, dist.obj2))
             {
                 dists.insert(dist_t(1, dist.d, dist.obj1, dist.obj2));
                 continue;
@@ -389,13 +377,13 @@ namespace
         return result;
     }
 
-    string render_text(vector<text_chunk_t> &chunks, const mediabox_t &mediabox)
+    string render_text(vector<text_chunk_t> &chunks)
     {
         vector<text_chunk_t> lines = make_text_lines(chunks);
 /*        for (const text_chunk_t &chunk : lines) cout << '(' << chunk.coordinates.x0 << ',' << chunk.coordinates.y0 << ")(" << chunk.coordinates.x1 << ',' << chunk.coordinates.y1 << ')' << chunk.texts[0].text << endl;*/
 
         make_text_boxes(lines);
-        return make_string(make_plane(lines, mediabox));
+        return make_string(make_plane(lines));
     }
 
     string output_content(unordered_set<unsigned int> &visited_contents,
@@ -660,7 +648,7 @@ string PagesExtractor::get_text()
         }
         for (vector<text_chunk_t> r : extract_text(page_content, to_string(page_id), boost::none))
         {
-            text += render_text(r, media_boxes.at(to_string(page_id)));
+            text += render_text(r);
         }
     }
     return text;

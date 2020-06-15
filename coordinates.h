@@ -12,10 +12,11 @@
 #include "common.h"
 #include "fonts.h"
 
+using point_t = boost::geometry::model::point<float, 2, boost::geometry::cs::cartesian>;
+using box_t = boost::geometry::model::box<point_t>;
+
 struct coordinates_t
 {
-    using point_t = boost::geometry::model::point<float, 2, boost::geometry::cs::cartesian>;
-    using box_t = boost::geometry::model::box<point_t>;
     coordinates_t() = default;
     coordinates_t(float x0_arg, float y0_arg, float x1_arg, float y1_arg) :
                   coordinates(point_t(x0_arg, y0_arg), point_t(x1_arg, y1_arg))
@@ -46,22 +47,22 @@ struct coordinates_t
         coordinates.max_corner().set<1>(y1_arg);
     }
 
-    const float& x0() const
+    float x0() const
     {
         return coordinates.min_corner().get<0>();
     }
 
-    const float& x1() const
+    float x1() const
     {
         return coordinates.max_corner().get<0>();
     }
 
-    const float& y0() const
+    float y0() const
     {
         return coordinates.min_corner().get<1>();
     }
 
-    const float& y1() const
+    float y1() const
     {
         return coordinates.max_corner().get<1>();
     }

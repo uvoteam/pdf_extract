@@ -122,6 +122,10 @@ struct text_chunk_t
         if (coordinates.x0() != arg.coordinates.x0()) return coordinates.x0() < arg.coordinates.x0();
         return coordinates.y0() < arg.coordinates.y0();
     }
+    std::pair<float, float> get_pair() const
+    {
+        return std::make_pair(coordinates.x0(), coordinates.y0());
+    }
     coordinates_t coordinates;
     std::vector<text_t> texts;
     size_t string_len;

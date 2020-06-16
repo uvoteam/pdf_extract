@@ -2,9 +2,11 @@
 #define PLANE_H
 
 #include <vector>
-#include <set>
+#include <unordered_set>
+#include <utility>
 
 #include <boost/geometry/index/rtree.hpp>
+#include <boost/functional/hash.hpp>
 
 #include "coordinates.h"
 
@@ -33,12 +35,12 @@ public:
     void add(const text_chunk_t &obj);
     void remove(const text_chunk_t &obj);
     bool is_any(const text_chunk_t &obj1, const text_chunk_t &obj2) const;
-    const std::set<text_chunk_t>& get_objects() const;
+    const rtree_t& get_objects() const;
     bool contains(const text_chunk_t &obj) const;
 private:
     rtree_t tree;
-    //optimization. count operation for rtree is too slow
-    std::set<text_chunk_t> objs;
+    //optimization. rtree::count operation is too slow
+    std::unordered_set<std::pair<float, float>, boost::hash<std::pair<float, float>>> objs;
 };
 
 #endif //PLANE_H

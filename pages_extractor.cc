@@ -331,7 +331,7 @@ namespace
                width(obj1.coordinates) * height(obj1.coordinates) - width(obj2.coordinates) * height(obj2.coordinates);
     }
 
-    Plane make_plane(vector<text_chunk_t> &chunks)
+    Plane make_plane(const vector<text_chunk_t> &chunks)
     {
         set<dist_t> dists;
         Plane plane(chunks);

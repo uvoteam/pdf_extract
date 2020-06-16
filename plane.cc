@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <vector>
+#include <set>
 
 #include <boost/geometry.hpp>
 #include <boost/geometry/index/adaptors/query.hpp>
@@ -9,23 +10,25 @@
 using namespace std;
 using namespace boost::geometry::index;
 
-Plane::Plane(const vector<text_chunk_t> &arg) : tree(arg)
+Plane::Plane(const vector<text_chunk_t> &arg) : tree(arg), objs(arg.begin(), arg.end())
 {
 }
 
 bool Plane::contains(const text_chunk_t &obj) const
 {
-    return tree.count(obj);
+    auto it = objs.find(obj);
+    return it == objs.end()? false : true;
 }
 
-const Plane::rtree_t& Plane::get_objects() const
+const set<text_chunk_t>& Plane::get_objects() const
 {
-    return tree;
+    return objs;
 }
 
 void Plane::add(const text_chunk_t &obj)
 {
     tree.insert(obj);
+    objs.insert(obj);
 }
 
 //Check if there's any other object between obj1 and obj2
@@ -46,4 +49,5 @@ bool Plane::is_any(const text_chunk_t &obj1, const text_chunk_t &obj2) const
 void Plane::remove(const text_chunk_t &obj)
 {
     tree.remove(obj);
+    objs.erase(obj);
 }

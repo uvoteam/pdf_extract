@@ -2,6 +2,7 @@
 #define PLANE_H
 
 #include <vector>
+#include <set>
 
 #include <boost/geometry/index/rtree.hpp>
 
@@ -32,10 +33,12 @@ public:
     void add(const text_chunk_t &obj);
     void remove(const text_chunk_t &obj);
     bool is_any(const text_chunk_t &obj1, const text_chunk_t &obj2) const;
-    const rtree_t& get_objects() const;
+    const std::set<text_chunk_t>& get_objects() const;
     bool contains(const text_chunk_t &obj) const;
 private:
     rtree_t tree;
+    //optimization. count operation for rtree is too slow
+    std::set<text_chunk_t> objs;
 };
 
 #endif //PLANE_H

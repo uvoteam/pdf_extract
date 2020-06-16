@@ -6,7 +6,6 @@
 #include <utility>
 
 #include <boost/geometry/index/rtree.hpp>
-#include <boost/functional/hash.hpp>
 
 #include "coordinates.h"
 
@@ -39,8 +38,17 @@ public:
     bool contains(const text_chunk_t &obj) const;
 private:
     rtree_t tree;
+    struct pairhash {
+    public:
+        template <typename T, typename U>
+        std::size_t operator()(const std::pair<T, U> &x) const
+        {
+            return std::hash<T>()(x.first) ^ std::hash<U>()(x.second);
+        }
+    };
+
     //optimization. rtree::count operation is too slow
-    std::unordered_set<std::pair<float, float>, boost::hash<std::pair<float, float>>> objs;
+    std::unordered_set<std::pair<float, float>, pairhash> objs;
 };
 
 #endif //PLANE_H

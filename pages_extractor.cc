@@ -385,8 +385,7 @@ namespace
     string render_text(vector<text_chunk_t> &chunks)
     {
         vector<text_chunk_t> lines = make_text_lines(chunks);
-/*        for (const text_chunk_t &chunk : lines) cout << '(' << chunk.coordinates.x0 << ',' << chunk.coordinates.y0 << ")(" << chunk.coordinates.x1 << ',' << chunk.coordinates.y1 << ')' << chunk.texts[0].text << endl;*/
-
+/*        for (const text_chunk_t &chunk : lines) cout << '(' << chunk.coordinates.x0() << ',' << chunk.coordinates.y0() << ")(" << chunk.coordinates.x1() << ',' << chunk.coordinates.y1() << ')' << chunk.texts[0].text << endl;*/
         make_text_boxes(lines);
         return make_string(make_plane(lines));
     }

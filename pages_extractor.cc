@@ -82,7 +82,9 @@ namespace
             result.coordinates.set_y1(max(result.coordinates.y1(), text.coordinates.y1()));
         }
         //optimization
-        result.texts.insert(result.texts.end(), o2.texts.begin(), o2.texts.end());
+        result.texts.insert(result.texts.end(),
+                            std::make_move_iterator(o2.texts.begin()),
+                            std::make_move_iterator(o2.texts.end()));
         result.is_group = true;
         return result;
     }

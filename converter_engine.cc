@@ -69,7 +69,9 @@ vector<text_chunk_t> ConverterEngine::get_strings_from_array(const string &array
 {
     vector<text_chunk_t> result;
     float Tj = 0;
-    for (const array_t::value_type &p : get_array_data(array, 0))
+    array_t array_data = get_array_data(array, 0);
+    result.reserve(array_data.size());
+    for (const array_t::value_type &p : array_data)
     {
         switch (p.second)
         {

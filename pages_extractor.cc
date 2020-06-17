@@ -752,7 +752,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
             if (it != XObject_streams.end())
             {
                 const matrix_t ctm = XObject_matrices.at(resource_name) * coordinates.get_CTM();
-                for (const vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(r);
+                for (vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(std::move(r));
             }
         }
         else if (token == "Tf")

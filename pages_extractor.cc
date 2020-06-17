@@ -64,24 +64,25 @@ namespace
         return dist;
     }
 
-    text_chunk_t create_group(const text_chunk_t &obj1, const text_chunk_t &obj2)
+    text_chunk_t create_group(text_chunk_t &&obj1, text_chunk_t &&obj2)
     {
         float pos1 = (1 - BOXES_FLOW) * (obj1.coordinates.x0()) -
                      (1 + BOXES_FLOW) * (obj1.coordinates.y0() + obj1.coordinates.y1());
         float pos2 = (1 - BOXES_FLOW) * (obj2.coordinates.x0()) -
                      (1 + BOXES_FLOW) * (obj2.coordinates.y0() + obj2.coordinates.y1());
-        const text_chunk_t &o1 = (pos1 <= pos2)? obj1 : obj2;
-        const text_chunk_t &o2 = (pos1 <= pos2)? obj2 : obj1;
+        text_chunk_t &&o1 = (pos1 <= pos2)? std::move(obj1) : std::move(obj2);
+        text_chunk_t &&o2 = (pos1 <= pos2)? std::move(obj2) : std::move(obj1);
 
-        text_chunk_t result = o1;
+        text_chunk_t result = std::move(o1);
         for (const text_t &text : o2.texts)
         {
             result.coordinates.set_x0(min(result.coordinates.x0(), text.coordinates.x0()));
             result.coordinates.set_x1(max(result.coordinates.x1(), text.coordinates.x1()));
             result.coordinates.set_y0(min(result.coordinates.y0(), text.coordinates.y0()));
             result.coordinates.set_y1(max(result.coordinates.y1(), text.coordinates.y1()));
-            result.texts.push_back(text);
         }
+        //optimization
+        result.texts.insert(result.texts.end(), o2.texts.begin(), o2.texts.end());
         result.is_group = true;
         return result;
     }
@@ -352,7 +353,6 @@ namespace
                 dists.insert(dist_t(1, dist.d, dist.obj1, dist.obj2));
                 continue;
             }
-            text_chunk_t group = create_group(dist.obj1, dist.obj2);
             plane.remove(dist.obj1);
             plane.remove(dist.obj2);
             for (auto it = dists.begin(); it != dists.end();)
@@ -366,6 +366,7 @@ namespace
                     ++it;
                 }
             }
+            text_chunk_t group = create_group(std::move(dist.obj1), std::move(dist.obj2));
             for (const text_chunk_t &obj : plane.get_objects()) dists.insert(dist_t(0, get_dist(group, obj), group, obj));
             plane.add(group);
         }

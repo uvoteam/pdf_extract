@@ -194,7 +194,10 @@ namespace
         }
         if (!merge) return false;
         lines[j].string_len += lines[i].string_len;
-        for (text_t &text : lines[i].texts) lines[j].texts.push_back(std::move(text));
+        lines[j].texts.insert(lines[j].texts.end(),
+                              std::make_move_iterator(lines[i].texts.begin()),
+                              std::make_move_iterator(lines[i].texts.end()));
+
         lines[j].coordinates.set_x0(min(lines[j].coordinates.x0(), lines[i].coordinates.x0()));
         lines[j].coordinates.set_x1(max(lines[j].coordinates.x1(), lines[i].coordinates.x1()));
         lines[j].coordinates.set_y0(min(lines[j].coordinates.y0(), lines[i].coordinates.y0()));

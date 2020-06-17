@@ -651,7 +651,7 @@ string PagesExtractor::get_text()
         {
             page_content += output_content(visited_contents, doc, storage, id_gen, decrypt_data);
         }
-        for (vector<text_chunk_t> r : extract_text(page_content, to_string(page_id), boost::none))
+        for (vector<text_chunk_t> &r : extract_text(page_content, to_string(page_id), boost::none))
         {
             text += render_text(r);
         }

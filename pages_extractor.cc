@@ -357,8 +357,14 @@ namespace
             plane.remove(dist.obj2);
             for (auto it = dists.begin(); it != dists.end();)
             {
-                if (!plane.contains(it->obj1) || !plane.contains(it->obj2)) it = dists.erase(it);
-                else ++it;
+                if (it->obj1 == dist.obj1 || it->obj1 == dist.obj2 || it->obj2 == dist.obj1 || it->obj2 == dist.obj2)
+                {
+                    it = dists.erase(it);
+                }
+                else
+                {
+                    ++it;
+                }
             }
             for (const text_chunk_t &obj : plane.get_objects()) dists.insert(dist_t(0, get_dist(group, obj), group, obj));
             plane.add(group);

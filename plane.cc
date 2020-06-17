@@ -9,15 +9,8 @@
 using namespace std;
 using namespace boost::geometry::index;
 
-Plane::Plane(const vector<text_chunk_t> &arg) : tree(arg), objs(arg.size())
+Plane::Plane(const vector<text_chunk_t> &arg) : tree(arg)
 {
-    for (const text_chunk_t &obj : arg) objs.insert(obj.get_pair());
-}
-
-bool Plane::contains(const text_chunk_t &obj) const
-{
-    auto it = objs.find(obj.get_pair());
-    return it == objs.end()? false : true;
 }
 
 const Plane::rtree_t& Plane::get_objects() const
@@ -28,7 +21,6 @@ const Plane::rtree_t& Plane::get_objects() const
 void Plane::add(const text_chunk_t &obj)
 {
     tree.insert(obj);
-    objs.insert(obj.get_pair());
 }
 
 //Check if there's any other object between obj1 and obj2
@@ -49,5 +41,4 @@ bool Plane::is_any(const text_chunk_t &obj1, const text_chunk_t &obj2) const
 void Plane::remove(const text_chunk_t &obj)
 {
     tree.remove(obj);
-    objs.erase(obj.get_pair());
 }

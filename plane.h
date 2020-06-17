@@ -2,8 +2,6 @@
 #define PLANE_H
 
 #include <vector>
-#include <unordered_set>
-#include <utility>
 
 #include <boost/geometry/index/rtree.hpp>
 
@@ -35,20 +33,8 @@ public:
     void remove(const text_chunk_t &obj);
     bool is_any(const text_chunk_t &obj1, const text_chunk_t &obj2) const;
     const rtree_t& get_objects() const;
-    bool contains(const text_chunk_t &obj) const;
 private:
     rtree_t tree;
-    struct pairhash {
-    public:
-        template <typename T, typename U>
-        std::size_t operator()(const std::pair<T, U> &x) const
-        {
-            return std::hash<T>()(x.first) ^ std::hash<U>()(x.second);
-        }
-    };
-
-    //optimization. rtree::count operation is too slow
-    std::unordered_set<std::pair<float, float>, pairhash> objs;
 };
 
 #endif //PLANE_H

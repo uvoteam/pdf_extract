@@ -49,7 +49,7 @@ namespace
         text_chunk_t obj2;
     };
 
-    enum { MATRIX_ELEMENTS_NUM = 6 };
+    enum { MATRIX_ELEMENTS_NUM = 6, PDF_STRINGS_NUM = 300 /*for optimization*/ };
     const float LINE_OVERLAP = 0.5;
     const float CHAR_MARGIN = 2.0;
     const float WORD_MARGIN = 0.1;
@@ -720,6 +720,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
     bool in_text_block = false;
     vector<vector<text_chunk_t>> result;
     result.push_back(vector<text_chunk_t>());
+    result[0].reserve(PDF_STRINGS_NUM);
     for (size_t i = 0; i < page_content.length();)
     {
         i = skip_spaces(page_content, i, false);

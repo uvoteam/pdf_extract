@@ -31,7 +31,7 @@ text_chunk_t ConverterEngine::get_string(const string &s, Coordinates &coordinat
     if (to_unicode_converter.is_empty())
     {
         pair<string, float> p = diff_converter.is_empty()? charset_converter.get_string(s, fonts) :
-                                                            diff_converter.get_string(s, fonts);
+                                                           diff_converter.get_string(s, fonts);
         return coordinates.adjust_coordinates(std::move(p.first), s.length(), p.second, Tj, fonts);
 
     }

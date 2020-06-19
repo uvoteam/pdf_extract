@@ -48,7 +48,6 @@ Coordinates::Coordinates(const matrix_t &CTM_arg):
     x(0),
     y(0)
 {
-    CTMs.push(CTM);
 }
 
 matrix_t Coordinates::get_CTM() const

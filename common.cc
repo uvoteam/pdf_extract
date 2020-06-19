@@ -279,14 +279,13 @@ size_t skip_spaces(const string &buffer, size_t offset, bool validate /*= true *
     return offset;
 }
 
-size_t skip_comments(const string &buffer, size_t offset)
+size_t skip_comments(const string &buffer, size_t offset, bool validate /*= true */)
 {
     while (true)
     {
-        offset = skip_spaces(buffer, offset);
-        if (buffer[offset] != '%') return offset;
+        offset = skip_spaces(buffer, offset, validate);
+        if (offset >= buffer.length() || buffer[offset] != '%') return offset;
         while (offset < buffer.length() && buffer[offset] != '\r' && buffer[offset] != '\n') ++offset;
-        return offset;
     }
 }
 

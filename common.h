@@ -124,4 +124,5 @@ template <class T> T pop(std::stack<T> &st)
     return result;
 }
 
+bool is_blank(char c);
 #endif //COMMON

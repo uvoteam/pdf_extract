@@ -99,12 +99,6 @@ namespace
         return result;
     }
 
-    bool is_blank(char c)
-    {
-        if (c == '\r' || c == '\n' || c == ' ' || c == '\t') return true;
-        return false;
-    }
-
     unsigned int get_decode_key(const dict_t &opts, const string &key, unsigned int def)
     {
         auto it = opts.find(key);
@@ -208,6 +202,12 @@ const map<pdf_object_t, string (&)(const string&, size_t&)> TYPE2FUNC = {{DICTIO
                                                                          {VALUE, get_value},
                                                                          {INDIRECT_OBJECT, get_indirect_object},
                                                                          {NAME_OBJECT, get_name_object}};
+
+bool is_blank(char c)
+{
+    if (c == '\r' || c == '\n' || c == ' ' || c == '\t') return true;
+    return false;
+}
 
 size_t efind_first(const string &src, const string& str, size_t pos)
 {

@@ -483,6 +483,28 @@ namespace
         it = dictionary.find("/BaseEncoding");
         return (it == dictionary.end())? CharsetConverter(string()) : CharsetConverter(it->second.first);
     }
+
+    bool is_skip_unused(const string &content, size_t &i, const string &token)
+    {
+        if (token == "BI")
+        {
+            while (true)
+            {
+                i = content.find("EI", i);
+                if (i == string::npos)
+                {
+                    i = content.length();
+                    return true;
+                }
+                i += sizeof("EI") - 1;
+                if (i == content.length() || is_blank(content[i])) return true;
+            }
+        }
+        else
+        {
+            return false;
+        }
+    }
 }
 
 PagesExtractor::PagesExtractor(unsigned int catalog_pages_id,
@@ -734,6 +756,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         if (end == string::npos) end = page_content.length();
         const string token = page_content.substr(i, end - i);
         i = end;
+        if (is_skip_unused(page_content, i, token)) continue;
         if (token == "BT")
         {
             coordinates.set_default();

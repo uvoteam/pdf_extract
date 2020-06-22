@@ -505,6 +505,15 @@ namespace
             return false;
         }
     }
+
+    string get_token(const string &page_content, size_t &i)
+    {
+        size_t end = page_content.find_first_of(" \r\n\t/[(<", i + 1);
+        if (end == string::npos) end = page_content.length();
+        string result = page_content.substr(i, end - i);
+        i = end;
+        return result;
+    }
 }
 
 PagesExtractor::PagesExtractor(unsigned int catalog_pages_id,
@@ -752,10 +761,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
     {
         i = skip_comments(page_content, i, false);
         if (in_text_block && put2stack(st, page_content, i)) continue;
-        size_t end = page_content.find_first_of(" \r\n\t/[(<", i + 1);
-        if (end == string::npos) end = page_content.length();
-        const string token = page_content.substr(i, end - i);
-        i = end;
+        const string token = get_token(page_content, i);
         if (is_skip_unused(page_content, i, token)) continue;
         if (token == "BT")
         {

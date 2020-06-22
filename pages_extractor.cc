@@ -24,6 +24,65 @@
 
 using namespace std;
 using namespace boost;
+
+#define DO_BT() {\
+        coordinates.set_default();              \
+        in_text_block = true;                   \
+        continue;                               \
+    }
+
+#define DO_ET() {\
+        in_text_block = false;\
+        continue;\
+}
+
+#define DO_DO() {\
+        const string XObject = pop(st).second;\
+        const string resource_name = get_resource_name(resource_id, XObject);\
+        auto it = XObject_streams.find(resource_name);\
+        if (it != XObject_streams.end())\
+        {\
+            const matrix_t ctm = XObject_matrices.at(resource_name) * coordinates.get_CTM();\
+            for (vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(std::move(r));\
+        }\
+}
+
+#define DO_TF() {\
+        coordinates.set_coordinates(token, st);\
+        const string font = pop(st).second;\
+        fonts.at(resource_id).set_current_font(font);\
+        encoding = get_font_encoding(font, resource_id);\
+        }
+
+#define DO_Tj() {\
+        result[0].push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));\
+    }
+
+#define DO_QUOTE() {\
+        coordinates.set_coordinates(token, st);\
+        result[0].push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));\
+    }
+
+#define DO_TS() {\
+        fonts.at(resource_id).set_rise(stof(pop(st).second));\
+    }
+
+#define DO_DOUBLE_QUOTE() {\
+        const string str = pop(st).second;\
+        coordinates.set_coordinates(token, st);\
+        result[0].push_back(encoding->get_string(str, coordinates, 0, fonts.at(resource_id)));\
+}
+
+#define DO_TJ() {\
+        const vector<text_chunk_t> tj_texts = encoding->get_strings_from_array(pop(st).second,\
+                                                                               coordinates,\
+                                                                               fonts.at(resource_id));\
+        result[0].insert(result[0].end(), tj_texts.begin(), tj_texts.end()); \
+}
+
+
+
+
 namespace
 {
     struct dist_t
@@ -763,39 +822,11 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         if (in_text_block && put2stack(st, page_content, i)) continue;
         const string token = get_token(page_content, i);
         if (is_skip_unused(page_content, i, token)) continue;
-        if (token == "BT")
-        {
-            coordinates.set_default();
-            in_text_block = true;
-            continue;
-        }
-        else if (token == "ET")
-        {
-            in_text_block = false;
-            continue;
-        }
-        else if (ctm_tokens.count(token))
-        {
-            coordinates.ctm_work(token, st);
-        }
-        else if (token == "Do")
-        {
-            const string XObject = pop(st).second;
-            const string resource_name = get_resource_name(resource_id, XObject);
-            auto it = XObject_streams.find(resource_name);
-            if (it != XObject_streams.end())
-            {
-                const matrix_t ctm = XObject_matrices.at(resource_name) * coordinates.get_CTM();
-                for (vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(std::move(r));
-            }
-        }
-        else if (token == "Tf")
-        {
-            coordinates.set_coordinates(token, st);
-            const string font = pop(st).second;
-            fonts.at(resource_id).set_current_font(font);
-            encoding = get_font_encoding(font, resource_id);
-        }
+        if (token == "BT") DO_BT()
+        else if (token == "ET") DO_ET()
+        else if (ctm_tokens.count(token)) coordinates.ctm_work(token, st);
+        else if (token == "Do") DO_DO()
+        else if (token == "Tf") DO_TF()
 
         if (!in_text_block)
         {
@@ -803,41 +834,14 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
             continue;
         }
         //vertical fonts are not implemented
-        if (token == "Tj" && encoding && !encoding->is_vertical())
-        {
-            result[0].push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
-        }
-        else if (adjust_tokens.count(token))
-        {
-            coordinates.set_coordinates(token, st);
-        }
-        else if (token == "'" && encoding)
-        {
-            coordinates.set_coordinates(token, st);
-            result[0].push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
-        }
-        else if (token == "Ts")
-        {
-            fonts.at(resource_id).set_rise(stof(pop(st).second));
-        }
-        else if (token == "\"" && encoding)
-        {
-            const string str = pop(st).second;
-            coordinates.set_coordinates(token, st);
-            result[0].push_back(encoding->get_string(str, coordinates, 0, fonts.at(resource_id)));
-        }
+        if (token == "Tj" && encoding && !encoding->is_vertical()) DO_Tj()
+        else if (adjust_tokens.count(token)) coordinates.set_coordinates(token, st);
+        else if (token == "'" && encoding) DO_QUOTE()
+        else if (token == "Ts") DO_TS()
+        else if (token == "\"" && encoding) DO_DOUBLE_QUOTE()
         //vertical fonts are not implemented
-        else if (token == "TJ" && encoding && !encoding->is_vertical())
-        {
-            const vector<text_chunk_t> tj_texts = encoding->get_strings_from_array(pop(st).second,
-                                                                                   coordinates,
-                                                                                   fonts.at(resource_id));
-            result[0].insert(result[0].end(), tj_texts.begin(), tj_texts.end());
-        }
-        else
-        {
-            st.push(make_pair(VALUE, token));
-        }
+        else if (token == "TJ" && encoding && !encoding->is_vertical()) DO_TJ()
+        else st.push(make_pair(VALUE, token));
     }
 
     return result;

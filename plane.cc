@@ -31,7 +31,7 @@ bool Plane::is_any(const text_chunk_t &obj1, const text_chunk_t &obj2) const
     float x1 = max(obj1.coordinates.x1(), obj2.coordinates.x1());
     float y1 = max(obj1.coordinates.y1(), obj2.coordinates.y1());
 
-    for(const text_chunk_t &obj : tree | adaptors::queried(overlaps(box_t(point_t(x0, y0), point_t(x1, y1)))))
+    for(const text_chunk_t &obj : tree | adaptors::queried(covered_by(box_t(point_t(x0, y0), point_t(x1, y1)))))
     {
         if (!(obj == obj1) && !(obj == obj2)) return true;
     }

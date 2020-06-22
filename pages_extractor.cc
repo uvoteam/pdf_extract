@@ -813,8 +813,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
     stack<pair<pdf_object_t, string>> st;
     bool in_text_block = false;
-    vector<vector<text_chunk_t>> result;
-    result.push_back(vector<text_chunk_t>());
+    vector<vector<text_chunk_t>> result(1);
     result[0].reserve(PDF_STRINGS_NUM);
     for (size_t i = 0; i < page_content.length();)
     {

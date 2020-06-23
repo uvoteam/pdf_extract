@@ -111,10 +111,7 @@ struct text_chunk_t
     }
     bool operator==(const text_chunk_t &obj) const
     {
-        if (!(obj.coordinates == coordinates)) return false;
-        if (!(obj.texts == texts)) return false;
-        if (obj.is_group != is_group) return false;
-        return true;
+        return (obj.coordinates == coordinates);
     }
     text_chunk_t& operator=(text_chunk_t &&arg) = default;
     text_chunk_t& operator=(const text_chunk_t &arg) = default;

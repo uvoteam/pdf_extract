@@ -17,7 +17,10 @@ using box_t = boost::geometry::model::box<point_t>;
 
 struct coordinates_t
 {
-    coordinates_t() = default;
+    coordinates_t() : coordinates(point_t(0, 0), point_t(0, 0))
+    {
+    }
+
     coordinates_t(float x0_arg, float y0_arg, float x1_arg, float y1_arg) :
                   coordinates(point_t(x0_arg, y0_arg), point_t(x1_arg, y1_arg))
     {

@@ -26,7 +26,6 @@ public:
         }
     };
     using rtree_t = boost::geometry::index::rtree<text_chunk_t, boost::geometry::index::quadratic<16>, indexable_t, cmp_t>;
-
 public:
     Plane(const std::vector<text_chunk_t> &arg);
     void add(const text_chunk_t &obj);

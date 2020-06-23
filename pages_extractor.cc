@@ -8,6 +8,7 @@
 #include <set>
 
 #include <boost/optional.hpp>
+#include <boost/geometry.hpp>
 
 #include <math.h>
 
@@ -24,6 +25,7 @@
 
 using namespace std;
 using namespace boost;
+using namespace boost::geometry::index;
 
 #define DO_BT() {\
         coordinates.set_default();              \
@@ -80,9 +82,6 @@ using namespace boost;
         result[0].insert(result[0].end(), tj_texts.begin(), tj_texts.end()); \
 }
 
-
-
-
 namespace
 {
     struct dist_t
@@ -109,11 +108,11 @@ namespace
     };
 
     enum { MATRIX_ELEMENTS_NUM = 6, PDF_STRINGS_NUM = 300 /*for optimization*/ };
-    const float LINE_OVERLAP = 0.5;
-    const float CHAR_MARGIN = 2.0;
-    const float WORD_MARGIN = 0.1;
-    const float LINE_MARGIN = 0.5;
-    const float BOXES_FLOW = 0.5;
+    constexpr float LINE_OVERLAP = 0.5;
+    constexpr float CHAR_MARGIN = 2.0;
+    constexpr float WORD_MARGIN = 0.1;
+    constexpr float LINE_MARGIN = 0.5;
+    constexpr float BOXES_FLOW = 0.5;
 
     dist_t pop(set<dist_t> &dists)
     {
@@ -199,6 +198,26 @@ namespace
         return obj.y1() - obj.y0();
     }
 
+    struct is_neighbour_line
+    {
+        is_neighbour_line(const coordinates_t &coordinates_arg) : coordinates(coordinates_arg),
+                                                                  d(LINE_MARGIN * height(coordinates_arg))
+        {
+        }
+
+        bool operator()(const text_chunk_t& v) const
+        {
+            if (fabs(height(coordinates) - height(v.coordinates)) < d &&
+                (fabs(coordinates.x0() - v.coordinates.x0()) < d || fabs(coordinates.x1() - v.coordinates.x1()) < d))
+            {
+                return true;
+            }
+            return false;
+        }
+        float d;
+        const coordinates_t &coordinates;
+    };
+
     float width(const text_chunk_t &obj)
     {
         return (obj.coordinates.x1() - obj.coordinates.x0()) / obj.string_len;
@@ -222,47 +241,33 @@ namespace
                (hdistance(obj1.coordinates, obj2.coordinates) < max(width(obj1), width(obj2)) * CHAR_MARGIN);
     }
 
-    bool is_neighbour(const text_t &obj1, const text_t &obj2)
+    text_chunk_t merge_lines(vector<text_chunk_t> &&lines)
     {
-        float height1 = height(obj1.coordinates), height2 = height(obj2.coordinates);
-        float d = LINE_MARGIN * height1;
-        if (fabs(height1 - height2) < d &&
-            obj2.coordinates.x1() > obj1.coordinates.x0() && obj2.coordinates.x0() < obj1.coordinates.x1() &&
-            obj2.coordinates.y0() < obj1.coordinates.y1() + d && obj2.coordinates.y1() > obj1.coordinates.y0() - d &&
-            (fabs(obj1.coordinates.x0() - obj2.coordinates.x0()) < d ||
-             fabs(obj1.coordinates.x1() - obj2.coordinates.x1()) < d))
-           {
-               return true;
-           }
-        return false;
-    }
-
-    bool merge_lines(vector<text_chunk_t> &lines, size_t j, size_t i)
-    {
-        bool merge = false;
-        for (size_t jj = 0; jj < lines[j].texts.size() && !merge; ++jj)
+        lines.erase(remove_if(lines.begin(),
+                              lines.end(),
+                              [](const text_chunk_t& line) {
+                                  return width(line.coordinates) <= 0 || height(line.coordinates) <= 0;}),
+                    lines.end());
+        if (lines.empty()) return text_chunk_t();
+        sort(lines.begin(), lines.end(),
+             [](const text_chunk_t &a, const text_chunk_t &b) -> bool
+             {
+                 if (a.coordinates.y1() != b.coordinates.y1()) return a.coordinates.y1() > b.coordinates.y1();
+                 return a.coordinates.x0() < b.coordinates.x0();
+             });
+        text_chunk_t result(lines[0].texts[0].text + '\n', std::move(lines[0].coordinates));
+        for (size_t i = 1; i < lines.size(); ++i)
         {
-            for (size_t ii = 0; ii < lines[i].texts.size(); ++ii)
-            {
-                if (is_neighbour(lines[j].texts[jj], lines[i].texts[ii]))
-                {
-                    merge = true;
-                    break;
-                }
-            }
+            result.texts[0].text += lines[i].texts[0].text + '\n';
+            if (lines[i].coordinates.x0() < result.coordinates.x0()) result.coordinates.set_x0(lines[i].coordinates.x0());
+            if (lines[i].coordinates.x1() > result.coordinates.x1()) result.coordinates.set_x1(lines[i].coordinates.x1());
+            if (lines[i].coordinates.y0() < result.coordinates.y0()) result.coordinates.set_y0(lines[i].coordinates.y0());
+            if (lines[i].coordinates.y1() > result.coordinates.y1()) result.coordinates.set_y1(lines[i].coordinates.y1());
+            result.string_len += lines[i].string_len;
         }
-        if (!merge) return false;
-        lines[j].string_len += lines[i].string_len;
-        lines[j].texts.insert(lines[j].texts.end(),
-                              std::make_move_iterator(lines[i].texts.begin()),
-                              std::make_move_iterator(lines[i].texts.end()));
+        result.texts[0].coordinates = result.coordinates;
 
-        lines[j].coordinates.set_x0(min(lines[j].coordinates.x0(), lines[i].coordinates.x0()));
-        lines[j].coordinates.set_x1(max(lines[j].coordinates.x1(), lines[i].coordinates.x1()));
-        lines[j].coordinates.set_y0(min(lines[j].coordinates.y0(), lines[i].coordinates.y0()));
-        lines[j].coordinates.set_y1(max(lines[j].coordinates.y1(), lines[i].coordinates.y1()));
-        lines.erase(lines.begin() + i);
-        return true;
+        return result;
     }
 
     void add2line(text_chunk_t &line, const text_chunk_t &obj)
@@ -313,43 +318,38 @@ namespace
         return result;
     }
 
-    void traverse_lines(vector<text_chunk_t> &chunks)
+    coordinates_t get_line_area_coordinates(const text_chunk_t &line)
     {
-    NEXT:
-        for (size_t j = 0; j < chunks.size(); ++j)
-        {
-            for (size_t i = 0; i < chunks.size(); ++i)
-            {
-                if (j == i) continue;
-                if (merge_lines(chunks, i, j)) goto NEXT;
-            }
-        }
+        coordinates_t result = line.coordinates;
+        float d = LINE_MARGIN * height(line.coordinates);
+        result.set_y0(result.y0() - d);
+        result.set_y1(result.y1() + d);
+
+        return result;
     }
 
-    void make_text_boxes(vector<text_chunk_t> &chunks)
+    vector<text_chunk_t> get_neighbour_lines(Plane::rtree_t &rtree)
     {
-        traverse_lines(chunks);
-        chunks.erase(remove_if(chunks.begin(),
-                               chunks.end(),
-                               [](const text_chunk_t& chunk) {
-                                   return width(chunk.coordinates) <= 0 || height(chunk.coordinates) <= 0;}),
-                     chunks.end());
-        for (text_chunk_t &box : chunks)
+        if (rtree.empty()) return vector<text_chunk_t>();
+        vector<text_chunk_t> result{*std::make_move_iterator(rtree.begin())};
+        rtree.remove(result[0]);
+        for (size_t i = 0; i < result.size() && !rtree.empty(); ++i)
         {
-            if (box.texts.empty()) continue;
-            vector<text_t> whole_box{text_t(box.coordinates)};
-            sort(box.texts.begin(), box.texts.end(),
-                 [](const text_t &a, const text_t &b) -> bool
-                 {
-                     if (a.coordinates.y1() != b.coordinates.y1()) return a.coordinates.y1() > b.coordinates.y1();
-                     return a.coordinates.x0() < b.coordinates.x0();
-                 });
-            for (size_t i = 0; i < box.texts.size(); ++i)
-            {
-                whole_box[0].text += box.texts[i].text + '\n';
-            }
-            box.texts = std::move(whole_box);
+            const coordinates_t coordinates = get_line_area_coordinates(result[i]);
+            auto it = rtree.qbegin(covered_by(coordinates.coordinates)&& satisfies(is_neighbour_line(coordinates)));
+            if (it == rtree.qend()) continue;
+            auto it2 = result.insert(result.end(), std::make_move_iterator(it), std::make_move_iterator(rtree.qend()));
+            rtree.remove(it2, result.end());
         }
+        return result;
+    }
+
+    vector<text_chunk_t> make_text_boxes(const vector<text_chunk_t> &lines)
+    {
+        Plane::rtree_t rtree(lines);
+        vector<text_chunk_t> text_boxes;
+        while (!rtree.empty()) text_boxes.push_back(merge_lines(get_neighbour_lines(rtree)));
+        return text_boxes;
     }
 
     vector<text_chunk_t> make_text_lines(vector<text_chunk_t> &chunks)
@@ -449,10 +449,8 @@ namespace
 
     string render_text(vector<text_chunk_t> &chunks)
     {
-        vector<text_chunk_t> lines = make_text_lines(chunks);
 /*        for (const text_chunk_t &chunk : lines) cout << '(' << chunk.coordinates.x0() << ',' << chunk.coordinates.y0() << ")(" << chunk.coordinates.x1() << ',' << chunk.coordinates.y1() << ')' << chunk.texts[0].text << endl;*/
-        make_text_boxes(lines);
-        return make_string(make_plane(lines));
+        return make_string(make_plane(make_text_boxes(make_text_lines(chunks))));
     }
 
     string output_content(unordered_set<unsigned int> &visited_contents,

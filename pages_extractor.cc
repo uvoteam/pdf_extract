@@ -336,7 +336,7 @@ namespace
         for (size_t i = 0; i < result.size() && !rtree.empty(); ++i)
         {
             const coordinates_t coordinates = get_line_area_coordinates(result[i]);
-            auto it = rtree.qbegin(covered_by(coordinates.coordinates)&& satisfies(is_neighbour_line(coordinates)));
+            auto it = rtree.qbegin(covered_by(coordinates.coordinates) && satisfies(is_neighbour_line(coordinates)));
             if (it == rtree.qend()) continue;
             auto it2 = result.insert(result.end(), std::make_move_iterator(it), std::make_move_iterator(rtree.qend()));
             rtree.remove(it2, result.end());

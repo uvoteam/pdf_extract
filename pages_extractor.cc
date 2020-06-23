@@ -8,7 +8,6 @@
 #include <set>
 
 #include <boost/optional.hpp>
-#include <boost/geometry.hpp>
 
 #include <math.h>
 
@@ -25,7 +24,6 @@
 
 using namespace std;
 using namespace boost;
-using namespace boost::geometry::index;
 
 #define DO_BT() {\
         coordinates.set_default();              \
@@ -198,26 +196,6 @@ namespace
         return obj.y1() - obj.y0();
     }
 
-    struct is_neighbour_line
-    {
-        is_neighbour_line(const coordinates_t &coordinates_arg) : coordinates(coordinates_arg),
-                                                                  d(LINE_MARGIN * height(coordinates_arg))
-        {
-        }
-
-        bool operator()(const text_chunk_t& v) const
-        {
-            if (fabs(height(coordinates) - height(v.coordinates)) < d &&
-                (fabs(coordinates.x0() - v.coordinates.x0()) < d || fabs(coordinates.x1() - v.coordinates.x1()) < d))
-            {
-                return true;
-            }
-            return false;
-        }
-        float d;
-        const coordinates_t &coordinates;
-    };
-
     float width(const text_chunk_t &obj)
     {
         return (obj.coordinates.x1() - obj.coordinates.x0()) / obj.string_len;
@@ -318,37 +296,46 @@ namespace
         return result;
     }
 
-    coordinates_t get_line_area_coordinates(const text_chunk_t &line)
+    bool is_neighbour_lines(const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
-        coordinates_t result = line.coordinates;
-        float d = LINE_MARGIN * height(line.coordinates);
-        result.set_y0(result.y0() - d);
-        result.set_y1(result.y1() + d);
-
-        return result;
+        if (obj1.string_len == 0 || obj1.string_len == 0) return false;
+        float height1 = height(obj1.coordinates), height2 = height(obj2.coordinates);
+        float d = LINE_MARGIN * height1;
+        if (fabs(height1 - height2) < d &&
+            obj2.coordinates.x1() > obj1.coordinates.x0() && obj2.coordinates.x0() < obj1.coordinates.x1() &&
+            obj2.coordinates.y0() < obj1.coordinates.y1() + d && obj2.coordinates.y1() > obj1.coordinates.y0() - d &&
+            (fabs(obj1.coordinates.x0() - obj2.coordinates.x0()) < d ||
+             fabs(obj1.coordinates.x1() - obj2.coordinates.x1()) < d))
+        {
+            return true;
+        }
+        return false;
     }
 
-    vector<text_chunk_t> get_neighbour_lines(Plane::rtree_t &rtree)
+    vector<text_chunk_t> get_neighbour_lines(vector<text_chunk_t> &&lines, text_chunk_t&& line_arg)
     {
-        if (rtree.empty()) return vector<text_chunk_t>();
-        vector<text_chunk_t> result{*std::make_move_iterator(rtree.begin())};
-        rtree.remove(result[0]);
-        for (size_t i = 0; i < result.size() && !rtree.empty(); ++i)
+        vector<text_chunk_t> result;
+        result.push_back(std::move(line_arg));
+        for (size_t i = 0; i < result.size(); ++i)
         {
-            const coordinates_t coordinates = get_line_area_coordinates(result[i]);
-            auto it = rtree.qbegin(covered_by(coordinates.coordinates) && satisfies(is_neighbour_line(coordinates)));
-            if (it == rtree.qend()) continue;
-            auto it2 = result.insert(result.end(), std::make_move_iterator(it), std::make_move_iterator(rtree.qend()));
-            rtree.remove(it2, result.end());
+            for (text_chunk_t &line : lines)
+            {
+                if (is_neighbour_lines(line, result[i])) result.push_back(std::move(line));
+            }
         }
         return result;
     }
 
-    vector<text_chunk_t> make_text_boxes(const vector<text_chunk_t> &lines)
+    vector<text_chunk_t> make_text_boxes(vector<text_chunk_t> &&lines)
     {
-        Plane::rtree_t rtree(lines);
         vector<text_chunk_t> text_boxes;
-        while (!rtree.empty()) text_boxes.push_back(merge_lines(get_neighbour_lines(rtree)));
+        auto not_empty = [](const text_chunk_t &line) { return line.string_len != 0; };
+        for (auto it = find_if(lines.begin(), lines.end(), not_empty);
+             it != lines.end();
+             it = find_if(it, lines.end(), not_empty))
+        {
+            text_boxes.push_back(merge_lines(get_neighbour_lines(std::move(lines), *std::make_move_iterator(it))));
+        }
         return text_boxes;
     }
 

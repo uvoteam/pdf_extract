@@ -113,9 +113,23 @@ struct text_chunk_t
     {
         return (obj.coordinates == coordinates);
     }
-    text_chunk_t& operator=(text_chunk_t &&arg) = default;
+    text_chunk_t& operator=(text_chunk_t &&arg)
+    {
+        coordinates = std::move(arg.coordinates);
+        texts = std::move(arg.texts);
+        string_len = arg.string_len;
+        arg.string_len = 0; //indicator object is moved
+        is_group = arg.is_group;
+    }
     text_chunk_t& operator=(const text_chunk_t &arg) = default;
-    text_chunk_t(text_chunk_t &&arg) = default;
+    text_chunk_t(text_chunk_t &&arg) :
+                 coordinates(std::move(arg.coordinates)),
+                 texts(std::move(arg.texts)),
+                 string_len(arg.string_len),
+                 is_group(arg.is_group)
+    {
+        arg.string_len = 0; //indicator object is moved
+    }
     text_chunk_t(const text_chunk_t &arg) = default;
     bool operator<(const text_chunk_t &arg) const
     {

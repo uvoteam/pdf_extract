@@ -6,70 +6,30 @@
 #include <stack>
 #include <utility>
 
-#include <boost/geometry/geometries/point.hpp>
-#include <boost/geometry/geometries/box.hpp>
-
 #include "common.h"
 #include "fonts.h"
 
-using point_t = boost::geometry::model::point<float, 2, boost::geometry::cs::cartesian>;
-using box_t = boost::geometry::model::box<point_t>;
-
 struct coordinates_t
 {
-    coordinates_t() : coordinates(point_t(0, 0), point_t(0, 0))
+    coordinates_t() : x0(0), y0(0), x1(0), y1(0)
     {
     }
 
     coordinates_t(float x0_arg, float y0_arg, float x1_arg, float y1_arg) :
-                  coordinates(point_t(x0_arg, y0_arg), point_t(x1_arg, y1_arg))
+        x0(x0_arg), y0(y0_arg), x1(x1_arg), y1(y1_arg)
     {
     }
+
     bool operator==(const coordinates_t &obj) const
     {
-        if (x0() != obj.x0() || y0() != obj.y0() || x1() != obj.x1() || y1() != obj.y1()) return false;
+        if (x0 != obj.x0 || y0 != obj.y0 || x1 != obj.x1 || y1 != obj.y1) return false;
         return true;
     }
-    void set_x0(const float x0_arg)
-    {
-        coordinates.min_corner().set<0>(x0_arg);
-    }
 
-    void set_y0(const float y0_arg)
-    {
-        coordinates.min_corner().set<1>(y0_arg);
-    }
-
-    void set_x1(const float x1_arg)
-    {
-        coordinates.max_corner().set<0>(x1_arg);
-    }
-
-    void set_y1(const float y1_arg)
-    {
-        coordinates.max_corner().set<1>(y1_arg);
-    }
-
-    float x0() const
-    {
-        return coordinates.min_corner().get<0>();
-    }
-
-    float x1() const
-    {
-        return coordinates.max_corner().get<0>();
-    }
-
-    float y0() const
-    {
-        return coordinates.min_corner().get<1>();
-    }
-
-    float y1() const
-    {
-        return coordinates.max_corner().get<1>();
-    }
-    box_t coordinates;
+    float x0;
+    float y0;
+    float x1;
+    float y1;
 };
 
 struct text_t
@@ -139,8 +99,8 @@ struct text_chunk_t
 
     bool operator<(const text_chunk_t &arg) const
     {
-        if (coordinates.x0() != arg.coordinates.x0()) return coordinates.x0() < arg.coordinates.x0();
-        return coordinates.y0() < arg.coordinates.y0();
+        if (coordinates.x0 != arg.coordinates.x0) return coordinates.x0 < arg.coordinates.x0;
+        return coordinates.y0 < arg.coordinates.y0;
     }
 
     bool is_moved() const

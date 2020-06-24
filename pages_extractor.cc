@@ -18,7 +18,7 @@
 #include "cmap.h"
 #include "pages_extractor.h"
 #include "coordinates.h"
-#include "plane.h"
+
 #include "converter_engine.h"
 
 using namespace std;
@@ -85,8 +85,8 @@ namespace
     {
         dist_t(unsigned char c_arg,
                float d_arg,
-               const text_chunk_t &obj1_arg,
-               const text_chunk_t &obj2_arg) noexcept : c(c_arg), d(d_arg), obj1(obj1_arg), obj2(obj2_arg)
+               size_t obj1_arg,
+               size_t obj2_arg) noexcept : c(c_arg), d(d_arg), obj1(obj1_arg), obj2(obj2_arg)
         {
         }
         bool operator<(const dist_t &arg) const
@@ -94,14 +94,10 @@ namespace
             if (c != arg.c) return c < arg.c;
             return d < arg.d;
         }
-        dist_t& operator=(dist_t &&arg) = default;
-        dist_t& operator=(const dist_t &arg) = default;
-        dist_t(dist_t &&arg) = default;
-        dist_t(const dist_t &arg) = default;
-        unsigned char c;
         float d;
-        text_chunk_t obj1;
-        text_chunk_t obj2;
+        size_t obj1;
+        size_t obj2;
+        unsigned char c;
     };
 
     enum { MATRIX_ELEMENTS_NUM = 6, PDF_STRINGS_NUM = 300 /*for optimization*/ };
@@ -119,29 +115,45 @@ namespace
         return dist;
     }
 
-    text_chunk_t create_group(text_chunk_t &&obj1, text_chunk_t &&obj2)
+    bool is_between(const vector<text_chunk_t> &groups, size_t obj1, size_t obj2)
     {
-        float pos1 = (1 - BOXES_FLOW) * (obj1.coordinates.x0()) -
-                     (1 + BOXES_FLOW) * (obj1.coordinates.y0() + obj1.coordinates.y1());
-        float pos2 = (1 - BOXES_FLOW) * (obj2.coordinates.x0()) -
-                     (1 + BOXES_FLOW) * (obj2.coordinates.y0() + obj2.coordinates.y1());
-        text_chunk_t &&o1 = (pos1 <= pos2)? std::move(obj1) : std::move(obj2);
-        text_chunk_t &&o2 = (pos1 <= pos2)? std::move(obj2) : std::move(obj1);
+        float x0 = min(groups[obj1].coordinates.x0(), groups[obj2].coordinates.x0());
+        float y0 = min(groups[obj1].coordinates.y0(), groups[obj2].coordinates.y0());
+        float x1 = max(groups[obj1].coordinates.x1(), groups[obj2].coordinates.x1());
+        float y1 = max(groups[obj1].coordinates.y1(), groups[obj2].coordinates.y1());
+        return find_if(groups.begin(), groups.end(), [x0, y0, x1, y1, obj1, obj2, &groups](const text_chunk_t &obj)
+                       {
+                           const coordinates_t &coord = obj.coordinates;
+                           if (coord.x0() >= x0 && coord.y0() >= y0 && coord.x1() <= x1 && coord.y1() <= y1 &&
+                               !obj.is_moved() &&
+                               !(obj == groups[obj1]) && !(obj == groups[obj2])) return true;
+                           return false;
+                       }) != groups.end();
+    }
 
-        text_chunk_t result = std::move(o1);
-        for (const text_t &text : o2.texts)
+    size_t create_group(vector<text_chunk_t> &groups, size_t obj1, size_t obj2)
+    {
+        float pos1 = (1 - BOXES_FLOW) * (groups[obj1].coordinates.x0()) -
+                     (1 + BOXES_FLOW) * (groups[obj1].coordinates.y0() + groups[obj1].coordinates.y1());
+        float pos2 = (1 - BOXES_FLOW) * (groups[obj2].coordinates.x0()) -
+                     (1 + BOXES_FLOW) * (groups[obj2].coordinates.y0() + groups[obj2].coordinates.y1());
+        size_t o1 = (pos1 <= pos2)? obj1 : obj2;
+        size_t o2 = (pos1 <= pos2)? obj2 : obj1;
+
+        for (const text_t &text : groups[o2].texts)
         {
-            result.coordinates.set_x0(min(result.coordinates.x0(), text.coordinates.x0()));
-            result.coordinates.set_x1(max(result.coordinates.x1(), text.coordinates.x1()));
-            result.coordinates.set_y0(min(result.coordinates.y0(), text.coordinates.y0()));
-            result.coordinates.set_y1(max(result.coordinates.y1(), text.coordinates.y1()));
+            groups[o1].coordinates.set_x0(min(groups[o1].coordinates.x0(), text.coordinates.x0()));
+            groups[o1].coordinates.set_x1(max(groups[o1].coordinates.x1(), text.coordinates.x1()));
+            groups[o1].coordinates.set_y0(min(groups[o1].coordinates.y0(), text.coordinates.y0()));
+            groups[o1].coordinates.set_y1(max(groups[o1].coordinates.y1(), text.coordinates.y1()));
         }
         //optimization
-        result.texts.insert(result.texts.end(),
-                            std::make_move_iterator(o2.texts.begin()),
-                            std::make_move_iterator(o2.texts.end()));
-        result.is_group = true;
-        return result;
+        groups[o1].texts.insert(groups[o1].texts.end(),
+                                std::make_move_iterator(groups[o2].texts.begin()),
+                                std::make_move_iterator(groups[o2].texts.end()));
+        groups[o1].is_group = true;
+        groups[o2].set_is_moved();
+        return o1;
     }
 
     string get_resource_name(const string &page, const string &object)
@@ -297,7 +309,7 @@ namespace
 
     bool is_neighbour_lines(const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
-        if (obj1.string_len == 0 || obj1.string_len == 0) return false;
+        if (obj1.is_moved() || obj2.is_moved()) return false;
         float height1 = height(obj1.coordinates), height2 = height(obj2.coordinates);
         float d = LINE_MARGIN * height1;
         if (fabs(height1 - height2) < d &&
@@ -328,7 +340,7 @@ namespace
     vector<text_chunk_t> make_text_boxes(vector<text_chunk_t> &&lines)
     {
         vector<text_chunk_t> text_boxes;
-        auto not_empty = [](const text_chunk_t &line) { return line.string_len != 0; };
+        auto not_empty = [](const text_chunk_t &line) { return !line.is_moved(); };
         for (auto it = find_if(lines.begin(), lines.end(), not_empty);
              it != lines.end();
              it = find_if(it, lines.end(), not_empty))
@@ -340,6 +352,7 @@ namespace
 
     vector<text_chunk_t> make_text_lines(vector<text_chunk_t> &chunks)
     {
+        //clear empty strings
         chunks.erase(remove_if(chunks.begin(),
                                chunks.end(),
                                [](const text_chunk_t& chunk) {
@@ -382,29 +395,23 @@ namespace
                width(obj1.coordinates) * height(obj1.coordinates) - width(obj2.coordinates) * height(obj2.coordinates);
     }
 
-    Plane make_plane(const vector<text_chunk_t> &chunks)
+    text_chunk_t make_plane(vector<text_chunk_t> &&boxes)
     {
         set<dist_t> dists;
-        Plane plane(chunks);
 
-        for (size_t i = 0; i < chunks.size(); ++i)
+        for (size_t i = 0; i < boxes.size(); ++i)
         {
-            for (size_t j = i + 1; j < chunks.size(); ++j) dists.insert(dist_t(0,
-                                                                               get_dist(chunks[i], chunks[j]),
-                                                                               chunks[i],
-                                                                               chunks[j]));
+            for (size_t j = i + 1; j < boxes.size(); ++j) dists.insert(dist_t(0, get_dist(boxes[i], boxes[j]), i, j));
         }
 
         while (!dists.empty())
         {
             dist_t dist = pop(dists);
-            if (dist.c == 0 && plane.is_any(dist.obj1, dist.obj2))
+            if (dist.c == 0 && is_between(boxes, dist.obj1, dist.obj2))
             {
                 dists.insert(dist_t(1, dist.d, dist.obj1, dist.obj2));
                 continue;
             }
-            plane.remove(dist.obj1);
-            plane.remove(dist.obj2);
             for (auto it = dists.begin(); it != dists.end();)
             {
                 if (it->obj1 == dist.obj1 || it->obj1 == dist.obj2 || it->obj2 == dist.obj1 || it->obj2 == dist.obj2)
@@ -416,20 +423,24 @@ namespace
                     ++it;
                 }
             }
-            text_chunk_t group = create_group(std::move(dist.obj1), std::move(dist.obj2));
-            for (const text_chunk_t &obj : plane.get_objects()) dists.insert(dist_t(0, get_dist(group, obj), group, obj));
-            plane.add(group);
+            size_t group = create_group(boxes, dist.obj1, dist.obj2);
+            for (size_t i = 0; i < boxes.size(); ++i)
+            {
+                if (i == group || boxes[i].is_moved()) continue;
+                dists.insert(dist_t(0, get_dist(boxes[group], boxes[i]), group, i));
+            }
         }
-        return plane;
+        for (text_chunk_t &group : boxes)
+        {
+            if (!group.is_moved()) return std::move(group);
+        }
+        throw pdf_error(FUNC_STRING + "all objects are moved");
     }
 
-    string make_string(const Plane &plane)
+    string make_string(const text_chunk_t &group)
     {
         string result;
-        for (const text_chunk_t &group : plane.get_objects()) //must be 1
-        {
-            for (const text_t &box : group.texts) result += box.text;
-        }
+        for (const text_t &box : group.texts) result += box.text;
         return result;
     }
 

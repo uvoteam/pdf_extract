@@ -109,10 +109,12 @@ struct text_chunk_t
                  is_group(false)
     {
     }
+
     bool operator==(const text_chunk_t &obj) const
     {
         return (obj.coordinates == coordinates);
     }
+
     text_chunk_t& operator=(text_chunk_t &&arg)
     {
         coordinates = std::move(arg.coordinates);
@@ -121,25 +123,36 @@ struct text_chunk_t
         arg.string_len = 0; //indicator object is moved
         is_group = arg.is_group;
     }
+
     text_chunk_t& operator=(const text_chunk_t &arg) = default;
+
     text_chunk_t(text_chunk_t &&arg) :
                  coordinates(std::move(arg.coordinates)),
                  texts(std::move(arg.texts)),
                  string_len(arg.string_len),
                  is_group(arg.is_group)
     {
-        arg.string_len = 0; //indicator object is moved
+        arg.string_len = 0;
     }
+
     text_chunk_t(const text_chunk_t &arg) = default;
+
     bool operator<(const text_chunk_t &arg) const
     {
         if (coordinates.x0() != arg.coordinates.x0()) return coordinates.x0() < arg.coordinates.x0();
         return coordinates.y0() < arg.coordinates.y0();
     }
-    std::pair<float, float> get_pair() const
+
+    bool is_moved() const
     {
-        return std::make_pair(coordinates.x0(), coordinates.y0());
+        return string_len == 0;
     }
+
+    void set_is_moved()
+    {
+        string_len = 0;
+    }
+
     coordinates_t coordinates;
     std::vector<text_t> texts;
     size_t string_len;

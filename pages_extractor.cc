@@ -4,7 +4,6 @@
 #include <stack>
 #include <algorithm>
 #include <iostream> //temp
-#include <set>
 
 #include <boost/optional.hpp>
 
@@ -89,11 +88,6 @@ namespace
                size_t obj2_arg) noexcept : c(c_arg), d(d_arg), obj1(obj1_arg), obj2(obj2_arg)
         {
         }
-        bool operator<(const dist_t &arg) const
-        {
-            if (c != arg.c) return c < arg.c;
-            return d < arg.d;
-        }
         float d;
         size_t obj1;
         size_t obj2;
@@ -107,12 +101,10 @@ namespace
     constexpr float LINE_MARGIN = 0.5;
     constexpr float BOXES_FLOW = 0.5;
 
-    dist_t pop(set<dist_t> &dists)
+    bool operator<(const dist_t &obj1, const dist_t &obj2)
     {
-        if (dists.empty()) throw pdf_error(FUNC_STRING + "dists is empty");
-        dist_t dist = std::move(*dists.begin());
-        dists.erase(dists.begin());
-        return dist;
+        if (obj1.c != obj2.c) return obj1.c < obj2.c;
+        return obj1.d < obj2.d;
     }
 
     bool is_between(const vector<text_chunk_t> &groups, size_t obj1, size_t obj2)
@@ -397,39 +389,36 @@ namespace
 
     text_chunk_t make_plane(vector<text_chunk_t> &&boxes)
     {
-        set<dist_t> dists;
+        vector<dist_t> dists;
+        dists.reserve(boxes.size() * (boxes.size() - 1));
 
         for (size_t i = 0; i < boxes.size(); ++i)
         {
-            for (size_t j = i + 1; j < boxes.size(); ++j) dists.insert(dist_t(0, get_dist(boxes[i], boxes[j]), i, j));
+            for (size_t j = i + 1; j < boxes.size(); ++j) dists.emplace_back(0, get_dist(boxes[i], boxes[j]), i, j);
         }
 
         while (!dists.empty())
         {
-            dist_t dist = pop(dists);
-            if (dist.c == 0 && is_between(boxes, dist.obj1, dist.obj2))
+            auto it = min_element(dists.begin(), dists.end());
+            if (it->c == 0 && is_between(boxes, it->obj1, it->obj2))
             {
-                dists.insert(dist_t(1, dist.d, dist.obj1, dist.obj2));
+                it->c = 1;
                 continue;
             }
-            for (auto it = dists.begin(); it != dists.end();)
-            {
-                if (it->obj1 == dist.obj1 || it->obj1 == dist.obj2 || it->obj2 == dist.obj1 || it->obj2 == dist.obj2)
-                {
-                    it = dists.erase(it);
-                }
-                else
-                {
-                    ++it;
-                }
-            }
+            const dist_t dist = *it;
+            dists.erase(remove_if(dists.begin(), dists.end(), [&dist] (const dist_t &o) {
+                        if (o.obj1 == dist.obj1 || o.obj1 == dist.obj2 ||
+                            o.obj2 == dist.obj1 || o.obj2 == dist.obj2) return true;
+                        return false;
+                        }), dists.end());
             size_t group = create_group(boxes, dist.obj1, dist.obj2);
             for (size_t i = 0; i < boxes.size(); ++i)
             {
                 if (i == group || boxes[i].is_moved()) continue;
-                dists.insert(dist_t(0, get_dist(boxes[group], boxes[i]), group, i));
+                dists.emplace_back(0, get_dist(boxes[group], boxes[i]), group, i);
             }
         }
+
         for (text_chunk_t &group : boxes)
         {
             if (!group.is_moved()) return std::move(group);

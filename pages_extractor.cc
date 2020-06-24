@@ -155,18 +155,10 @@ namespace
 
     matrix_t init_CTM(unsigned int rotate, const mediabox_t &media_box)
     {
-        if (rotate == 90) return matrix_t{{0, -1, 0},
-                                         {1, 0, 0},
-                                         {-media_box.at(1), media_box.at(2), 1}};
-        if (rotate == 180) return matrix_t{{-1, 0, 0},
-                                           {0, -1, 0},
-                                           {media_box.at(2), media_box.at(3), 1}};
-        if (rotate == 270) return matrix_t{{0, 1, 0},
-                                           {-1, 0, 0},
-                                           {media_box.at(3), -media_box.at(0), 1}};
-        return matrix_t{{1, 0, 0},
-                        {0, 1, 0},
-                        {-media_box.at(0), -media_box.at(1), 0}};
+        if (rotate == 90) return matrix_t{0, -1, 1, 0, -media_box.at(1), media_box.at(2)};
+        if (rotate == 180) return matrix_t{-1, 0, 0, -1, media_box.at(2), media_box.at(3)};
+        if (rotate == 270) return matrix_t{0, 1, -1, 0, media_box.at(3), -media_box.at(0)};
+        return matrix_t{1, 0, 0, 1, -media_box.at(0), -media_box.at(1)};
     }
 
     bool is_voverlap(const coordinates_t &obj1, const coordinates_t &obj2)
@@ -661,9 +653,9 @@ void PagesExtractor::get_XObject_data(const string &parent_id,
         if (numbers.size() != MATRIX_ELEMENTS_NUM) throw pdf_error(FUNC_STRING + "matrix must have " +
                                                                    to_string(MATRIX_ELEMENTS_NUM) +
                                                                    "elements. Data = " + it->second.first);
-        XObject_matrices.insert(make_pair(resource_name, matrix_t{{stof(numbers[0].first), stof(numbers[1].first), 0},
-                                                                  {stof(numbers[2].first), stof(numbers[3].first), 0},
-                                                                  {stof(numbers[4].first), stof(numbers[5].first), 0}}));
+        XObject_matrices.insert(make_pair(resource_name, matrix_t{stof(numbers[0].first), stof(numbers[1].first),
+                                                                  stof(numbers[2].first), stof(numbers[3].first),
+                                                                  stof(numbers[4].first), stof(numbers[5].first)}));
     }
     get_XObjects_data(resource_name, dict, font, visited_XObjects);
 }

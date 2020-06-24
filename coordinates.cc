@@ -10,17 +10,9 @@ using namespace std;
 
 namespace
 {
-    matrix_t translate_matrix(const matrix_t &m1, float x, float y)
+    matrix_t translate_matrix(const matrix_t &m, float x, float y)
     {
-        float a = m1.at(0).at(0);
-        float b = m1.at(0).at(1);
-        float c = m1.at(1).at(0);
-        float d = m1.at(1).at(1);
-        float e = m1.at(2).at(0);
-        float f = m1.at(2).at(1);
-        return matrix_t{{a, b, 0},
-                        {c, d, 0},
-                        {x*a + y*c + e, x*b + y*d + f, 1}};
+        return matrix_t{m[0], m[1], m[2], m[3], x * m[0] + y * m[2] + m[4], x * m[1] + y * m[3] + m[5]};
     }
 
     matrix_t get_matrix(stack<pair<pdf_object_t, string>> &st)
@@ -31,9 +23,7 @@ namespace
         float c = stof(pop(st).second);
         float b = stof(pop(st).second);
         float a = stof(pop(st).second);
-        return matrix_t{{a, b, 0},
-                        {c, d, 0},
-                        {e, f, 1}};
+        return matrix_t{a, b, c, d, e, f};
     }
 }
 
@@ -65,17 +55,9 @@ void Coordinates::T_star()
     Td(0, -TL);
 }
 
-void Coordinates::Td(float x_arg, float y_arg)
+void Coordinates::Td(float x_a, float y_a)
 {
-    float a = Tm.at(0).at(0);
-    float b = Tm.at(0).at(1);
-    float c = Tm.at(1).at(0);
-    float d = Tm.at(1).at(1);
-    float e = Tm.at(2).at(0);
-    float f = Tm.at(2).at(1);
-    Tm = matrix_t{{a, b, 0},
-                  {c, d, 0},
-                  {x_arg*a + y_arg*c + e , x_arg*b + y_arg*d + f, 1}};
+    Tm = matrix_t{Tm[0], Tm[1], Tm[2], Tm[3], x_a * Tm[0] + y_a * Tm[2] + Tm[4], x_a * Tm[1] + y_a * Tm[3] + Tm[5]};
     x = 0;
     y = 0;
 }
@@ -87,10 +69,9 @@ void Coordinates::set_default()
     y = 0;
 }
 
-pair<float, float> Coordinates::get_coordinates(const matrix_t &m1, const matrix_t &m2) const
+pair<float, float> apply_matrix_pt(const matrix_t &m, float x, float y)
 {
-    matrix_t r = m1 * m2;
-    return make_pair(r[0][0], r[0][1]);
+    return make_pair(m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]);
 }
 
 text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, float width, float Tj, const Fonts &fonts)
@@ -102,7 +83,6 @@ text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, float width
     }
     float ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
     float adv = width * Tfs * Th;
-    const matrix_t bll{{0, ty, 1}}, bur{{adv, ty + fonts.get_height() * Tfs, 1}};
     const matrix_t T_start = translate_matrix(Tm * CTM, x, y);
     if (len > 1) x += Tc * Th * (len - 1);
     for (char c : s)
@@ -110,8 +90,8 @@ text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, float width
         if (c == ' ') x += Tw * Th;
     }
     const matrix_t T_end = translate_matrix(Tm * CTM, x, y);
-    const pair<float, float> start_coordinates = get_coordinates(bll, T_start);
-    const pair<float, float> end_coordinates = get_coordinates(bur, T_end);
+    const pair<float, float> start_coordinates = apply_matrix_pt(T_start, 0, ty);
+    const pair<float, float> end_coordinates = apply_matrix_pt(T_end, adv, ty + fonts.get_height() * Tfs);
     float x0 = min(start_coordinates.first, end_coordinates.first);
     float x1 = max(start_coordinates.first, end_coordinates.first);
     float y0 = min(start_coordinates.second, end_coordinates.second);

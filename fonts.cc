@@ -157,10 +157,10 @@ void Fonts::insert_matrix_type3(const string &font_name, const dict_t &font)
     if (p.second != ARRAY) throw pdf_error(FUNC_STRING + "/FontMatrix must be ARRAY. Type=" + to_string(p.second) +
                                            " value=" + p.first);
     const array_t data = get_array_data(p.first, 0);
-    if (data.size() != MATRIX_ELEMENTS) throw pdf_error(FUNC_STRING + "/FontMatrix must have " +
-                                                        to_string(MATRIX_ELEMENTS) + " elements");
-    array<float, MATRIX_ELEMENTS> matrix;
-    for (size_t i = 0; i < MATRIX_ELEMENTS; ++i)
+    matrix_t matrix;
+    if (data.size() != matrix.size()) throw pdf_error(FUNC_STRING + "/FontMatrix must have " +
+                                                      to_string(matrix.size()) + " elements");
+    for (size_t i = 0; i < matrix.size(); ++i)
     {
         if (data[i].second != VALUE) throw pdf_error(FUNC_STRING + "/FontMatrix element must be VALUE.Type=" +
                                                      to_string(data[i].second) + " value=" + data[i].first);
@@ -319,7 +319,7 @@ void Fonts::validate_current_font() const
 pair<float, float> Fonts::get_scales() const
 {
     if (types.at(current_font) == OTHER) return make_pair(HSCALE_NO_TYPE_3, VSCALE_NO_TYPE_3);
-    return apply_matrix_norm(font_matrix_type_3.at(current_font), make_pair(1, 1));
+    return apply_matrix_norm(font_matrix_type_3.at(current_font), 1, 1);
 }
 
 const float Fonts::VSCALE_NO_TYPE_3 = 0.001;

@@ -63,7 +63,7 @@ private:
     std::map<std::string, Font_type_t> types;
     std::map<std::string, std::map<unsigned int, float>> widths;
     std::map<std::string, float> default_width;
-    std::map<std::string, std::array<float, MATRIX_ELEMENTS>> font_matrix_type_3;
+    std::map<std::string, matrix_t> font_matrix_type_3;
     float rise;
 
     struct font_metric_t

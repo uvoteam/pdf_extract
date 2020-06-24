@@ -717,10 +717,9 @@ pair<string, pdf_object_t> get_indirect_object_data(const string &indirect_objec
     return r;
 }
 
-pair<float, float> apply_matrix_norm(const array<float, MATRIX_ELEMENTS> &matrix, const pair<float, float> &point)
+pair<float, float> apply_matrix_norm(const matrix_t &matrix, float x, float y)
 {
-    return make_pair(matrix.at(0) * point.first + matrix.at(2) * point.second,
-                     matrix.at(1) * point.first + matrix.at(3) * point.second);
+    return make_pair(matrix.at(0) * x + matrix.at(2) * y, matrix.at(1) * x + matrix.at(3) * y);
 }
 
 std::string get_dict_val(const dict_t &dict, const string &key, const string &def)
@@ -739,16 +738,12 @@ size_t utf8_length(const string &s)
 
 matrix_t operator*(const matrix_t &m1, const matrix_t &m2)
 {
-    matrix_t result(m1.size(), vector<float>(m2.at(0).size(), 0));
-    for (size_t i = 0; i < m1.size(); i++)
-    {
-        for (size_t j = 0; j < m2.at(0).size(); j++)
-        {
-            result[i][j] = 0;
-            for (size_t k = 0; k < m1.at(0).size(); k++) result[i][j] += m1[i][k] * m2.at(k)[j];
-        }
-    }
-    return result;
+    return matrix_t{m2[0] * m1[0] + m2[2] * m1[1],
+                    m2[1] * m1[0] + m2[3] * m1[1],
+                    m2[0] * m1[2] + m2[2] * m1[3],
+                    m2[1] * m1[2] + m2[3] * m1[3],
+                    m2[0] * m1[4] + m2[2] * m1[5] + m2[4],
+                    m2[1] * m1[4] + m2[3] * m1[5] + m2[5]};
 }
 
 dict_t get_dict_or_indirect_dict(const pair<string, pdf_object_t> &data, const ObjectStorage &storage)
@@ -795,6 +790,4 @@ pair<string, pdf_object_t> get_content_len_pair(const string &buffer, size_t id,
     return storage.get_object(id);
 }
 
-const matrix_t IDENTITY_MATRIX = matrix_t{{1, 0, 0},
-                                          {0, 1, 0},
-                                          {0, 0, 1}};
+const matrix_t IDENTITY_MATRIX = matrix_t{1, 0, 0, 1, 0, 0};

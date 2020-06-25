@@ -266,8 +266,8 @@ size_t efind(const string &src, char c, size_t pos)
 
 size_t skip_spaces(const string &buffer, size_t offset, bool validate /*= true */)
 {
-    while (offset < buffer.length() && is_blank(buffer[offset])) ++offset;
-    if (validate && offset >= buffer.length()) throw pdf_error(FUNC_STRING + "no data after space");
+    offset = buffer.find_first_not_of("\r\n \t", offset);
+    if (validate && offset == string::npos) throw pdf_error(FUNC_STRING + "no data after space");
     return offset;
 }
 
@@ -276,8 +276,13 @@ size_t skip_comments(const string &buffer, size_t offset, bool validate /*= true
     while (true)
     {
         offset = skip_spaces(buffer, offset, validate);
-        if (offset >= buffer.length() || buffer[offset] != '%') return offset;
-        while (offset < buffer.length() && buffer[offset] != '\r' && buffer[offset] != '\n') ++offset;
+        if (offset == string::npos || buffer[offset] != '%') return offset;
+        offset = buffer.find_first_not_of("\r\n");
+        if (offset == string::npos)
+        {
+            if (validate) throw pdf_error(FUNC_STRING + "no data after comments");
+            return offset;
+        }
     }
 }
 

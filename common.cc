@@ -375,7 +375,7 @@ string get_string(const string &buffer, size_t &offset)
     if (delimiter != '(' && delimiter != '<') throw pdf_error(FUNC_STRING + "string must start with '(' or '<'");
     char end_delimiter = delimiter == '('? ')' : '>';
     stack<pdf_object_t> prevs;
-    string result = delimiter;
+    string result(1, delimiter);
     ++offset;
     for (bool is_escaped = false; ; ++offset)
     {
@@ -463,7 +463,7 @@ dict_t get_dictionary_data(const string &buffer, size_t offset)
     while (true)
     {
         offset = skip_comments(buffer, offset);
-        if (buffer.at(offset) == '>' && buffer.at(offset + 1) == '>') return result;
+        if (buffer[offset] == '>' && buffer.at(offset + 1) == '>') return result;
         if (buffer[offset] != '/') throw pdf_error(FUNC_STRING + "Can`t find name key");
         size_t end_offset = efind_first(buffer, "\r\t\n /<[(", offset + 1);
         const string key = buffer.substr(offset, end_offset - offset);

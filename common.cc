@@ -472,8 +472,8 @@ array_t get_array_data(const string &buffer, size_t offset)
         offset = skip_comments(buffer, offset);
         if (buffer.at(offset) == ']') return result;
         pdf_object_t type = get_object_type(buffer, offset);
-        const string val = TYPE2FUNC.at(type)(buffer, offset);
-        result.push_back(make_pair(val, type));
+        string val = TYPE2FUNC.at(type)(buffer, offset);
+        result.push_back(make_pair(std::move(val), type));
     }
     return result;
 }

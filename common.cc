@@ -375,7 +375,7 @@ string get_string(const string &buffer, size_t &offset)
     if (delimiter != '(' && delimiter != '<') throw pdf_error(FUNC_STRING + "string must start with '(' or '<'");
     char end_delimiter = delimiter == '('? ')' : '>';
     stack<pdf_object_t> prevs;
-    string result(1, delimiter);
+    string result = delimiter;
     ++offset;
     for (bool is_escaped = false; ; ++offset)
     {
@@ -418,7 +418,6 @@ string decode_string(const string &str)
 
 string get_array(const string &buffer, size_t &offset)
 {
-    if (buffer[offset] != '[') throw pdf_error(FUNC_STRING + "offset should point to '['");
     string result = "[";
     ++offset;
     stack<pdf_object_t> prevs;

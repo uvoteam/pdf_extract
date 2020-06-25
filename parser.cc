@@ -183,7 +183,7 @@ uint64_t get_uint64(const string &src)
 array<uint64_t, 3> get_cross_reference_entry(const string &stream, size_t &offset, const array<unsigned int, 3> &w)
 {
     array<uint64_t, 3> result;
-    for (int i = 0; i < w.size(); ++i)
+    for (unsigned int i = 0; i < w.size(); ++i)
     {
         if (w[i] == 0)
         {

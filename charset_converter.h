@@ -18,8 +18,8 @@ public:
     boost::optional<std::string> get_char(char c) const;
     bool is_empty() const;
 private:
-    const char* charset;
     PDFEncode_t encode;
+    const char* charset;
 };
 
 #endif //CHARSET_CONVERTER_H

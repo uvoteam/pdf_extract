@@ -133,8 +133,9 @@ private:
         TL_DEFAULT = 0,
         TRISE_DEFAULT = 0
     };
-    matrix_t Tm;
+
     matrix_t CTM;
+    matrix_t Tm;
     float Tfs;
     float Th;
     float Tc;

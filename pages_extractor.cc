@@ -85,7 +85,7 @@ namespace
         dist_t(unsigned char c_arg,
                float d_arg,
                size_t obj1_arg,
-               size_t obj2_arg) noexcept : c(c_arg), d(d_arg), obj1(obj1_arg), obj2(obj2_arg)
+               size_t obj2_arg) noexcept : d(d_arg), obj1(obj1_arg), obj2(obj2_arg), c(c_arg)
         {
         }
         float d;
@@ -168,11 +168,6 @@ namespace
     bool is_hoverlap(const coordinates_t &obj1, const coordinates_t &obj2)
     {
         return obj2.x0 <= obj1.x1 && obj1.x0 <= obj2.x1;
-    }
-
-    float hoverlap(const coordinates_t &obj1, const coordinates_t &obj2)
-    {
-        return min(fabs(obj1.x0 - obj2.x1), fabs(obj1.x1 - obj2.x0));
     }
 
     float voverlap(const coordinates_t &obj1, const coordinates_t &obj2)

@@ -19,10 +19,10 @@ private:
     void insert_obj_stream(size_t id, const dict_t &encrypt_data);
     std::vector<std::pair<size_t, size_t>> get_id2offsets_obj_stm(const std::string &content, const dict_t &dictionary);
 private:
+    const std::string &doc;
     std::map<size_t, size_t> id2offsets;
     //7.5.7. Object Streams
     std::map<size_t, std::pair<std::string, pdf_object_t>> id2obj_stm;
-    const std::string &doc;
 };
 
 #endif //OBJECT_STORAGE_H

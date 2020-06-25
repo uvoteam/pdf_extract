@@ -23,8 +23,8 @@ public:
                                        const std::pair<std::string, pdf_object_t> &differences,
                                        const ObjectStorage &storage);
 private:
-    bool empty;
     const std::unordered_map<unsigned int, std::string> difference_map;
+    bool empty;
     static const std::unordered_map<std::string, std::string> symbol_table;
 };
 

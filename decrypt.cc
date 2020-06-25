@@ -149,7 +149,7 @@ namespace
         size_t offset = skip_spaces(decrypt_opts.at("/ID").first, 1);
         string document_id = decode_string(get_string(decrypt_opts.at("/ID").first, offset));
         vector<unsigned char> doc_id(document_id.length());
-        if (document_id.length() > 0)
+        if (!document_id.empty())
         {
             doc_id = string2array(document_id);
             md5_update_exc(&ctx, doc_id.data(), doc_id.size());
@@ -180,13 +180,13 @@ namespace
         {
             md5_init_exc(&ctx);
             md5_update_exc(&ctx, padding, 32);
-            if (!document_id.length() > 0) md5_update_exc(&ctx, doc_id.data(), document_id.length());
+            if (!document_id.empty()) md5_update_exc(&ctx, doc_id.data(), document_id.length());
             md5_final_exc(digest, &ctx);
             memcpy(user_key, digest, 16);
             for (int k = 16; k < 32; ++k) user_key[k] = 0;
             for (int k = 0; k < 20; k++)
             {
-                for (int j = 0; j < key_length; ++j) digest[j] = static_cast<unsigned char>(decryption_key[j] ^ k);
+                for (unsigned int j = 0; j < key_length; ++j) digest[j] = static_cast<unsigned char>(decryption_key[j] ^ k);
                 RC4(digest, key_length, user_key, 16, user_key);
             }
         }

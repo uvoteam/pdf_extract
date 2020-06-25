@@ -337,6 +337,7 @@ string get_dictionary(const string &buffer, size_t &offset)
         ++end_offset;
     }
     if (end_offset >= buffer.length()) throw pdf_error(FUNC_STRING + "can`t find dictionary end delimiter");
+    return string(); //supress compiler warning
 }
 
 string get_name_object(const string &buffer, size_t &offset)
@@ -491,11 +492,10 @@ string predictor_decode(const string &data, const dict_t &opts)
     unsigned int colors = get_decode_key(opts, "/Colors", 1);
     unsigned int BPCs = get_decode_key(opts, "/BitsPerComponent", 8);
     unsigned int columns     = get_decode_key(opts, "/Columns", 1);
-    unsigned int early_change = get_decode_key(opts, "/EarlyChange", 1);
     bool next_byte_is_predictor = predictor >= 10? true: false;
     unsigned int cur_predictor = predictor >= 10? -1 : predictor;
-    int cur_row_index  = 0;
-    int bpp  = (BPCs * colors) >> 3;
+    unsigned int cur_row_index = 0;
+    unsigned int bpp  = (BPCs * colors) >> 3;
     unsigned int rows = (columns * colors * BPCs) >> 3;
     vector<char> prev(rows, 0);
 
@@ -519,7 +519,7 @@ string predictor_decode(const string &data, const dict_t &opts)
             {
                 if (BPCs == 8)
                 {   // Same as png sub
-                    int prev_local = cur_row_index - bpp < 0 ? 0 : prev[cur_row_index - bpp];
+                    unsigned int prev_local = cur_row_index - bpp < 0 ? 0 : prev[cur_row_index - bpp];
                     prev[cur_row_index] = *p_buffer + prev_local;
                     break;
                 }
@@ -534,7 +534,7 @@ string predictor_decode(const string &data, const dict_t &opts)
             }
             case 11: // png sub
             {
-                int local_prev = cur_row_index - bpp < 0? 0 : prev[cur_row_index - bpp];
+                unsigned int local_prev = cur_row_index - bpp < 0? 0 : prev[cur_row_index - bpp];
                 prev[cur_row_index] = *p_buffer + local_prev;
                 break;
             }

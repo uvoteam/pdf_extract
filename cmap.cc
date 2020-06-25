@@ -20,7 +20,7 @@ namespace
     const char *hex_digits = "01234567890abcdefABCDEF";
     struct token_t
     {
-        enum token_type_t { DEC, HEX, ARRAY};
+        enum token_type_t { DEC, HEX, ARRAY, NONE };
         token_t(token_type_t type_arg, string &&val_arg) : type(type_arg), val(std::move(val_arg))
         {
             if (val.empty()) throw pdf_error(FUNC_STRING + "string is empty");
@@ -59,7 +59,7 @@ namespace
     token_t get_token(const string &line, size_t &offset)
     {
         size_t start = line.find_first_of("<[", offset);
-        token_t::token_type_t type;
+        token_t::token_type_t type = token_t::NONE;
         if (start == string::npos)
         {
             start = efind_number(line, offset);
@@ -81,12 +81,14 @@ namespace
         case token_t::HEX:
             end = efind(line, '>', start);
             break;
-        case ARRAY:
+        case token_t::ARRAY:
             end = efind(line, ']', start);
             break;
         case token_t::DEC:
             end = line.find_first_of(" \t\n", start);
             break;
+        default:
+            throw pdf_error(FUNC_STRING + "wrong type=" + to_string(type));
         }
         if (end == string::npos) end = line.length();
         offset = end;
@@ -113,7 +115,7 @@ namespace
     {
         size_t n = hex_str.length() / 2 + (hex_str.length() % 2);
         string result(n, 0);
-        for (int j = 0, i = 0; j < result.length(); ++j, i += 2) result[j] = strict_stoul(hex_str.substr(i, 2), 16);
+        for (size_t j = 0, i = 0; j < result.length(); ++j, i += 2) result[j] = strict_stoul(hex_str.substr(i, 2), 16);
         return result;
     }
 
@@ -180,6 +182,8 @@ namespace
             }
             break;
         }
+        default:
+            throw pdf_error(FUNC_STRING + "wrong type=" + to_string(third_token.type));
         }
         return offset + 1;
     }

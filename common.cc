@@ -278,7 +278,7 @@ size_t skip_comments(const string &buffer, size_t offset, bool validate /*= true
     {
         offset = skip_spaces(buffer, offset, validate);
         if (offset == string::npos || buffer[offset] != '%') return offset;
-        offset = buffer.find_first_not_of("\r\n");
+        offset = buffer.find_first_of("\r\n", offset);
         if (offset == string::npos)
         {
             if (validate) throw pdf_error(FUNC_STRING + "no data after comments");

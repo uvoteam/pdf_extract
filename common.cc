@@ -156,6 +156,7 @@ namespace
         }
         return result;
     }
+
     bool is_indirect_number(const string &s, size_t &offset)
     {
         static const char* DIGITS = "0123456789";
@@ -308,7 +309,6 @@ pdf_object_t get_object_type(const string &buffer, size_t &offset)
 
 string get_dictionary(const string &buffer, size_t &offset)
 {
-    if (buffer.substr(offset, 2) != "<<") throw pdf_error(FUNC_STRING + "dictionary must be started with '<<'");
     stack<pdf_object_t> prevs;
     size_t end_offset = offset + 2;
     while (end_offset < buffer.length())

@@ -58,7 +58,7 @@ struct text_t
 
 struct text_chunk_t
 {
-    text_chunk_t() : is_group(false)
+    text_chunk_t() : is_empty(true)
     {
     }
 
@@ -66,7 +66,7 @@ struct text_chunk_t
                  coordinates(std::move(coordinates_arg)),
                  texts{text_t(std::move(text_arg), coordinates)},
                  string_len(utf8_length(texts[0].text)),
-                 is_group(false)
+                 is_empty(false)
     {
     }
 
@@ -80,8 +80,8 @@ struct text_chunk_t
         coordinates = std::move(arg.coordinates);
         texts = std::move(arg.texts);
         string_len = arg.string_len;
-        arg.string_len = 0; //indicator object is moved
-        is_group = arg.is_group;
+        is_empty = arg.is_empty;
+        arg.is_empty = true;
     }
 
     text_chunk_t& operator=(const text_chunk_t &arg) = default;
@@ -90,9 +90,9 @@ struct text_chunk_t
                  coordinates(std::move(arg.coordinates)),
                  texts(std::move(arg.texts)),
                  string_len(arg.string_len),
-                 is_group(arg.is_group)
+                 is_empty(arg.is_empty)
     {
-        arg.string_len = 0;
+        arg.is_empty = true;
     }
 
     text_chunk_t(const text_chunk_t &arg) = default;
@@ -103,20 +103,10 @@ struct text_chunk_t
         return coordinates.y0 < arg.coordinates.y0;
     }
 
-    bool is_moved() const
-    {
-        return string_len == 0;
-    }
-
-    void set_is_moved()
-    {
-        string_len = 0;
-    }
-
     coordinates_t coordinates;
     std::vector<text_t> texts;
     size_t string_len;
-    bool is_group;
+    bool is_empty;
 };
 
 class Coordinates

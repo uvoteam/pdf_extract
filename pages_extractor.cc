@@ -117,7 +117,7 @@ namespace
                        {
                            const coordinates_t &coord = obj.coordinates;
                            if (coord.x0 >= x0 && coord.y0 >= y0 && coord.x1 <= x1 && coord.y1 <= y1 &&
-                               !obj.is_moved() &&
+                               !obj.is_empty &&
                                !(obj == groups[obj1]) && !(obj == groups[obj2])) return true;
                            return false;
                        }) != groups.end();
@@ -143,8 +143,7 @@ namespace
         groups[o1].texts.insert(groups[o1].texts.end(),
                                 std::make_move_iterator(groups[o2].texts.begin()),
                                 std::make_move_iterator(groups[o2].texts.end()));
-        groups[o1].is_group = true;
-        groups[o2].set_is_moved();
+        groups[o2].is_empty = true;
         return o1;
     }
 
@@ -264,19 +263,19 @@ namespace
             if (obj0)
             {
                 bool is_cmp = is_halign(*obj0, obj1);
-                if (is_cmp && line.is_group)
+                if (is_cmp && !line.is_empty)
                 {
                     add2line(line, obj1);
                 }
-                else if (line.is_group)
+                else if (!line.is_empty)
                 {
                     result.push_back(line);
-                    line.is_group = false;
+                    line.is_empty = true;
                 }
                 else if (is_cmp)
                 {
                     line = *obj0;
-                    line.is_group = true;
+                    line.is_empty = false;
                     add2line(line, obj1);
                 }
                 else
@@ -286,14 +285,14 @@ namespace
             }
             obj0 = &obj1;
         }
-        if (!line.is_group && obj0) result.push_back(*obj0);
-        if (line.is_group) result.push_back(line);
+        if (line.is_empty && obj0) result.push_back(*obj0);
+        if (!line.is_empty) result.push_back(line);
         return result;
     }
 
     bool is_neighbour_lines(const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
-        if (obj1.is_moved() || obj2.is_moved()) return false;
+        if (obj1.is_empty || obj2.is_empty) return false;
         float height1 = height(obj1.coordinates), height2 = height(obj2.coordinates);
         float d = LINE_MARGIN * height1;
         if (fabs(height1 - height2) < d &&
@@ -324,12 +323,14 @@ namespace
     vector<text_chunk_t> make_text_boxes(vector<text_chunk_t> &&lines)
     {
         vector<text_chunk_t> text_boxes;
-        auto not_empty = [](const text_chunk_t &line) { return !line.is_moved(); };
+        auto not_empty = [](const text_chunk_t &line) { return !line.is_empty; };
         for (auto it = find_if(lines.begin(), lines.end(), not_empty);
              it != lines.end();
              it = find_if(it, lines.end(), not_empty))
         {
-            text_boxes.push_back(merge_lines(get_neighbour_lines(std::move(lines), *std::make_move_iterator(it))));
+            text_chunk_t line = merge_lines(get_neighbour_lines(std::move(lines), *std::make_move_iterator(it)));
+            if (line.is_empty) continue;
+            text_boxes.push_back(std::move(line));
         }
         return text_boxes;
     }
@@ -381,9 +382,9 @@ namespace
 
     text_chunk_t make_plane(vector<text_chunk_t> &&boxes)
     {
+        if (boxes.empty()) return text_chunk_t();
         vector<dist_t> dists;
         dists.reserve(boxes.size() * (boxes.size() - 1));
-
         for (size_t i = 0; i < boxes.size(); ++i)
         {
             for (size_t j = i + 1; j < boxes.size(); ++j) dists.emplace_back(0, get_dist(boxes[i], boxes[j]), i, j);
@@ -406,20 +407,21 @@ namespace
             size_t group = create_group(boxes, dist.obj1, dist.obj2);
             for (size_t i = 0; i < boxes.size(); ++i)
             {
-                if (i == group || boxes[i].is_moved()) continue;
+                if (i == group || boxes[i].is_empty) continue;
                 dists.emplace_back(0, get_dist(boxes[group], boxes[i]), group, i);
             }
         }
 
         for (text_chunk_t &group : boxes)
         {
-            if (!group.is_moved()) return std::move(group);
+            if (!group.is_empty) return std::move(group);
         }
         throw pdf_error(FUNC_STRING + "all objects are moved");
     }
 
     string make_string(const text_chunk_t &group)
     {
+        if (group.is_empty) return string();
         string result;
         for (const text_t &box : group.texts) result += box.text;
         return result;

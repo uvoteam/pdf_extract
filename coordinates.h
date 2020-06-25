@@ -82,6 +82,7 @@ struct text_chunk_t
         string_len = arg.string_len;
         is_empty = arg.is_empty;
         arg.is_empty = true;
+        return *this;
     }
 
     text_chunk_t& operator=(const text_chunk_t &arg) = default;

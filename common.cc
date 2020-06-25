@@ -289,13 +289,21 @@ size_t skip_comments(const string &buffer, size_t offset, bool validate /*= true
 pdf_object_t get_object_type(const string &buffer, size_t &offset)
 {
     offset = skip_comments(buffer, offset);
-    const string str = buffer.substr(offset, 2);
-    if (str == "<<") return DICTIONARY;
-    if (str[0] == '[') return ARRAY;
-    if (str[0] == '<' || str[0] == '(') return STRING;
-    if (str[0] == '/') return NAME_OBJECT;
-    if (is_indirect_object(buffer, offset)) return INDIRECT_OBJECT;
-    return VALUE;
+    if (offset + 1 == buffer.length()) throw pdf_error(FUNC_STRING + "not enough data");
+    switch (buffer[offset])
+    {
+    case '[':
+        return ARRAY;
+    case '(':
+        return STRING;
+    case '<':
+        return buffer[offset + 1] == '<'? DICTIONARY: STRING;
+    case '/':
+        return NAME_OBJECT;
+    default:
+        if (is_indirect_object(buffer, offset)) return INDIRECT_OBJECT;
+        return VALUE;
+    }
 }
 
 string get_dictionary(const string &buffer, size_t &offset)

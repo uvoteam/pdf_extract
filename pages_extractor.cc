@@ -289,7 +289,7 @@ namespace
     {
         if (obj1.is_empty || obj2.is_empty) return false;
         float height1 = height(obj1.coordinates), height2 = height(obj2.coordinates);
-        float d = LINE_MARGIN * height1;
+        float d = LINE_MARGIN * max(height1, height2);
         if (fabs(height1 - height2) < d &&
             obj2.coordinates.x1 > obj1.coordinates.x0 && obj2.coordinates.x0 < obj1.coordinates.x1 &&
             obj2.coordinates.y0 < obj1.coordinates.y1 + d && obj2.coordinates.y1 > obj1.coordinates.y0 - d &&

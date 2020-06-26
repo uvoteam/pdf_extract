@@ -181,11 +181,10 @@ namespace
         return (s[offset] == 'R')? true : false;
     }
 
-    const map<string, string (&)(const string&, const map<string, pair<string, pdf_object_t>>&)> FILTER2FUNC =
-                                                           {{"/FlateDecode", flate_decode},
-                                                            {"/LZWDecode", lzw_decode},
-                                                            {"/ASCII85Decode", ascii85_decode},
-                                                            {"/ASCIIHexDecode", ascii_hex_decode}};
+    const map<string, string (&)(const string&, const dict_t&)> FILTER2FUNC = {{"/FlateDecode", flate_decode},
+                                                                               {"/LZWDecode", lzw_decode},
+                                                                               {"/ASCII85Decode", ascii85_decode},
+                                                                               {"/ASCIIHexDecode", ascii_hex_decode}};
 
 }
 

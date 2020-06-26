@@ -81,9 +81,9 @@ private:
 
     static const float VSCALE_NO_TYPE_3;
     static const float HSCALE_NO_TYPE_3;
-    static const std::string FIRST_CHAR_DEFAULT;
-    static const std::string MISSING_WIDTH_DEFAULT;
-    static const std::string DW_DEFAULT;
+    static const unsigned int FIRST_CHAR_DEFAULT;
+    static const float MISSING_WIDTH_DEFAULT;
+    static const float DW_DEFAULT;
     static const float NO_HEIGHT;
     static const float NO_DESCENT;
     static const float RISE_DEFAULT;

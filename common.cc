@@ -725,10 +725,16 @@ pair<float, float> apply_matrix_norm(const matrix_t &matrix, float x, float y)
     return make_pair(matrix.at(0) * x + matrix.at(2) * y, matrix.at(1) * x + matrix.at(3) * y);
 }
 
-std::string get_dict_val(const dict_t &dict, const string &key, const string &def)
+unsigned int get_dict_val(const dict_t &dict, const string &key, unsigned int def)
 {
     auto it = dict.find(key);
-    return (it == dict.end())? def : it->second.first;
+    return (it == dict.end())? def : strict_stoul(it->second.first);
+}
+
+float get_dict_val(const dict_t &dict, const string &key, float def)
+{
+    auto it = dict.find(key);
+    return (it == dict.end())? def : stof(it->second.first);
 }
 
 size_t utf8_length(const string &s)

@@ -68,7 +68,7 @@ float Fonts::get_width(const string &s) const
 void Fonts::insert_widths_from_w(const ObjectStorage &storage, const string &font_name, const string &base_font)
 {
     const dict_t &font = dictionary_per_font.at(font_name);
-    default_width.insert(make_pair(font_name, stof(get_dict_val(font, "/DW", DW_DEFAULT))));
+    default_width.insert(make_pair(font_name, get_dict_val(font, "/DW", DW_DEFAULT)));
     auto it = font.find("/W");
     if (it == font.end())
     {
@@ -119,8 +119,8 @@ void Fonts::insert_widths_from_widths(const ObjectStorage &storage,
                                       const string &base_font)
 {
     const dict_t &font = dictionary_per_font.at(font_name);
-    unsigned int first_char = strict_stoul(get_dict_val(font, "/FirstChar", FIRST_CHAR_DEFAULT));
-    default_width.insert(make_pair(font_name, stof(get_dict_val(font_desc, "/MissingWidth", MISSING_WIDTH_DEFAULT))));
+    unsigned int first_char = get_dict_val(font, "/FirstChar", FIRST_CHAR_DEFAULT);
+    default_width.insert(make_pair(font_name, get_dict_val(font_desc, "/MissingWidth", MISSING_WIDTH_DEFAULT)));
     auto it = font.find("/Widths");
     if (it == font.end())
     {
@@ -328,9 +328,9 @@ const float Fonts::NO_HEIGHT = 0;
 const float Fonts::NO_DESCENT = 0;
 const float Fonts::RISE_DEFAULT = 0;
 const float Fonts::NO_ASCENT = 0;
-const string Fonts::FIRST_CHAR_DEFAULT = "0";
-const string Fonts::MISSING_WIDTH_DEFAULT = "0";
-const string Fonts::DW_DEFAULT = "1000";
+const unsigned int Fonts::FIRST_CHAR_DEFAULT = 0;
+const float Fonts::MISSING_WIDTH_DEFAULT = 0;
+const float Fonts::DW_DEFAULT = 1000;
 const unordered_map<string, Fonts::font_metric_t> Fonts::std_metrics = {
     {"/Courier", font_metric_t(627, -194, 1052)},
     {"/Courier-Bold", font_metric_t(627, -194, 1060)},

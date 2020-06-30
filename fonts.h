@@ -6,6 +6,7 @@
 #include <array>
 #include <utility>
 #include <unordered_map>
+#include <new>
 
 #include "object_storage.h"
 #include "common.h"
@@ -46,25 +47,15 @@ private:
                        const std::string &base_font);
     void validate_current_font() const;
     void insert_matrix_type3(const std::string &font_name, const dict_t &font_desc);
-    void insert_width(const ObjectStorage &storage,
-                      const std::string &font_name,
-                      const dict_t &font_desc,
-                      const std::string &base_font);
+    void insert_widths(const ObjectStorage &storage,
+                       const std::string &font_name,
+                       const dict_t &font_desc,
+                       const std::string &base_font);
     void insert_widths_from_widths(const ObjectStorage &storage,
                                    const std::string &font_name,
                                    const dict_t &font_desc,
                                    const std::string &base_font);
     void insert_widths_from_w(const ObjectStorage &storage, const std::string &font_name, const std::string &base_font);
-    std::string current_font;
-    std::map<std::string, dict_t> dictionary_per_font;
-    std::map<std::string, float> heights;
-    std::map<std::string, float> descents;
-    std::map<std::string, float> ascents;
-    std::map<std::string, Font_type_t> types;
-    std::map<std::string, std::map<unsigned int, float>> widths;
-    std::map<std::string, float> default_width;
-    std::map<std::string, matrix_t> font_matrix_type_3;
-    float rise;
 
     struct font_metric_t
     {
@@ -78,6 +69,58 @@ private:
         float descent;
         float height;
     };
+
+    class Widths
+    {
+    public:
+        Widths() : widths(new std::map<unsigned int, float>), to_be_deleted(true)
+        {
+        }
+
+        Widths(const std::map<unsigned int, float> *arg) noexcept : widths(const_cast<std::map<unsigned int, float>*>(arg)),
+                                                                    to_be_deleted(false)
+        {
+        }
+
+        ~Widths() noexcept
+        {
+            if (to_be_deleted) delete widths;
+        }
+
+        Widths(Widths &&arg) : widths(arg.widths), to_be_deleted(arg.to_be_deleted)
+        {
+            arg.widths = nullptr;
+            arg.to_be_deleted = false;
+        }
+
+        Widths(const Widths &arg) = delete;
+        Widths& operator=(const Widths &arg) = delete;
+
+        const std::map<unsigned int, float>* operator->() const
+        {
+            return widths;
+        }
+
+        std::map<unsigned int, float>* operator->()
+        {
+            return widths;
+        }
+
+    private:
+        std::map<unsigned int, float> *widths;
+        bool to_be_deleted;
+    };
+
+    std::string current_font;
+    std::map<std::string, dict_t> dictionary_per_font;
+    std::map<std::string, float> heights;
+    std::map<std::string, float> descents;
+    std::map<std::string, float> ascents;
+    std::map<std::string, Font_type_t> types;
+    std::map<std::string, Widths> widths;
+    std::map<std::string, float> default_width;
+    std::map<std::string, matrix_t> font_matrix_type_3;
+    float rise;
 
     static const float VSCALE_NO_TYPE_3;
     static const float HSCALE_NO_TYPE_3;

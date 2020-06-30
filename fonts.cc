@@ -30,7 +30,7 @@ Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_
             it = font_dict.find("/BaseFont");
             string base_font;
             if (it != font_dict.end()) base_font = it->second.first;
-            insert_width(storage, p.first, desc_dict, base_font);
+            insert_widths(storage, p.first, desc_dict, base_font);
             insert_height(p.first, desc_dict, storage, base_font);
             insert_descent(p.first, desc_dict, font_dict, base_font, type, storage);
             insert_ascent(p.first, desc_dict, font_dict, base_font, type, storage);
@@ -53,8 +53,8 @@ void Fonts::insert_descendant(dict_t &font, const ObjectStorage &storage)
 
 float Fonts::get_width(unsigned int code) const
 {
-    auto it = widths.at(current_font).find(code);
-    if (it == widths.at(current_font).end()) return default_width.at(current_font) * get_scales().first;
+    auto it = widths.at(current_font)->find(code);
+    if (it == widths.at(current_font)->end()) return default_width.at(current_font) * get_scales().first;
     return it->second * get_scales().first;
 }
 
@@ -72,9 +72,11 @@ void Fonts::insert_widths_from_w(const ObjectStorage &storage, const string &fon
     auto it = font.find("/W");
     if (it == font.end())
     {
-        if (standard_widths.count(base_font)) widths[font_name] = standard_widths.at(base_font);
+        standard_widths.count(base_font)? widths.emplace(font_name, Widths(&standard_widths.at(base_font))) :
+                                          widths.emplace(font_name, Widths());
         return;
     }
+    widths.emplace(font_name, Widths());
     array_t result = get_array_or_indirect_array(it->second, storage);
     for (array_t::value_type &p : result)
     {
@@ -90,7 +92,7 @@ void Fonts::insert_widths_from_w(const ObjectStorage &storage, const string &fon
             unsigned int first_char = strict_stoul(result[i].first);
             unsigned int last_char = strict_stoul(result[i + 1].first);
             float width = stof(result.at(i + 2).first);
-            for (unsigned int j = first_char; j <= last_char; ++j) widths.at(font_name).insert(make_pair(j, width));
+            for (unsigned int j = first_char; j <= last_char; ++j) widths[font_name]->emplace(j, width);
             i += 3;
             break;
         }
@@ -100,7 +102,7 @@ void Fonts::insert_widths_from_w(const ObjectStorage &storage, const string &fon
             const array_t w_array = get_array_data(result[i + 1].first, 0);
             for (const array_t::value_type &p : w_array)
             {
-                widths.at(font_name).insert(make_pair(start_char, stof(p.first)));
+                widths[font_name]->emplace(start_char, stof(p.first));
                 ++start_char;
             }
             i += 2;
@@ -124,24 +126,25 @@ void Fonts::insert_widths_from_widths(const ObjectStorage &storage,
     auto it = font.find("/Widths");
     if (it == font.end())
     {
-        if (standard_widths.count(base_font)) widths[font_name] = standard_widths.at(base_font);
+        standard_widths.count(base_font)? widths.emplace(font_name, Widths(&standard_widths.at(base_font))) :
+                                          widths.emplace(font_name, Widths());
         return;
     }
+    widths.emplace(font_name, Widths());
     const array_t result = get_array_or_indirect_array(it->second, storage);
     for (unsigned int i = 0; i < result.size(); ++i)
     {
         const pair<string, pdf_object_t> &p = result[i];
         const string val = (p.second == INDIRECT_OBJECT)? get_indirect_object_data(p.first, storage).first : p.first;
-        widths.at(font_name).insert(make_pair(i + first_char, stof(val)));
+        widths[font_name]->emplace(i + first_char, stof(val));
     }
 }
 
-void Fonts::insert_width(const ObjectStorage &storage,
-                         const string &font_name,
-                         const dict_t &font_desc,
-                         const string &base_font)
+void Fonts::insert_widths(const ObjectStorage &storage,
+                          const string &font_name,
+                          const dict_t &font_desc,
+                          const string &base_font)
 {
-    widths.insert(make_pair(font_name, map<unsigned int, float>()));
     const string type = dictionary_per_font.at(font_name).at("/Subtype").first;
     if (type == "/CIDFontType0" || type == "/CIDFontType2" || type == "/Type0")
     {

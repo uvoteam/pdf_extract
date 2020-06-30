@@ -5,6 +5,7 @@
 #include <utility>
 #include <map>
 #include <unordered_set>
+#include <vector>
 
 #include <boost/optional.hpp>
 
@@ -28,6 +29,10 @@ public:
                    const std::string &doc_arg);
     std::string get_text();
 private:
+    void do_do(std::vector<std::vector<text_chunk_t>> &result,
+               const std::string &XObject,
+               const std::string &resource_id,
+               const matrix_t &parent_ctm);
     DiffConverter get_diff_converter(const boost::optional<std::pair<std::string, pdf_object_t>> &encoding) const;
     ToUnicodeConverter get_to_unicode_converter(const dict_t &font_dict);
     boost::optional<mediabox_t> get_box(const dict_t &dictionary,

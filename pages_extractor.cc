@@ -34,17 +34,6 @@ using namespace boost;
         continue;\
 }
 
-#define DO_DO() {\
-        const string XObject = pop(st).second;\
-        const string resource_name = get_resource_name(resource_id, XObject);\
-        auto it = XObject_streams.find(resource_name);\
-        if (it != XObject_streams.end())\
-        {\
-            const matrix_t ctm = XObject_matrices.at(resource_name) * coordinates.get_CTM();\
-            for (vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(std::move(r));\
-        }\
-}
-
 #define DO_TF() {\
         coordinates.set_coordinates(token, st);\
         const string font = pop(st).second;\
@@ -776,6 +765,20 @@ ConverterEngine* PagesExtractor::get_font_encoding(const string &font, const str
     return &converter_engine_cache[resource_id][font];
 }
 
+void PagesExtractor::do_do(vector<vector<text_chunk_t>> &result,
+                           const string &XObject,
+                           const string &resource_id,
+                           const matrix_t &parent_ctm)
+{
+     const string resource_name = get_resource_name(resource_id, XObject);
+     auto it = XObject_streams.find(resource_name);
+     if (it != XObject_streams.end())
+     {
+         const matrix_t ctm = XObject_matrices.at(resource_name) * parent_ctm;
+         for (vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(std::move(r));
+     }
+}
+
 vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_content,
                                                           const string &resource_id,
                                                           const optional<matrix_t> CTM)
@@ -798,7 +801,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         if (token == "BT") DO_BT(coordinates, in_text_block)
         else if (token == "ET") DO_ET(in_text_block)
         else if (ctm_tokens.count(token)) coordinates.ctm_work(token, st);
-        else if (token == "Do") DO_DO()
+        else if (token == "Do") do_do(result, pop(st).second, resource_id, coordinates.get_CTM());
         else if (token == "Tf") DO_TF()
 
         if (!in_text_block)

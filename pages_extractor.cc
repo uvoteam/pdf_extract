@@ -23,14 +23,14 @@
 using namespace std;
 using namespace boost;
 
-#define DO_BT() {\
-        coordinates.set_default();              \
-        in_text_block = true;                   \
+#define DO_BT(COORDINATES, IN_TEXT_BLOCK) {                   \
+        COORDINATES.set_default();              \
+        IN_TEXT_BLOCK = true;                   \
         continue;                               \
     }
 
-#define DO_ET() {\
-        in_text_block = false;\
+#define DO_ET(IN_TEXT_BLOCK) {\
+        IN_TEXT_BLOCK = false;\
         continue;\
 }
 
@@ -795,8 +795,8 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         if (in_text_block && put2stack(st, page_content, i)) continue;
         const string token = get_token(page_content, i);
         if (is_skip_unused(page_content, i, token)) continue;
-        if (token == "BT") DO_BT()
-        else if (token == "ET") DO_ET()
+        if (token == "BT") DO_BT(coordinates, in_text_block)
+        else if (token == "ET") DO_ET(in_text_block)
         else if (ctm_tokens.count(token)) coordinates.ctm_work(token, st);
         else if (token == "Do") DO_DO()
         else if (token == "Tf") DO_TF()

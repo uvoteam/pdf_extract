@@ -43,6 +43,11 @@ private:
                std::stack<std::pair<pdf_object_t, std::string>> &st,
                Coordinates &coordinates,
                const std::string &resource_id) const;
+    void do_TJ(std::vector<text_chunk_t> &result,
+               const ConverterEngine *encoding,
+               std::stack<std::pair<pdf_object_t, std::string>> &st,
+               Coordinates &coordinates,
+               const std::string &resource_id) const;
     void do_quote(std::vector<text_chunk_t> &result,
                   Coordinates &coordinates,
                   const ConverterEngine *encoding,

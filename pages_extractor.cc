@@ -34,13 +34,6 @@ using namespace boost;
         continue;\
 }
 
-#define DO_TJ() {\
-        const vector<text_chunk_t> tj_texts = encoding->get_strings_from_array(pop(st).second,\
-                                                                               coordinates,\
-                                                                               fonts.at(resource_id));\
-        result[0].insert(result[0].end(), tj_texts.begin(), tj_texts.end()); \
-}
-
 namespace
 {
     struct dist_t
@@ -759,6 +752,17 @@ void PagesExtractor::do_tj(vector<text_chunk_t> &result,
     result.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
 }
 
+void PagesExtractor::do_TJ(vector<text_chunk_t> &result,
+                           const ConverterEngine *encoding,
+                           stack<pair<pdf_object_t, string>> &st,
+                           Coordinates &coordinates,
+                           const string &resource_id) const
+{
+    vector<text_chunk_t> tj_texts = encoding->get_strings_from_array(pop(st).second, coordinates, fonts.at(resource_id));
+    result.insert(result.end(), std::make_move_iterator(tj_texts.begin()), std::make_move_iterator(tj_texts.end()));
+
+}
+
 void PagesExtractor::do_do(vector<vector<text_chunk_t>> &result,
                            const string &XObject,
                            const string &resource_id,
@@ -838,7 +842,9 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         else if (token == "Ts") do_ts(resource_id, stof(pop(st).second));
         else if (token == "\"" && encoding) do_double_quote(result[0], coordinates, encoding, st, resource_id, token);
         //vertical fonts are not implemented
-        else if (token == "TJ" && encoding && !encoding->is_vertical()) DO_TJ()
+        else if (token == "TJ" &&
+                 encoding &&
+                 !encoding->is_vertical()) do_TJ(result[0], encoding, st, coordinates, resource_id);
         else st.push(make_pair(VALUE, token));
     }
 

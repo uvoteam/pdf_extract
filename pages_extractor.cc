@@ -573,10 +573,10 @@ bool PagesExtractor::get_XObject_data(const string &parent_id,
                                       const string &resource_name)
 {
     const dict_t &parent_dict = dicts.at(parent_id);
-    auto it = parent_dict.find("/Resources");
-    if (it == parent_dict.end()) return false;
-    const dict_t resources = get_dict_or_indirect_dict(it->second, storage);
-    it = resources.find("/XObject");
+    auto resources_it = parent_dict.find("/Resources");
+    if (resources_it == parent_dict.end()) return false;
+    const dict_t resources = get_dict_or_indirect_dict(resources_it->second, storage);
+    auto it = resources.find("/XObject");
     if (it == resources.end()) return false;
     const dict_t XObjects = get_dict_or_indirect_dict(it->second, storage);
     auto XObject = XObjects.find(XObject_name);
@@ -602,6 +602,7 @@ bool PagesExtractor::get_XObject_data(const string &parent_id,
                                                          stof(numbers[2].first), stof(numbers[3].first),
                                                          stof(numbers[4].first), stof(numbers[5].first)});
     }
+    if (!dict.count("/Resources")) dict.emplace("/Resources", resources_it->second);
     dicts.emplace(resource_name, std::move(dict));
     return true;
 }

@@ -551,10 +551,10 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
             pages.push_back(id);
             const string id_str = to_string(id);
             const Fonts page_fonts = get_fonts(dict_data, parent_fonts);
-            fonts.insert(make_pair(id_str, page_fonts));
-            media_boxes.insert(make_pair(id_str, get_box(dict_data, parent_media_box).value()));
-            rotates.insert(make_pair(id_str, get_rotate(dict_data, parent_rotate)));
-            converter_engine_cache.insert(make_pair(id_str, map<string, ConverterEngine>()));;
+            fonts.emplace(id_str, page_fonts);
+            media_boxes.emplace(id_str, get_box(dict_data, parent_media_box).value());
+            rotates.emplace(id_str, get_rotate(dict_data, parent_rotate));
+            converter_engine_cache.emplace(id_str, map<string, ConverterEngine>());
             //avoiding infinite recursion
             unordered_set<unsigned int> visited_XObjects;
             get_XObjects_data(id_str, dict_data, page_fonts, visited_XObjects);
@@ -589,16 +589,13 @@ void PagesExtractor::get_XObject_data(const string &parent_id,
     if (it == dict.end()) return;
     const string resource_name = get_resource_name(parent_id, XObject.first);
     const Fonts page_fonts = get_fonts(dict, parent_fonts);
-    fonts.insert(make_pair(resource_name, page_fonts));
-    converter_engine_cache.insert(make_pair(resource_name, map<string, ConverterEngine>()));
-    XObject_streams.insert(make_pair(resource_name, get_stream(doc,
-                                                               get_id_gen(XObject.second.first),
-                                                               storage,
-                                                               decrypt_data)));
+    fonts.emplace(resource_name, page_fonts);
+    converter_engine_cache.emplace(resource_name, map<string, ConverterEngine>());
+    XObject_streams.emplace(resource_name, get_stream(doc, get_id_gen(XObject.second.first), storage, decrypt_data));
     it = dict.find("Matrix");
     if (it == dict.end())
     {
-        XObject_matrices.insert(make_pair(resource_name, IDENTITY_MATRIX));
+        XObject_matrices.emplace(resource_name, IDENTITY_MATRIX);
     }
     else
     {
@@ -606,9 +603,9 @@ void PagesExtractor::get_XObject_data(const string &parent_id,
         if (numbers.size() != MATRIX_ELEMENTS_NUM) throw pdf_error(FUNC_STRING + "matrix must have " +
                                                                    to_string(MATRIX_ELEMENTS_NUM) +
                                                                    "elements. Data = " + it->second.first);
-        XObject_matrices.insert(make_pair(resource_name, matrix_t{stof(numbers[0].first), stof(numbers[1].first),
-                                                                  stof(numbers[2].first), stof(numbers[3].first),
-                                                                  stof(numbers[4].first), stof(numbers[5].first)}));
+        XObject_matrices.emplace(resource_name, matrix_t{stof(numbers[0].first), stof(numbers[1].first),
+                                                         stof(numbers[2].first), stof(numbers[3].first),
+                                                         stof(numbers[4].first), stof(numbers[5].first)});
     }
     get_XObjects_data(resource_name, dict, page_fonts, visited_XObjects);
 }
@@ -723,9 +720,9 @@ ConverterEngine* PagesExtractor::get_font_encoding(const string &font, const str
     if (it != converter_engine_cache[resource_id].end()) return &it->second;
     const dict_t &font_dict = fonts.at(resource_id).get_current_font_dictionary();
     optional<pair<string, pdf_object_t>> encoding = get_encoding(font_dict);
-    converter_engine_cache[resource_id].insert(make_pair(font, ConverterEngine(get_charset_converter(encoding),
-                                                                               get_diff_converter(encoding),
-                                                                               get_to_unicode_converter(font_dict))));
+    converter_engine_cache[resource_id].emplace(font, ConverterEngine(get_charset_converter(encoding),
+                                                                      get_diff_converter(encoding),
+                                                                      get_to_unicode_converter(font_dict)));
     return &converter_engine_cache[resource_id][font];
 }
 

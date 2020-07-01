@@ -581,7 +581,7 @@ bool PagesExtractor::get_XObject_data(const string &parent_id,
     const dict_t XObjects = get_dict_or_indirect_dict(it->second, storage);
     auto XObject = XObjects.find(XObject_name);
     if (XObject == XObjects.end()) return false;
-    const dict_t dict = get_dict_or_indirect_dict(XObject->second, storage);
+    dict_t dict = get_dict_or_indirect_dict(XObject->second, storage);
     if (dict.at("/Subtype").first != "/Form") return false;
     if (!dict.count("/BBox")) return false;
     fonts.emplace(resource_name, get_fonts(dict, fonts.at(parent_id)));
@@ -602,6 +602,7 @@ bool PagesExtractor::get_XObject_data(const string &parent_id,
                                                          stof(numbers[2].first), stof(numbers[3].first),
                                                          stof(numbers[4].first), stof(numbers[5].first)});
     }
+    dicts.emplace(resource_name, std::move(dict));
     return true;
 }
 

@@ -545,7 +545,7 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
         checked_nodes.insert(id);
         const pair<string, pdf_object_t> page_dict = storage.get_object(id);
         if (page_dict.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
-        const dict_t dict_data = get_dictionary_data(page_dict.first, 0);
+        dict_t dict_data = get_dictionary_data(page_dict.first, 0);
         if (dict_data.at("/Type").first == "/Page")
         {
             pages.push_back(id);
@@ -554,9 +554,7 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
             media_boxes.emplace(id_str, get_box(dict_data, parent_media_box).value());
             rotates.emplace(id_str, get_rotate(dict_data, parent_rotate));
             converter_engine_cache.emplace(id_str, map<string, ConverterEngine>());
-            //avoiding infinite recursion
-            unordered_set<unsigned int> visited_XObjects;
-            get_XObjects_data(id_str, dict_data, visited_XObjects);
+            dicts.emplace(id_str, std::move(dict_data));
         }
         else
         {
@@ -570,25 +568,25 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
     }
 }
 
-void PagesExtractor::get_XObject_data(const string &parent_id,
-                                      const dict_t::value_type &XObject,
-                                      unordered_set<unsigned int> &visited_XObjects)
+bool PagesExtractor::get_XObject_data(const string &parent_id,
+                                      const string &XObject_name,
+                                      const string &resource_name)
 {
-    if (XObject.second.second == INDIRECT_OBJECT)
-    {
-        unsigned int id = get_id_gen(XObject.second.first).first;
-        if (visited_XObjects.count(id)) return;
-        visited_XObjects.insert(id);
-    }
-    const dict_t dict = get_dict_or_indirect_dict(XObject.second, storage);
-    const pair<string, pdf_object_t> p = dict.at("/Subtype");
-    if (p.first != "/Form") return;
-    auto it = dict.find("/BBox");
-    if (it == dict.end()) return;
-    const string resource_name = get_resource_name(parent_id, XObject.first);
+    const dict_t &parent_dict = dicts.at(parent_id);
+    auto it = parent_dict.find("/Resources");
+    if (it == parent_dict.end()) return false;
+    const dict_t resources = get_dict_or_indirect_dict(it->second, storage);
+    it = resources.find("/XObject");
+    if (it == resources.end()) return false;
+    const dict_t XObjects = get_dict_or_indirect_dict(it->second, storage);
+    auto XObject = XObjects.find(XObject_name);
+    if (XObject == XObjects.end()) return false;
+    const dict_t dict = get_dict_or_indirect_dict(XObject->second, storage);
+    if (dict.at("/Subtype").first != "/Form") return false;
+    if (!dict.count("/BBox")) return false;
     fonts.emplace(resource_name, get_fonts(dict, fonts.at(parent_id)));
     converter_engine_cache.emplace(resource_name, map<string, ConverterEngine>());
-    XObject_streams.emplace(resource_name, get_stream(doc, get_id_gen(XObject.second.first), storage, decrypt_data));
+    XObject_streams.emplace(resource_name, get_stream(doc, get_id_gen(XObject->second.first), storage, decrypt_data));
     it = dict.find("Matrix");
     if (it == dict.end())
     {
@@ -604,20 +602,7 @@ void PagesExtractor::get_XObject_data(const string &parent_id,
                                                          stof(numbers[2].first), stof(numbers[3].first),
                                                          stof(numbers[4].first), stof(numbers[5].first)});
     }
-    get_XObjects_data(resource_name, dict, visited_XObjects);
-}
-
-void PagesExtractor::get_XObjects_data(const string &parent_id,
-                                       const dict_t &page,
-                                       unordered_set<unsigned int> &visited_XObjects)
-{
-    auto it = page.find("/Resources");
-    if (it == page.end()) return;
-    const dict_t resources = get_dict_or_indirect_dict(it->second, storage);
-    it = resources.find("/XObject");
-    if (it == resources.end()) return;
-    const dict_t XObjects = get_dict_or_indirect_dict(it->second, storage);
-    for (const dict_t::value_type &p : XObjects) get_XObject_data(parent_id, p, visited_XObjects);
+    return true;
 }
 
 Fonts PagesExtractor::get_fonts(const dict_t &dictionary, const Fonts &parent_fonts) const
@@ -757,13 +742,14 @@ void PagesExtractor::do_do(vector<vector<text_chunk_t>> &result,
                            const string &resource_id,
                            const matrix_t &parent_ctm)
 {
-     const string resource_name = get_resource_name(resource_id, XObject);
-     auto it = XObject_streams.find(resource_name);
-     if (it != XObject_streams.end())
-     {
-         const matrix_t ctm = XObject_matrices.at(resource_name) * parent_ctm;
-         for (vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(std::move(r));
-     }
+    const string resource_name = get_resource_name(resource_id, XObject);
+    if (!get_XObject_data(resource_id, XObject, resource_name)) return;
+    auto it = XObject_streams.find(resource_name);
+    if (it != XObject_streams.end())
+    {
+        const matrix_t ctm = XObject_matrices.at(resource_name) * parent_ctm;
+        for (vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(std::move(r));
+    }
 }
 
 void PagesExtractor::do_quote(vector<text_chunk_t> &result,

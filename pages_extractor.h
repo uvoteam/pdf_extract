@@ -77,18 +77,14 @@ private:
     Fonts get_fonts(const dict_t &dictionary, const Fonts &parent_fonts) const;
     ConverterEngine* get_font_encoding(const std::string &font, const std::string &resource_id);
     boost::optional<std::pair<std::string, pdf_object_t>> get_encoding(const dict_t &font_dict) const;
-    void get_XObjects_data(const std::string &page_id,
-                           const dict_t &page,
-                           std::unordered_set<unsigned int> &visited_XObjects);
-    void get_XObject_data(const std::string &page_id,
-                          const dict_t::value_type &XObject,
-                          std::unordered_set<unsigned int> &visited_XObjects);
+    bool get_XObject_data(const std::string &page_id, const std::string &XObject_name, const std::string &resource_name);
 private:
     const std::string &doc;
     const ObjectStorage &storage;
     const dict_t &decrypt_data;
     std::map<std::string, Fonts> fonts;
     std::vector<unsigned int> pages;
+    std::map<std::string, dict_t> dicts;
     std::map<std::string, mediabox_t> media_boxes;
     std::map<std::string, unsigned int> rotates;
     std::map<std::string, std::map<std::string, ConverterEngine>> converter_engine_cache;

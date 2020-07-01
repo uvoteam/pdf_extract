@@ -49,6 +49,7 @@ private:
                   std::stack<std::pair<pdf_object_t, std::string>> &st,
                   const std::string &resource_id,
                   const std::string &token) const;
+    void do_ts(const std::string &resource_id, float rise);
     DiffConverter get_diff_converter(const boost::optional<std::pair<std::string, pdf_object_t>> &encoding) const;
     ToUnicodeConverter get_to_unicode_converter(const dict_t &font_dict);
     boost::optional<mediabox_t> get_box(const dict_t &dictionary,

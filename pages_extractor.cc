@@ -34,10 +34,6 @@ using namespace boost;
         continue;\
 }
 
-#define DO_TS() {\
-        fonts.at(resource_id).set_rise(stof(pop(st).second));\
-    }
-
 #define DO_DOUBLE_QUOTE() {\
         const string str = pop(st).second;\
         coordinates.set_coordinates(token, st);\
@@ -794,6 +790,11 @@ void PagesExtractor::do_quote(vector<text_chunk_t> &result,
     result.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
 }
 
+void PagesExtractor::do_ts(const string &resource_id, float rise)
+{
+    fonts.at(resource_id).set_rise(rise);
+}
+
 vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_content,
                                                           const string &resource_id,
                                                           const optional<matrix_t> CTM)
@@ -828,7 +829,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         if (token == "Tj" && encoding && !encoding->is_vertical()) do_tj(result[0], encoding, st, coordinates, resource_id);
         else if (adjust_tokens.count(token)) coordinates.set_coordinates(token, st);
         else if (token == "'" && encoding) do_quote(result[0], coordinates, encoding, st, resource_id, token);
-        else if (token == "Ts") DO_TS()
+        else if (token == "Ts") do_ts(resource_id, stof(pop(st).second));
         else if (token == "\"" && encoding) DO_DOUBLE_QUOTE()
         //vertical fonts are not implemented
         else if (token == "TJ" && encoding && !encoding->is_vertical()) DO_TJ()

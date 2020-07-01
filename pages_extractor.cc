@@ -34,11 +34,7 @@ using namespace boost;
         continue;\
 }
 
-#define DO_Tj() {\
-        result[0].push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));\
-    }
-
-#define DO_QUOTE() {\
+#define DO_QUOTE() {                            \
         coordinates.set_coordinates(token, st);\
         result[0].push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));\
     }
@@ -769,6 +765,15 @@ ConverterEngine* PagesExtractor::do_tf(Coordinates &coordinates,
     return get_font_encoding(font, resource_id);
 }
 
+void PagesExtractor::do_tj(vector<text_chunk_t> &result,
+                           const ConverterEngine *encoding,
+                           stack<pair<pdf_object_t, string>> &st,
+                           Coordinates &coordinates,
+                           const string &resource_id) const
+{
+    result.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
+}
+
 void PagesExtractor::do_do(vector<vector<text_chunk_t>> &result,
                            const string &XObject,
                            const string &resource_id,
@@ -814,7 +819,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
             continue;
         }
         //vertical fonts are not implemented
-        if (token == "Tj" && encoding && !encoding->is_vertical()) DO_Tj()
+        if (token == "Tj" && encoding && !encoding->is_vertical()) do_tj(result[0], encoding, st, coordinates, resource_id);
         else if (adjust_tokens.count(token)) coordinates.set_coordinates(token, st);
         else if (token == "'" && encoding) DO_QUOTE()
         else if (token == "Ts") DO_TS()

@@ -71,19 +71,19 @@ private:
                                                         const boost::optional<matrix_t> CTM);
     void get_pages_resources_int(std::unordered_set<unsigned int> &checked_nodes,
                                  const dict_t &parent_dict,
-                                 const dict_t &parent_fonts,
+                                 const Fonts &parent_fonts,
                                  const boost::optional<mediabox_t> &parent_media_box,
                                  unsigned int parent_rotate);
-    dict_t get_fonts(const dict_t &dictionary, const dict_t &parent_fonts) const;
+    Fonts get_fonts(const dict_t &dictionary, const Fonts &parent_fonts) const;
     ConverterEngine* get_font_encoding(const std::string &font, const std::string &resource_id);
     boost::optional<std::pair<std::string, pdf_object_t>> get_encoding(const dict_t &font_dict) const;
     void get_XObjects_data(const std::string &page_id,
                            const dict_t &page,
-                           const dict_t &parent_fonts,
+                           const Fonts &parent_fonts,
                            std::unordered_set<unsigned int> &visited_XObjects);
     void get_XObject_data(const std::string &page_id,
                           const dict_t::value_type &XObject,
-                          const dict_t &parent_fonts,
+                          const Fonts &parent_fonts,
                           std::unordered_set<unsigned int> &visited_XObjects);
 private:
     const std::string &doc;

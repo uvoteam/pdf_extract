@@ -93,8 +93,19 @@ private:
             arg.to_be_deleted = false;
         }
 
-        Widths(const Widths &arg) = delete;
+        Widths(const Widths &arg) : to_be_deleted(arg.to_be_deleted)
+        {
+            if (to_be_deleted)
+            {
+                widths = new std::map<unsigned int, float>;
+                *widths = *arg.widths;
+                return;
+            }
+            widths = arg.widths;
+        }
+
         Widths& operator=(const Widths &arg) = delete;
+        Widths& operator=(Widths &&arg) = delete;
 
         const std::map<unsigned int, float>* operator->() const
         {

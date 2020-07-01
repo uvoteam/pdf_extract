@@ -149,8 +149,6 @@ array<unsigned int, 3> get_w(const dict_t &dictionary_data)
     if (it == dictionary_data.end()) throw pdf_error("can`t find /W");
     if (it->second.second != ARRAY) throw pdf_error("/W value must have ARRAY type");
     const string &str = it->second.first;
-    if (str.at(0) != '[') throw pdf_error(FUNC_STRING + "str must be started with '['");
-    if (str[str.length() - 1] != ']') throw pdf_error(FUNC_STRING + "str must be finished with ']'");
     size_t i = 0;
     array<unsigned int, 3> result;
     for (size_t offset = find_number(str, 0); offset < str.length(); offset = find_number(str, offset))

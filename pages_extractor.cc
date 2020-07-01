@@ -675,10 +675,7 @@ string PagesExtractor::get_text()
         {
             page_content += output_content(visited_contents, doc, storage, id_gen, decrypt_data);
         }
-        for (vector<text_chunk_t> &r : extract_text(page_content, to_string(page_id), boost::none))
-        {
-            text += render_text(r);
-        }
+        for (vector<text_chunk_t> &r : extract_text(page_content, to_string(page_id), boost::none)) text += render_text(r);
     }
     return text;
 }
@@ -817,10 +814,8 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
     bool in_text_block = false;
     vector<vector<text_chunk_t>> result(1);
     result[0].reserve(PDF_STRINGS_NUM);
-    for (size_t i = 0; i < page_content.length();)
+    for (size_t i = 0; i != string::npos && i < page_content.length(); i = skip_comments(page_content, i, false))
     {
-        i = skip_comments(page_content, i, false);
-        if (i == string::npos) break;
         if (in_text_block && put2stack(st, page_content, i)) continue;
         const string token = get_token(page_content, i);
         if (is_skip_unused(page_content, i, token)) continue;

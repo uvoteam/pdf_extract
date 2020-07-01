@@ -34,12 +34,6 @@ using namespace boost;
         continue;\
 }
 
-#define DO_DOUBLE_QUOTE() {\
-        const string str = pop(st).second;\
-        coordinates.set_coordinates(token, st);\
-        result[0].push_back(encoding->get_string(str, coordinates, 0, fonts.at(resource_id)));\
-}
-
 #define DO_TJ() {\
         const vector<text_chunk_t> tj_texts = encoding->get_strings_from_array(pop(st).second,\
                                                                                coordinates,\
@@ -790,6 +784,18 @@ void PagesExtractor::do_quote(vector<text_chunk_t> &result,
     result.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
 }
 
+void PagesExtractor::do_double_quote(vector<text_chunk_t> &result,
+                                     Coordinates &coordinates,
+                                     const ConverterEngine *encoding,
+                                     stack<pair<pdf_object_t, string>> &st,
+                                     const string &resource_id,
+                                     const string &token) const
+{
+    const string str = pop(st).second;
+    coordinates.set_coordinates(token, st);
+    result.push_back(encoding->get_string(str, coordinates, 0, fonts.at(resource_id)));
+}
+
 void PagesExtractor::do_ts(const string &resource_id, float rise)
 {
     fonts.at(resource_id).set_rise(rise);
@@ -830,7 +836,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         else if (adjust_tokens.count(token)) coordinates.set_coordinates(token, st);
         else if (token == "'" && encoding) do_quote(result[0], coordinates, encoding, st, resource_id, token);
         else if (token == "Ts") do_ts(resource_id, stof(pop(st).second));
-        else if (token == "\"" && encoding) DO_DOUBLE_QUOTE()
+        else if (token == "\"" && encoding) do_double_quote(result[0], coordinates, encoding, st, resource_id, token);
         //vertical fonts are not implemented
         else if (token == "TJ" && encoding && !encoding->is_vertical()) DO_TJ()
         else st.push(make_pair(VALUE, token));

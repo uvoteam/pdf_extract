@@ -34,13 +34,6 @@ using namespace boost;
         continue;\
 }
 
-#define DO_TF() {\
-        coordinates.set_coordinates(token, st);\
-        const string font = pop(st).second;\
-        fonts.at(resource_id).set_current_font(font);\
-        encoding = get_font_encoding(font, resource_id);\
-        }
-
 #define DO_Tj() {\
         result[0].push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));\
     }
@@ -765,6 +758,17 @@ ConverterEngine* PagesExtractor::get_font_encoding(const string &font, const str
     return &converter_engine_cache[resource_id][font];
 }
 
+ConverterEngine* PagesExtractor::do_tf(Coordinates &coordinates,
+                                       stack<pair<pdf_object_t, string>> &st,
+                                       const string &resource_id,
+                                       const string &token)
+{
+    coordinates.set_coordinates(token, st);
+    const string font = pop(st).second;
+    fonts.at(resource_id).set_current_font(font);
+    return get_font_encoding(font, resource_id);
+}
+
 void PagesExtractor::do_do(vector<vector<text_chunk_t>> &result,
                            const string &XObject,
                            const string &resource_id,
@@ -802,7 +806,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         else if (token == "ET") DO_ET(in_text_block)
         else if (ctm_tokens.count(token)) coordinates.ctm_work(token, st);
         else if (token == "Do") do_do(result, pop(st).second, resource_id, coordinates.get_CTM());
-        else if (token == "Tf") DO_TF()
+        else if (token == "Tf") encoding = do_tf(coordinates, st, resource_id, token);
 
         if (!in_text_block)
         {

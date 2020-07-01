@@ -79,11 +79,9 @@ private:
     boost::optional<std::pair<std::string, pdf_object_t>> get_encoding(const dict_t &font_dict) const;
     void get_XObjects_data(const std::string &page_id,
                            const dict_t &page,
-                           const Fonts &parent_fonts,
                            std::unordered_set<unsigned int> &visited_XObjects);
     void get_XObject_data(const std::string &page_id,
                           const dict_t::value_type &XObject,
-                          const Fonts &parent_fonts,
                           std::unordered_set<unsigned int> &visited_XObjects);
 private:
     const std::string &doc;

@@ -550,14 +550,13 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
         {
             pages.push_back(id);
             const string id_str = to_string(id);
-            const Fonts page_fonts = get_fonts(dict_data, parent_fonts);
-            fonts.emplace(id_str, page_fonts);
+            fonts.emplace(id_str, get_fonts(dict_data, parent_fonts));
             media_boxes.emplace(id_str, get_box(dict_data, parent_media_box).value());
             rotates.emplace(id_str, get_rotate(dict_data, parent_rotate));
             converter_engine_cache.emplace(id_str, map<string, ConverterEngine>());
             //avoiding infinite recursion
             unordered_set<unsigned int> visited_XObjects;
-            get_XObjects_data(id_str, dict_data, page_fonts, visited_XObjects);
+            get_XObjects_data(id_str, dict_data, visited_XObjects);
         }
         else
         {
@@ -573,7 +572,6 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
 
 void PagesExtractor::get_XObject_data(const string &parent_id,
                                       const dict_t::value_type &XObject,
-                                      const Fonts &parent_fonts,
                                       unordered_set<unsigned int> &visited_XObjects)
 {
     if (XObject.second.second == INDIRECT_OBJECT)
@@ -588,8 +586,7 @@ void PagesExtractor::get_XObject_data(const string &parent_id,
     auto it = dict.find("/BBox");
     if (it == dict.end()) return;
     const string resource_name = get_resource_name(parent_id, XObject.first);
-    const Fonts page_fonts = get_fonts(dict, parent_fonts);
-    fonts.emplace(resource_name, page_fonts);
+    fonts.emplace(resource_name, get_fonts(dict, fonts.at(parent_id)));
     converter_engine_cache.emplace(resource_name, map<string, ConverterEngine>());
     XObject_streams.emplace(resource_name, get_stream(doc, get_id_gen(XObject.second.first), storage, decrypt_data));
     it = dict.find("Matrix");
@@ -607,12 +604,11 @@ void PagesExtractor::get_XObject_data(const string &parent_id,
                                                          stof(numbers[2].first), stof(numbers[3].first),
                                                          stof(numbers[4].first), stof(numbers[5].first)});
     }
-    get_XObjects_data(resource_name, dict, page_fonts, visited_XObjects);
+    get_XObjects_data(resource_name, dict, visited_XObjects);
 }
 
 void PagesExtractor::get_XObjects_data(const string &parent_id,
                                        const dict_t &page,
-                                       const Fonts &parent_fonts,
                                        unordered_set<unsigned int> &visited_XObjects)
 {
     auto it = page.find("/Resources");
@@ -621,7 +617,7 @@ void PagesExtractor::get_XObjects_data(const string &parent_id,
     it = resources.find("/XObject");
     if (it == resources.end()) return;
     const dict_t XObjects = get_dict_or_indirect_dict(it->second, storage);
-    for (const dict_t::value_type &p : XObjects) get_XObject_data(parent_id, p, parent_fonts, visited_XObjects);
+    for (const dict_t::value_type &p : XObjects) get_XObject_data(parent_id, p, visited_XObjects);
 }
 
 Fonts PagesExtractor::get_fonts(const dict_t &dictionary, const Fonts &parent_fonts) const

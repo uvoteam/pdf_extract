@@ -794,7 +794,9 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
     bool in_text_block = false;
     vector<vector<text_chunk_t>> result(1);
     result[0].reserve(PDF_STRINGS_NUM);
-    for (size_t i = 0; i != string::npos && i < page_content.length(); i = skip_comments(page_content, i, false))
+    for (size_t i = skip_comments(page_content, 0, false);
+         i != string::npos && i < page_content.length();
+         i = skip_comments(page_content, i, false))
     {
         if (in_text_block && put2stack(st, page_content, i)) continue;
         const string token = get_token(page_content, i);

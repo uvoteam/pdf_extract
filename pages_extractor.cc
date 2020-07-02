@@ -689,7 +689,11 @@ ToUnicodeConverter PagesExtractor::get_to_unicode_converter(const dict_t &font_d
     switch (it->second.second)
     {
     case INDIRECT_OBJECT:
-        return ToUnicodeConverter(get_cmap(doc, storage, get_id_gen(it->second.first), decrypt_data));
+    {
+        const pair<unsigned int, unsigned int> id_gen = get_id_gen(it->second.first);
+        if (!cmap_cache.count(id_gen.first)) cmap_cache.emplace(id_gen.first,  get_cmap(doc, storage, id_gen, decrypt_data));
+        return ToUnicodeConverter(cmap_cache[id_gen.first]);
+    }
     case NAME_OBJECT:
         return ToUnicodeConverter();
     default:

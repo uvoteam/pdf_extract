@@ -8,13 +8,13 @@
 
 using namespace std;
 
-ToUnicodeConverter::ToUnicodeConverter(cmap_t &&custom_encoding_arg) :
-                                      custom_encoding(std::move(custom_encoding_arg)),
+ToUnicodeConverter::ToUnicodeConverter(const cmap_t &custom_encoding_arg) :
+                                      custom_encoding(custom_encoding_arg),
                                       empty(false)
 {
 }
 
-ToUnicodeConverter::ToUnicodeConverter() noexcept : empty(true)
+ToUnicodeConverter::ToUnicodeConverter() noexcept : custom_encoding(cmap_t()), empty(true)
 {
 }
 

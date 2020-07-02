@@ -90,6 +90,7 @@ private:
     std::map<std::string, std::map<std::string, ConverterEngine>> converter_engine_cache;
     std::map<std::string, std::string> XObject_streams;
     std::map<std::string, matrix_t> XObject_matrices;
+    std::map<unsigned int, const cmap_t> cmap_cache;
 };
 
 #endif //PAGES_EXTRACTOR_H

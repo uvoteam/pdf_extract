@@ -12,12 +12,9 @@
 
 struct cmap_t
 {
-    cmap_t() : is_vertical(false)
-    {
-    }
-    cmap_t(cmap_t&&) = default;
-    std::unordered_map<std::string, std::string> utf8_map;
-//how many bytes to read(see codespacerange)
+    enum converted_status_t { CONVERTED, NOT_CONVERTED};
+    std::unordered_map<std::string, std::pair<converted_status_t, std::string>> utf_map;
+    //how many bytes to read(see codespacerange)
     std::vector<unsigned char> sizes;
     bool is_vertical;
 };

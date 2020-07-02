@@ -4,14 +4,12 @@
 #include <algorithm>
 
 #include <boost/optional.hpp>
-#include <boost/locale/encoding.hpp>
 
 #include "object_storage.h"
 #include "common.h"
 #include "cmap.h"
 
 using namespace std;
-using namespace boost::locale::conv;
 
 namespace
 {
@@ -155,7 +153,8 @@ namespace
         if (byte == 0) n = '\x01' + n;
     }
 
-    size_t get_bfrange(const string &stream, size_t offset, unordered_map<string, string> &utf8_map)
+    size_t get_bfrange(const string &stream, size_t offset,
+                       unordered_map<string, pair<cmap_t::converted_status_t, string>> &utf_map)
     {
         const string first = convert2string(get_token(stream, offset));
         const string second = convert2string(get_token(stream, offset));
@@ -168,7 +167,7 @@ namespace
             string third = convert2string(third_token);
             for (string n = first; is_less_equal(n, second); inc(n), inc(third))
             {
-                utf8_map.insert(make_pair(n, to_utf<char>(third, "UTF-16be")));
+                utf_map.emplace(n, make_pair(cmap_t::NOT_CONVERTED, third));
             }
             break;
         }
@@ -177,8 +176,8 @@ namespace
             size_t token_offset = 0;
             for (string n = first; is_less_equal(n, second); inc(n))
             {
-                utf8_map.insert(make_pair(n, to_utf<char>(convert2string(get_token(third_token.val, token_offset)),
-                                                          "UTF-16be")));
+                utf_map.emplace(n, make_pair(cmap_t::NOT_CONVERTED,
+                                             convert2string(get_token(third_token.val, token_offset))));
             }
             break;
         }
@@ -194,11 +193,12 @@ namespace
         return offset;
     }
 
-    size_t get_bfchar(const string &stream, size_t offset, unordered_map<string, string> &utf8_map)
+    size_t get_bfchar(const string &stream, size_t offset,
+                      unordered_map<string, pair<cmap_t::converted_status_t, string>> &utf_map)
     {
         const string src = convert2string(get_token(stream, offset));
         const string dst = convert2string(get_token(stream, offset));
-        utf8_map.insert(make_pair(src, to_utf<char>(dst, "UTF-16be")));
+        utf_map.emplace(src, make_pair(cmap_t::NOT_CONVERTED, dst));
         return offset + 1;
     }
 
@@ -282,10 +282,10 @@ cmap_t get_cmap(const string &doc,
         case NONE:
             continue;
         case BFCHAR:
-            end = get_bfchar(stream, start, result.utf8_map);
+            end = get_bfchar(stream, start, result.utf_map);
             break;
         case BFRANGE:
-            end = get_bfrange(stream, start, result.utf8_map);
+            end = get_bfrange(stream, start, result.utf_map);
             break;
         case CODE_SPACE_RANGE:
             end = get_code_space_range(stream, start, result.sizes);

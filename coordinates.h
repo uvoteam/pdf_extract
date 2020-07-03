@@ -117,7 +117,6 @@ public:
     void set_default();
     matrix_t get_CTM() const;
     text_chunk_t adjust_coordinates(std::string &&s, size_t len, float width, float Tj, const Fonts &fonts);
-    void set_coordinates(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
     void ctm_work(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_Tz(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_TL(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
@@ -127,9 +126,10 @@ public:
     void set_TD(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_Tm(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_T_star(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
+    void set_Tf(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
+    void set_quote(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
+    void set_double_quote(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
 private:
-    void T_quote();
-    void T_star();
     std::pair<float, float> get_coordinates(const matrix_t &m1, const matrix_t &m2) const;
     void Td(float x, float y);
     enum

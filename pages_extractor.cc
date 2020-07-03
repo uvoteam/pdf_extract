@@ -719,7 +719,7 @@ ConverterEngine* PagesExtractor::do_tf(Coordinates &coordinates,
                                        const string &resource_id,
                                        const string &token)
 {
-    coordinates.set_coordinates(token, st);
+    coordinates.set_Tf(token, st);
     const string font = pop(st).second;
     fonts.at(resource_id).set_current_font(font);
     return get_font_encoding(font, resource_id);
@@ -766,7 +766,7 @@ void PagesExtractor::do_quote(vector<text_chunk_t> &result,
                               const string &resource_id,
                               const string &token) const
 {
-    coordinates.set_coordinates(token, st);
+    coordinates.set_quote(token, st);
     result.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
 }
 
@@ -778,7 +778,7 @@ void PagesExtractor::do_double_quote(vector<text_chunk_t> &result,
                                      const string &token) const
 {
     const string str = pop(st).second;
-    coordinates.set_coordinates(token, st);
+    coordinates.set_double_quote(token, st);
     result.push_back(encoding->get_string(str, coordinates, 0, fonts.at(resource_id)));
 }
 

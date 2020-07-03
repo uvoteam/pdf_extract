@@ -260,6 +260,7 @@ cmap_t get_cmap(const string &doc,
     State_t state = NONE;
     const string stream = get_stream(doc, cmap_id_gen, storage, decrypt_data);
     cmap_t result;
+    result.is_vertical = false;
     for (size_t start = stream.find_first_not_of(" \t\n\r"), end = stream.find_first_of(" \t\n\r", start);
          start != string::npos;
          start = stream.find_first_not_of(" \t\n\r", end), end = stream.find_first_of(" \t\n\r", start))

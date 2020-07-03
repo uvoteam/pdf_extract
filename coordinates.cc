@@ -91,11 +91,19 @@ text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, float width
     return text_chunk_t(std::move(s), coordinates_t(x0, y0, x1, y1));
 }
 
-void Coordinates::ctm_work(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::do_cm(stack<pair<pdf_object_t, string>> &st)
 {
-    if (token == "cm") CTM = get_matrix(st) * CTM;
-    else if (token == "q") CTMs.push(CTM);
-    else if (token == "Q"  && !CTMs.empty()) CTM = pop(CTMs);
+    CTM = get_matrix(st) * CTM;
+}
+
+void Coordinates::do_q(stack<pair<pdf_object_t, string>> &st)
+{
+    CTMs.push(CTM);
+}
+
+void Coordinates::do_Q(stack<pair<pdf_object_t, string>> &st)
+{
+    if (!CTMs.empty()) CTM = pop(CTMs);
 }
 
 void Coordinates::set_Tz(stack<pair<pdf_object_t, string>> &st)

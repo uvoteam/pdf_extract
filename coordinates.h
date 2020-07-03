@@ -117,7 +117,9 @@ public:
     void set_default();
     matrix_t get_CTM() const;
     text_chunk_t adjust_coordinates(std::string &&s, size_t len, float width, float Tj, const Fonts &fonts);
-    void ctm_work(const std::string &token, std::stack<std::pair<pdf_object_t, std::string>> &st);
+    void do_cm(std::stack<std::pair<pdf_object_t, std::string>> &st);
+    void do_q(std::stack<std::pair<pdf_object_t, std::string>> &st);
+    void do_Q(std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_Tz(std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_TL(std::stack<std::pair<pdf_object_t, std::string>> &st);
     void set_Tc(std::stack<std::pair<pdf_object_t, std::string>> &st);

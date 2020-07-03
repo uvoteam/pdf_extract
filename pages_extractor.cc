@@ -797,7 +797,9 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
                                                                            {"Td", &Coordinates::set_Td},
                                                                            {"TD", &Coordinates::set_TD},
                                                                            {"Tm", &Coordinates::set_Tm}};
-    static const unordered_set<string> ctm_tokens = {"cm", "q", "Q"};
+    static const unordered_map<string, set_coordinates_t> ctm_tokens = {{"cm", &Coordinates::do_cm},
+                                                                        {"q", &Coordinates::do_q},
+                                                                        {"Q", &Coordinates::do_Q}};
     ConverterEngine *enc = nullptr;
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
     stack<pair<pdf_object_t, string>> st;
@@ -814,7 +816,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         if (is_skip_unused(page_content, i, token)) continue;
         if (token == "BT") DO_BT(coordinates, in)
         else if (token == "ET") DO_ET(in)
-        else if (ctm_tokens.count(token)) coordinates.ctm_work(token, st);
+        else if ((it = ctm_tokens.find(token)) != ctm_tokens.end()) (coordinates.*it->second)(st);
         else if (token == "Do") do_do(result, pop(st).second, resource_id, coordinates.get_CTM());
         else if (token == "Tf") enc = do_tf(coordinates, st, resource_id);
         //vertical fonts are not implemented

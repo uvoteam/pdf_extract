@@ -1,5 +1,6 @@
 #include <utility>
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 #include <stack>
 #include <algorithm>
@@ -790,7 +791,15 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
                                                           const string &resource_id,
                                                           const optional<matrix_t> CTM)
 {
-    static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
+    using set_coordinates_t = void (Coordinates::*)(const string&, stack<pair<pdf_object_t, string>>&);
+    static const unordered_map<string, set_coordinates_t> adjust_tokens = {{"Tz", &Coordinates::set_Tz},
+                                                                           {"TL", &Coordinates::set_TL},
+                                                                           {"T*", &Coordinates::set_T_star},
+                                                                           {"Tc", &Coordinates::set_Tc},
+                                                                           {"Tw", &Coordinates::set_Tw},
+                                                                           {"Td", &Coordinates::set_Td},
+                                                                           {"TD", &Coordinates::set_TD},
+                                                                           {"Tm", &Coordinates::set_Tm}};
     static const unordered_set<string> ctm_tokens = {"cm", "q", "Q"};
     ConverterEngine *enc = nullptr;
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
@@ -798,6 +807,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
     bool in = false;
     vector<vector<text_chunk_t>> result(1);
     result[0].reserve(PDF_STRINGS_NUM);
+    unordered_map<string, set_coordinates_t>::const_iterator it;
     for (size_t i = skip_comments(page_content, 0, false);
          i != string::npos && i < page_content.length();
          i = skip_comments(page_content, i, false))
@@ -812,7 +822,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         else if (token == "Tf") enc = do_tf(coordinates, st, resource_id, token);
         //vertical fonts are not implemented
         else if (in && token == "Tj" && enc && !enc->is_vertical()) do_tj(result[0], enc, st, coordinates, resource_id);
-        else if (in && adjust_tokens.count(token)) coordinates.set_coordinates(token, st);
+        else if (in && (it = adjust_tokens.find(token)) != adjust_tokens.end()) (coordinates.*it->second)(token, st);
         else if (in && token == "'" && enc) do_quote(result[0], coordinates, enc, st, resource_id, token);
         else if (in && token == "Ts") do_ts(resource_id, stof(pop(st).second));
         else if (in && token == "\"" && enc) do_double_quote(result[0], coordinates, enc, st, resource_id, token);

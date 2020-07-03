@@ -792,40 +792,32 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
 {
     static const unordered_set<string> adjust_tokens = {"Tz", "TL", "T*", "Tc", "Tw", "Td", "TD", "Tm"};
     static const unordered_set<string> ctm_tokens = {"cm", "q", "Q"};
-    ConverterEngine *encoding = nullptr;
+    ConverterEngine *enc = nullptr;
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
     stack<pair<pdf_object_t, string>> st;
-    bool in_text_block = false;
+    bool in = false;
     vector<vector<text_chunk_t>> result(1);
     result[0].reserve(PDF_STRINGS_NUM);
     for (size_t i = skip_comments(page_content, 0, false);
          i != string::npos && i < page_content.length();
          i = skip_comments(page_content, i, false))
     {
-        if (in_text_block && put2stack(st, page_content, i)) continue;
+        if (in && put2stack(st, page_content, i)) continue;
         const string token = get_token(page_content, i);
         if (is_skip_unused(page_content, i, token)) continue;
-        if (token == "BT") DO_BT(coordinates, in_text_block)
-        else if (token == "ET") DO_ET(in_text_block)
+        if (token == "BT") DO_BT(coordinates, in)
+        else if (token == "ET") DO_ET(in)
         else if (ctm_tokens.count(token)) coordinates.ctm_work(token, st);
         else if (token == "Do") do_do(result, pop(st).second, resource_id, coordinates.get_CTM());
-        else if (token == "Tf") encoding = do_tf(coordinates, st, resource_id, token);
-
-        if (!in_text_block)
-        {
-            st.push(make_pair(VALUE, token));
-            continue;
-        }
+        else if (token == "Tf") enc = do_tf(coordinates, st, resource_id, token);
         //vertical fonts are not implemented
-        if (token == "Tj" && encoding && !encoding->is_vertical()) do_tj(result[0], encoding, st, coordinates, resource_id);
-        else if (adjust_tokens.count(token)) coordinates.set_coordinates(token, st);
-        else if (token == "'" && encoding) do_quote(result[0], coordinates, encoding, st, resource_id, token);
-        else if (token == "Ts") do_ts(resource_id, stof(pop(st).second));
-        else if (token == "\"" && encoding) do_double_quote(result[0], coordinates, encoding, st, resource_id, token);
+        else if (in && token == "Tj" && enc && !enc->is_vertical()) do_tj(result[0], enc, st, coordinates, resource_id);
+        else if (in && adjust_tokens.count(token)) coordinates.set_coordinates(token, st);
+        else if (in && token == "'" && enc) do_quote(result[0], coordinates, enc, st, resource_id, token);
+        else if (in && token == "Ts") do_ts(resource_id, stof(pop(st).second));
+        else if (in && token == "\"" && enc) do_double_quote(result[0], coordinates, enc, st, resource_id, token);
         //vertical fonts are not implemented
-        else if (token == "TJ" &&
-                 encoding &&
-                 !encoding->is_vertical()) do_TJ(result[0], encoding, st, coordinates, resource_id);
+        else if (in && token == "TJ" && enc && !enc->is_vertical()) do_TJ(result[0], enc, st, coordinates, resource_id);
         else st.push(make_pair(VALUE, token));
     }
 

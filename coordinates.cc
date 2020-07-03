@@ -98,35 +98,35 @@ void Coordinates::ctm_work(const string &token, stack<pair<pdf_object_t, string>
     else if (token == "Q"  && !CTMs.empty()) CTM = pop(CTMs);
 }
 
-void Coordinates::set_Tz(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_Tz(stack<pair<pdf_object_t, string>> &st)
 {
     //Th in percentages
     Th = stof(pop(st).second) / 100;
 }
 
-void Coordinates::set_TL(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_TL(stack<pair<pdf_object_t, string>> &st)
 {
     TL = stof(pop(st).second);
 }
 
-void Coordinates::set_Tc(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_Tc(stack<pair<pdf_object_t, string>> &st)
 {
     Tc = stof(pop(st).second);
 }
 
-void Coordinates::set_Tw(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_Tw(stack<pair<pdf_object_t, string>> &st)
 {
     Tw = stof(pop(st).second);
 }
 
-void Coordinates::set_Td(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_Td(stack<pair<pdf_object_t, string>> &st)
 {
         float y = stof(pop(st).second);
         float x = stof(pop(st).second);
         Td(x, y);
 }
 
-void Coordinates::set_TD(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_TD(stack<pair<pdf_object_t, string>> &st)
 {
     float y = stof(pop(st).second);
     float x = stof(pop(st).second);
@@ -134,31 +134,31 @@ void Coordinates::set_TD(const string &token, stack<pair<pdf_object_t, string>> 
     TL = -y;
 }
 
-void Coordinates::set_Tm(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_Tm(stack<pair<pdf_object_t, string>> &st)
 {
     Tm = get_matrix(st);
     x = 0;
     y = 0;
 }
 
-void Coordinates::set_T_star(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_T_star(stack<pair<pdf_object_t, string>> &st)
 {
     Td(0, -TL);
 }
 
-void Coordinates::set_Tf(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_Tf(stack<pair<pdf_object_t, string>> &st)
 {
     Tfs = stof(pop(st).second);
 }
 
-void Coordinates::set_quote(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_quote(stack<pair<pdf_object_t, string>> &st)
 {
-    set_T_star(token, st);
+    set_T_star(st);
 }
 
-void Coordinates::set_double_quote(const string &token, stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_double_quote(stack<pair<pdf_object_t, string>> &st)
 {
     Tc = stof(pop(st).second);
     Tw = stof(pop(st).second);
-    set_quote(token, st);
+    set_quote(st);
 }

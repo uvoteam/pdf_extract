@@ -716,10 +716,9 @@ ConverterEngine* PagesExtractor::get_font_encoding(const string &font, const str
 
 ConverterEngine* PagesExtractor::do_tf(Coordinates &coordinates,
                                        stack<pair<pdf_object_t, string>> &st,
-                                       const string &resource_id,
-                                       const string &token)
+                                       const string &resource_id)
 {
-    coordinates.set_Tf(token, st);
+    coordinates.set_Tf(st);
     const string font = pop(st).second;
     fonts.at(resource_id).set_current_font(font);
     return get_font_encoding(font, resource_id);
@@ -763,10 +762,9 @@ void PagesExtractor::do_quote(vector<text_chunk_t> &result,
                               Coordinates &coordinates,
                               const ConverterEngine *encoding,
                               stack<pair<pdf_object_t, string>> &st,
-                              const string &resource_id,
-                              const string &token) const
+                              const string &resource_id) const
 {
-    coordinates.set_quote(token, st);
+    coordinates.set_quote(st);
     result.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
 }
 
@@ -774,11 +772,10 @@ void PagesExtractor::do_double_quote(vector<text_chunk_t> &result,
                                      Coordinates &coordinates,
                                      const ConverterEngine *encoding,
                                      stack<pair<pdf_object_t, string>> &st,
-                                     const string &resource_id,
-                                     const string &token) const
+                                     const string &resource_id) const
 {
     const string str = pop(st).second;
-    coordinates.set_double_quote(token, st);
+    coordinates.set_double_quote(st);
     result.push_back(encoding->get_string(str, coordinates, 0, fonts.at(resource_id)));
 }
 
@@ -791,7 +788,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
                                                           const string &resource_id,
                                                           const optional<matrix_t> CTM)
 {
-    using set_coordinates_t = void (Coordinates::*)(const string&, stack<pair<pdf_object_t, string>>&);
+    using set_coordinates_t = void (Coordinates::*)(stack<pair<pdf_object_t, string>>&);
     static const unordered_map<string, set_coordinates_t> adjust_tokens = {{"Tz", &Coordinates::set_Tz},
                                                                            {"TL", &Coordinates::set_TL},
                                                                            {"T*", &Coordinates::set_T_star},
@@ -819,13 +816,13 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         else if (token == "ET") DO_ET(in)
         else if (ctm_tokens.count(token)) coordinates.ctm_work(token, st);
         else if (token == "Do") do_do(result, pop(st).second, resource_id, coordinates.get_CTM());
-        else if (token == "Tf") enc = do_tf(coordinates, st, resource_id, token);
+        else if (token == "Tf") enc = do_tf(coordinates, st, resource_id);
         //vertical fonts are not implemented
         else if (in && token == "Tj" && enc && !enc->is_vertical()) do_tj(result[0], enc, st, coordinates, resource_id);
-        else if (in && (it = adjust_tokens.find(token)) != adjust_tokens.end()) (coordinates.*it->second)(token, st);
-        else if (in && token == "'" && enc) do_quote(result[0], coordinates, enc, st, resource_id, token);
+        else if (in && (it = adjust_tokens.find(token)) != adjust_tokens.end()) (coordinates.*it->second)(st);
+        else if (in && token == "'" && enc) do_quote(result[0], coordinates, enc, st, resource_id);
         else if (in && token == "Ts") do_ts(resource_id, stof(pop(st).second));
-        else if (in && token == "\"" && enc) do_double_quote(result[0], coordinates, enc, st, resource_id, token);
+        else if (in && token == "\"" && enc) do_double_quote(result[0], coordinates, enc, st, resource_id);
         //vertical fonts are not implemented
         else if (in && token == "TJ" && enc && !enc->is_vertical()) do_TJ(result[0], enc, st, coordinates, resource_id);
         else st.push(make_pair(VALUE, token));

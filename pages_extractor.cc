@@ -885,10 +885,10 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
          i = skip_comments(page_content, i, false))
     {
         if (in && put2stack(st, page_content, i)) continue;
-        const string token = get_token(page_content, i);
+        string token = get_token(page_content, i);
         extract_handler_t handler = binary_search(handlers, 0, sizeof(handlers) / sizeof(handlers[0]) - 1, token);
         if (handler) (this->*handler)(argument, i);
-        else st.push(make_pair(VALUE, token));
+        else st.push(make_pair(VALUE, std::move(token)));
     }
 
     return result;

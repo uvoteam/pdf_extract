@@ -3,6 +3,7 @@
 #include <vector>
 #include <stack>
 #include <algorithm>
+#include <unordered_map>
 #include <iostream> //temp
 
 #include <boost/optional.hpp>
@@ -45,19 +46,6 @@ namespace
     constexpr float WORD_MARGIN = 0.1;
     constexpr float LINE_MARGIN = 0.5;
     constexpr float BOXES_FLOW = 0.5;
-
-    using extract_handler_t = void (PagesExtractor::*)(PagesExtractor::extract_argument_t& argument, size_t &i);
-    extract_handler_t binary_search(const pair<string, extract_handler_t> arr[], int l, int r, const string &x)
-    {
-        while (l <= r)
-        {
-            int m = l + (r - l) / 2;
-            if (arr[m].first == x) return arr[m].second;
-            if (arr[m].first < x) l = m + 1;
-            else r = m - 1;
-        }
-        return nullptr;
-    }
 
     bool operator<(const dist_t &obj1, const dist_t &obj2)
     {
@@ -851,28 +839,29 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
                                                           const string &resource_id,
                                                           const optional<matrix_t> CTM)
 {
+    using extract_handler_t = void (PagesExtractor::*)(PagesExtractor::extract_argument_t& argument, size_t &i);
     //must be sorted by string. binsearch is used
-    static const pair<string, extract_handler_t> handlers[] = {{"\"", &PagesExtractor::do_double_quote},
-                                                               {"'", &PagesExtractor::do_quote},
-                                                               {"BT", &PagesExtractor::do_BT},
-                                                               {"Do", &PagesExtractor::do_Do},
-                                                               {"ET", &PagesExtractor::do_ET},
-                                                               {"Q", &PagesExtractor::do_Q},
-                                                               {"T*", &PagesExtractor::do_T_star},
-                                                               {"TD", &PagesExtractor::do_TD},
-                                                               {"TJ", &PagesExtractor::do_TJ},
-                                                               {"TL", &PagesExtractor::do_TL},
-                                                               {"Tc", &PagesExtractor::do_Tc},
-                                                               {"Td", &PagesExtractor::do_Td},
-                                                               {"Tf", &PagesExtractor::do_Tf},
-                                                               {"Tj", &PagesExtractor::do_Tj},
-                                                               {"Tm", &PagesExtractor::do_Tm},
-                                                               {"Ts", &PagesExtractor::do_Ts},
-                                                               {"Tw", &PagesExtractor::do_Tw},
-                                                               {"Tz", &PagesExtractor::do_Tz},
-                                                               {"cm", &PagesExtractor::do_cm},
-                                                               {"q", &PagesExtractor::do_q},
-                                                               {"BI", &PagesExtractor::do_BI}};
+    static const unordered_map<string, extract_handler_t> handlers = {{"\"", &PagesExtractor::do_double_quote},
+                                                                      {"'", &PagesExtractor::do_quote},
+                                                                      {"BT", &PagesExtractor::do_BT},
+                                                                      {"Do", &PagesExtractor::do_Do},
+                                                                      {"ET", &PagesExtractor::do_ET},
+                                                                      {"Q", &PagesExtractor::do_Q},
+                                                                      {"T*", &PagesExtractor::do_T_star},
+                                                                      {"TD", &PagesExtractor::do_TD},
+                                                                      {"TJ", &PagesExtractor::do_TJ},
+                                                                      {"TL", &PagesExtractor::do_TL},
+                                                                      {"Tc", &PagesExtractor::do_Tc},
+                                                                      {"Td", &PagesExtractor::do_Td},
+                                                                      {"Tf", &PagesExtractor::do_Tf},
+                                                                      {"Tj", &PagesExtractor::do_Tj},
+                                                                      {"Tm", &PagesExtractor::do_Tm},
+                                                                      {"Ts", &PagesExtractor::do_Ts},
+                                                                      {"Tw", &PagesExtractor::do_Tw},
+                                                                      {"Tz", &PagesExtractor::do_Tz},
+                                                                      {"cm", &PagesExtractor::do_cm},
+                                                                      {"q", &PagesExtractor::do_q},
+                                                                      {"BI", &PagesExtractor::do_BI}};
     ConverterEngine *encoding = nullptr;
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
     stack<pair<pdf_object_t, string>> st;
@@ -886,8 +875,8 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
     {
         if (in && put2stack(st, page_content, i)) continue;
         string token = get_token(page_content, i);
-        extract_handler_t handler = binary_search(handlers, 0, sizeof(handlers) / sizeof(handlers[0]) - 1, token);
-        if (handler) (this->*handler)(argument, i);
+        auto it = handlers.find(token);
+        if (it != handlers.end()) (this->*(it->second))(argument, i);
         else st.push(make_pair(VALUE, std::move(token)));
     }
 

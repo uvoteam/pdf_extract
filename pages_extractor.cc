@@ -46,7 +46,7 @@ namespace
     constexpr float LINE_MARGIN = 0.5;
     constexpr float BOXES_FLOW = 0.5;
 
-    using extract_handler_t = void (PagesExtractor::*)(PagesExtractor::extract_argument_t& argument);
+    using extract_handler_t = void (PagesExtractor::*)(PagesExtractor::extract_argument_t& argument, size_t &i);
     extract_handler_t binary_search(const pair<string, extract_handler_t> arr[], int l, int r, const string &x)
     {
         while (l <= r)
@@ -474,28 +474,6 @@ namespace
         return (it == dictionary.end())? CharsetConverter(string()) : CharsetConverter(it->second.first);
     }
 
-    bool is_skip_unused(const string &content, size_t &i, const string &token)
-    {
-        if (token == "BI")
-        {
-            while (true)
-            {
-                i = content.find("EI", i);
-                if (i == string::npos)
-                {
-                    i = content.length();
-                    return true;
-                }
-                i += sizeof("EI") - 1;
-                if (i == content.length() || is_blank(content[i])) return true;
-            }
-        }
-        else
-        {
-            return false;
-        }
-    }
-
     string get_token(const string &page_content, size_t &i)
     {
         size_t end = page_content.find_first_of(" \r\n\t/[(<", i + 1);
@@ -715,7 +693,22 @@ ConverterEngine* PagesExtractor::get_font_encoding(const string &font, const str
     return &converter_engine_cache[resource_id][font];
 }
 
-void PagesExtractor::do_Tf(extract_argument_t &arg)
+void PagesExtractor::do_BI(extract_argument_t &arg, size_t &i)
+{
+    while (true)
+    {
+        i = arg.content.find("EI", i);
+        if (i == string::npos)
+        {
+            i = arg.content.length();
+            return;
+        }
+        i += sizeof("EI") - 1;
+        if (i == arg.content.length() || is_blank(arg.content[i])) return;
+    }
+}
+
+void PagesExtractor::do_Tf(extract_argument_t &arg, size_t &i)
 {
     arg.coordinates.set_Tf(arg.st);
     const string font = pop(arg.st).second;
@@ -723,7 +716,7 @@ void PagesExtractor::do_Tf(extract_argument_t &arg)
     arg.encoding = get_font_encoding(font, arg.resource_id);
 }
 
-void PagesExtractor::do_Tj(extract_argument_t &arg)
+void PagesExtractor::do_Tj(extract_argument_t &arg, size_t &i)
 {
     if (!arg.in || !arg.encoding || arg.encoding->is_vertical()) return;
     arg.result[0].push_back(arg.encoding->get_string(decode_string(pop(arg.st).second),
@@ -732,13 +725,13 @@ void PagesExtractor::do_Tj(extract_argument_t &arg)
                                                      fonts.at(arg.resource_id)));
 }
 
-void PagesExtractor::do_Tm(extract_argument_t &arg)
+void PagesExtractor::do_Tm(extract_argument_t &arg, size_t &i)
 {
     if (!arg.in) return;
     arg.coordinates.set_Tm(arg.st);
 }
 
-void PagesExtractor::do_TJ(extract_argument_t &arg)
+void PagesExtractor::do_TJ(extract_argument_t &arg, size_t &i)
 {
     if (!arg.in || !arg.encoding || arg.encoding->is_vertical()) return;
     vector<text_chunk_t> tj_texts = arg.encoding->get_strings_from_array(pop(arg.st).second,
@@ -749,25 +742,25 @@ void PagesExtractor::do_TJ(extract_argument_t &arg)
                          std::make_move_iterator(tj_texts.end()));
 }
 
-void PagesExtractor::do_TL(extract_argument_t &arg)
+void PagesExtractor::do_TL(extract_argument_t &arg, size_t &i)
 {
     if (!arg.in) return;
     arg.coordinates.set_TL(arg.st);
 }
 
-void PagesExtractor::do_Tc(extract_argument_t &arg)
+void PagesExtractor::do_Tc(extract_argument_t &arg, size_t &i)
 {
     if (!arg.in) return;
     arg.coordinates.set_Tc(arg.st);
 }
 
-void PagesExtractor::do_Td(extract_argument_t &arg)
+void PagesExtractor::do_Td(extract_argument_t &arg, size_t &i)
 {
     if (!arg.in) return;
     arg.coordinates.set_Td(arg.st);
 }
 
-void PagesExtractor::do_Do(extract_argument_t &arg)
+void PagesExtractor::do_Do(extract_argument_t &arg, size_t &i)
 {
     const string XObject = pop(arg.st).second;
     const string resource_name = get_resource_name(arg.resource_id, XObject);
@@ -780,7 +773,7 @@ void PagesExtractor::do_Do(extract_argument_t &arg)
     }
 }
 
-void PagesExtractor::do_quote(extract_argument_t &arg)
+void PagesExtractor::do_quote(extract_argument_t &arg, size_t &i)
 {
     if (!arg.encoding || !arg.in) return;
     arg.coordinates.set_quote(arg.st);
@@ -790,35 +783,35 @@ void PagesExtractor::do_quote(extract_argument_t &arg)
                                                      fonts.at(arg.resource_id)));
 }
 
-void PagesExtractor::do_BT(extract_argument_t &arg)
+void PagesExtractor::do_BT(extract_argument_t &arg, size_t &i)
 {
     arg.coordinates.set_default();
     arg.in = true;
 }
 
-void PagesExtractor::do_ET(extract_argument_t &arg)
+void PagesExtractor::do_ET(extract_argument_t &arg, size_t &i)
 {
     arg.in = false;
 }
 
-void PagesExtractor::do_Q(extract_argument_t &arg)
+void PagesExtractor::do_Q(extract_argument_t &arg, size_t &i)
 {
     arg.coordinates.do_Q(arg.st);
 }
 
-void PagesExtractor::do_TD(extract_argument_t &arg)
+void PagesExtractor::do_TD(extract_argument_t &arg, size_t &i)
 {
     if (!arg.in) return;
     arg.coordinates.set_TD(arg.st);
 }
 
-void PagesExtractor::do_T_star(extract_argument_t &arg)
+void PagesExtractor::do_T_star(extract_argument_t &arg, size_t &i)
 {
     if (!arg.in) return;
     arg.coordinates.set_T_star(arg.st);
 }
 
-void PagesExtractor::do_double_quote(extract_argument_t &arg)
+void PagesExtractor::do_double_quote(extract_argument_t &arg, size_t &i)
 {
     if (!arg.encoding || !arg.in) return;
     const string str = pop(arg.st).second;
@@ -826,30 +819,30 @@ void PagesExtractor::do_double_quote(extract_argument_t &arg)
     arg.result[0].push_back(arg.encoding->get_string(str, arg.coordinates, 0, fonts.at(arg.resource_id)));
 }
 
-void PagesExtractor::do_Ts(extract_argument_t &arg)
+void PagesExtractor::do_Ts(extract_argument_t &arg, size_t &i)
 {
     if (!arg.in) return;
     fonts.at(arg.resource_id).set_rise(stof(pop(arg.st).second));
 }
 
-void PagesExtractor::do_Tw(extract_argument_t &arg)
+void PagesExtractor::do_Tw(extract_argument_t &arg, size_t &i)
 {
     if (!arg.in) return;
     arg.coordinates.set_Tw(arg.st);
 }
 
-void PagesExtractor::do_Tz(extract_argument_t &arg)
+void PagesExtractor::do_Tz(extract_argument_t &arg, size_t &i)
 {
     if (!arg.in) return;
     arg.coordinates.set_Tz(arg.st);
 }
 
-void PagesExtractor::do_cm(extract_argument_t &arg)
+void PagesExtractor::do_cm(extract_argument_t &arg, size_t &i)
 {
     arg.coordinates.do_cm(arg.st);
 }
 
-void PagesExtractor::do_q(extract_argument_t &arg)
+void PagesExtractor::do_q(extract_argument_t &arg, size_t &i)
 {
     arg.coordinates.do_q(arg.st);
 }
@@ -878,23 +871,23 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
                                                                {"Tw", &PagesExtractor::do_Tw},
                                                                {"Tz", &PagesExtractor::do_Tz},
                                                                {"cm", &PagesExtractor::do_cm},
-                                                               {"q", &PagesExtractor::do_q}};
+                                                               {"q", &PagesExtractor::do_q},
+                                                               {"BI", &PagesExtractor::do_BI}};
     ConverterEngine *encoding = nullptr;
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
     stack<pair<pdf_object_t, string>> st;
     bool in = false;
     vector<vector<text_chunk_t>> result(1);
     result[0].reserve(PDF_STRINGS_NUM);
-    extract_argument_t argument{result, encoding, st, coordinates, resource_id, in};
+    extract_argument_t argument{result, encoding, st, coordinates, resource_id, in, page_content};
     for (size_t i = skip_comments(page_content, 0, false);
          i != string::npos && i < page_content.length();
          i = skip_comments(page_content, i, false))
     {
         if (in && put2stack(st, page_content, i)) continue;
         const string token = get_token(page_content, i);
-        if (is_skip_unused(page_content, i, token)) continue;
         extract_handler_t handler = binary_search(handlers, 0, sizeof(handlers) / sizeof(handlers[0]) - 1, token);
-        if (handler) (this->*handler)(argument);
+        if (handler) (this->*handler)(argument, i);
         else st.push(make_pair(VALUE, token));
     }
 

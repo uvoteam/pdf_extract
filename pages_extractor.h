@@ -29,35 +29,37 @@ public:
                    const dict_t &decrypt_data_arg,
                    const std::string &doc_arg);
     std::string get_text();
+    struct extract_argument_t
+    {
+        std::vector<std::vector<text_chunk_t>> &result;
+        ConverterEngine *encoding;
+        std::stack<std::pair<pdf_object_t, std::string>> &st;
+        Coordinates &coordinates;
+        const std::string &resource_id;
+        bool &in;
+    };
 private:
-    void do_do(std::vector<std::vector<text_chunk_t>> &result,
-               const std::string &XObject,
-               const std::string &resource_id,
-               const matrix_t &parent_ctm);
-    ConverterEngine* do_tf(Coordinates &coordinates,
-                           std::stack<std::pair<pdf_object_t, std::string>> &st,
-                           const std::string &resource_id);
-    void do_tj(std::vector<text_chunk_t> &result,
-               const ConverterEngine *encoding,
-               std::stack<std::pair<pdf_object_t, std::string>> &st,
-               Coordinates &coordinates,
-               const std::string &resource_id) const;
-    void do_TJ(std::vector<text_chunk_t> &result,
-               const ConverterEngine *encoding,
-               std::stack<std::pair<pdf_object_t, std::string>> &st,
-               Coordinates &coordinates,
-               const std::string &resource_id) const;
-    void do_quote(std::vector<text_chunk_t> &result,
-                  Coordinates &coordinates,
-                  const ConverterEngine *encoding,
-                  std::stack<std::pair<pdf_object_t, std::string>> &st,
-                  const std::string &resource_id) const;
-    void do_double_quote(std::vector<text_chunk_t> &result,
-                         Coordinates &coordinates,
-                         const ConverterEngine *encoding,
-                         std::stack<std::pair<pdf_object_t, std::string>> &st,
-                         const std::string &resource_id) const;
-    void do_ts(const std::string &resource_id, float rise);
+    void do_Do(extract_argument_t &arg);
+    void do_Tj(extract_argument_t &arg);
+    void do_quote(extract_argument_t &arg);
+    void do_double_quote(extract_argument_t &arg);
+    void do_Ts(extract_argument_t &arg);
+    void do_BT(extract_argument_t &arg);
+    void do_ET(extract_argument_t &arg);
+    void do_Q(extract_argument_t &arg);
+    void do_T_star(extract_argument_t &arg);
+    void do_TD(extract_argument_t &arg);
+    void do_TJ(extract_argument_t &arg);
+    void do_TL(extract_argument_t &arg);
+    void do_Tc(extract_argument_t &arg);
+    void do_Td(extract_argument_t &arg);
+    void do_Tf(extract_argument_t &arg);
+    void do_Tm(extract_argument_t &arg);
+    void do_Tw(extract_argument_t &arg);
+    void do_Tz(extract_argument_t &arg);
+    void do_cm(extract_argument_t &arg);
+    void do_q(extract_argument_t &arg);
+
     DiffConverter get_diff_converter(const boost::optional<std::pair<std::string, pdf_object_t>> &encoding) const;
     ToUnicodeConverter get_to_unicode_converter(const dict_t &font_dict);
     boost::optional<mediabox_t> get_box(const dict_t &dictionary,

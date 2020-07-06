@@ -1,6 +1,5 @@
 #include <utility>
 #include <unordered_set>
-#include <unordered_map>
 #include <vector>
 #include <stack>
 #include <algorithm>
@@ -24,17 +23,6 @@
 using namespace std;
 using namespace boost;
 
-#define DO_BT(COORDINATES, IN_TEXT_BLOCK) {                   \
-        COORDINATES.set_default();              \
-        IN_TEXT_BLOCK = true;                   \
-        continue;                               \
-    }
-
-#define DO_ET(IN_TEXT_BLOCK) {\
-        IN_TEXT_BLOCK = false;\
-        continue;\
-}
-
 namespace
 {
     struct dist_t
@@ -57,6 +45,19 @@ namespace
     constexpr float WORD_MARGIN = 0.1;
     constexpr float LINE_MARGIN = 0.5;
     constexpr float BOXES_FLOW = 0.5;
+
+    using extract_handler_t = void (PagesExtractor::*)(PagesExtractor::extract_argument_t& argument);
+    extract_handler_t binary_search(const pair<string, extract_handler_t> arr[], int l, int r, const string &x)
+    {
+        while (l <= r)
+        {
+            int m = l + (r - l) / 2;
+            if (arr[m].first == x) return arr[m].second;
+            if (arr[m].first < x) l = m + 1;
+            else r = m - 1;
+        }
+        return nullptr;
+    }
 
     bool operator<(const dist_t &obj1, const dist_t &obj2)
     {
@@ -714,99 +715,177 @@ ConverterEngine* PagesExtractor::get_font_encoding(const string &font, const str
     return &converter_engine_cache[resource_id][font];
 }
 
-ConverterEngine* PagesExtractor::do_tf(Coordinates &coordinates,
-                                       stack<pair<pdf_object_t, string>> &st,
-                                       const string &resource_id)
+void PagesExtractor::do_Tf(extract_argument_t &arg)
 {
-    coordinates.set_Tf(st);
-    const string font = pop(st).second;
-    fonts.at(resource_id).set_current_font(font);
-    return get_font_encoding(font, resource_id);
+    arg.coordinates.set_Tf(arg.st);
+    const string font = pop(arg.st).second;
+    fonts.at(arg.resource_id).set_current_font(font);
+    arg.encoding = get_font_encoding(font, arg.resource_id);
 }
 
-void PagesExtractor::do_tj(vector<text_chunk_t> &result,
-                           const ConverterEngine *encoding,
-                           stack<pair<pdf_object_t, string>> &st,
-                           Coordinates &coordinates,
-                           const string &resource_id) const
+void PagesExtractor::do_Tj(extract_argument_t &arg)
 {
-    result.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
+    if (!arg.in || !arg.encoding || arg.encoding->is_vertical()) return;
+    arg.result[0].push_back(arg.encoding->get_string(decode_string(pop(arg.st).second),
+                                                     arg.coordinates,
+                                                     0,
+                                                     fonts.at(arg.resource_id)));
 }
 
-void PagesExtractor::do_TJ(vector<text_chunk_t> &result,
-                           const ConverterEngine *encoding,
-                           stack<pair<pdf_object_t, string>> &st,
-                           Coordinates &coordinates,
-                           const string &resource_id) const
+void PagesExtractor::do_Tm(extract_argument_t &arg)
 {
-    vector<text_chunk_t> tj_texts = encoding->get_strings_from_array(pop(st).second, coordinates, fonts.at(resource_id));
-    result.insert(result.end(), std::make_move_iterator(tj_texts.begin()), std::make_move_iterator(tj_texts.end()));
+    if (!arg.in) return;
+    arg.coordinates.set_Tm(arg.st);
 }
 
-void PagesExtractor::do_do(vector<vector<text_chunk_t>> &result,
-                           const string &XObject,
-                           const string &resource_id,
-                           const matrix_t &parent_ctm)
+void PagesExtractor::do_TJ(extract_argument_t &arg)
 {
-    const string resource_name = get_resource_name(resource_id, XObject);
-    if (!get_XObject_data(resource_id, XObject, resource_name)) return;
+    if (!arg.in || !arg.encoding || arg.encoding->is_vertical()) return;
+    vector<text_chunk_t> tj_texts = arg.encoding->get_strings_from_array(pop(arg.st).second,
+                                                                         arg.coordinates,
+                                                                         fonts.at(arg.resource_id));
+    arg.result[0].insert(arg.result[0].end(),
+                         std::make_move_iterator(tj_texts.begin()),
+                         std::make_move_iterator(tj_texts.end()));
+}
+
+void PagesExtractor::do_TL(extract_argument_t &arg)
+{
+    if (!arg.in) return;
+    arg.coordinates.set_TL(arg.st);
+}
+
+void PagesExtractor::do_Tc(extract_argument_t &arg)
+{
+    if (!arg.in) return;
+    arg.coordinates.set_Tc(arg.st);
+}
+
+void PagesExtractor::do_Td(extract_argument_t &arg)
+{
+    if (!arg.in) return;
+    arg.coordinates.set_Td(arg.st);
+}
+
+void PagesExtractor::do_Do(extract_argument_t &arg)
+{
+    const string XObject = pop(arg.st).second;
+    const string resource_name = get_resource_name(arg.resource_id, XObject);
+    if (!get_XObject_data(arg.resource_id, XObject, resource_name)) return;
     auto it = XObject_streams.find(resource_name);
     if (it != XObject_streams.end())
     {
-        const matrix_t ctm = XObject_matrices.at(resource_name) * parent_ctm;
-        for (vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm)) result.push_back(std::move(r));
+        const matrix_t ctm = XObject_matrices.at(resource_name) * arg.coordinates.get_CTM();
+        for (vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm)) arg.result.push_back(std::move(r));
     }
 }
 
-void PagesExtractor::do_quote(vector<text_chunk_t> &result,
-                              Coordinates &coordinates,
-                              const ConverterEngine *encoding,
-                              stack<pair<pdf_object_t, string>> &st,
-                              const string &resource_id) const
+void PagesExtractor::do_quote(extract_argument_t &arg)
 {
-    coordinates.set_quote(st);
-    result.push_back(encoding->get_string(decode_string(pop(st).second), coordinates, 0, fonts.at(resource_id)));
+    if (!arg.encoding || !arg.in) return;
+    arg.coordinates.set_quote(arg.st);
+    arg.result[0].push_back(arg.encoding->get_string(decode_string(pop(arg.st).second),
+                                                     arg.coordinates,
+                                                     0,
+                                                     fonts.at(arg.resource_id)));
 }
 
-void PagesExtractor::do_double_quote(vector<text_chunk_t> &result,
-                                     Coordinates &coordinates,
-                                     const ConverterEngine *encoding,
-                                     stack<pair<pdf_object_t, string>> &st,
-                                     const string &resource_id) const
+void PagesExtractor::do_BT(extract_argument_t &arg)
 {
-    const string str = pop(st).second;
-    coordinates.set_double_quote(st);
-    result.push_back(encoding->get_string(str, coordinates, 0, fonts.at(resource_id)));
+    arg.coordinates.set_default();
+    arg.in = true;
 }
 
-void PagesExtractor::do_ts(const string &resource_id, float rise)
+void PagesExtractor::do_ET(extract_argument_t &arg)
 {
-    fonts.at(resource_id).set_rise(rise);
+    arg.in = false;
+}
+
+void PagesExtractor::do_Q(extract_argument_t &arg)
+{
+    arg.coordinates.do_Q(arg.st);
+}
+
+void PagesExtractor::do_TD(extract_argument_t &arg)
+{
+    if (!arg.in) return;
+    arg.coordinates.set_TD(arg.st);
+}
+
+void PagesExtractor::do_T_star(extract_argument_t &arg)
+{
+    if (!arg.in) return;
+    arg.coordinates.set_T_star(arg.st);
+}
+
+void PagesExtractor::do_double_quote(extract_argument_t &arg)
+{
+    if (!arg.encoding || !arg.in) return;
+    const string str = pop(arg.st).second;
+    arg.coordinates.set_double_quote(arg.st);
+    arg.result[0].push_back(arg.encoding->get_string(str, arg.coordinates, 0, fonts.at(arg.resource_id)));
+}
+
+void PagesExtractor::do_Ts(extract_argument_t &arg)
+{
+    if (!arg.in) return;
+    fonts.at(arg.resource_id).set_rise(stof(pop(arg.st).second));
+}
+
+void PagesExtractor::do_Tw(extract_argument_t &arg)
+{
+    if (!arg.in) return;
+    arg.coordinates.set_Tw(arg.st);
+}
+
+void PagesExtractor::do_Tz(extract_argument_t &arg)
+{
+    if (!arg.in) return;
+    arg.coordinates.set_Tz(arg.st);
+}
+
+void PagesExtractor::do_cm(extract_argument_t &arg)
+{
+    arg.coordinates.do_cm(arg.st);
+}
+
+void PagesExtractor::do_q(extract_argument_t &arg)
+{
+    arg.coordinates.do_q(arg.st);
 }
 
 vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_content,
                                                           const string &resource_id,
                                                           const optional<matrix_t> CTM)
 {
-    using set_coordinates_t = void (Coordinates::*)(stack<pair<pdf_object_t, string>>&);
-    static const unordered_map<string, set_coordinates_t> adjust_tokens = {{"Tz", &Coordinates::set_Tz},
-                                                                           {"TL", &Coordinates::set_TL},
-                                                                           {"T*", &Coordinates::set_T_star},
-                                                                           {"Tc", &Coordinates::set_Tc},
-                                                                           {"Tw", &Coordinates::set_Tw},
-                                                                           {"Td", &Coordinates::set_Td},
-                                                                           {"TD", &Coordinates::set_TD},
-                                                                           {"Tm", &Coordinates::set_Tm}};
-    static const unordered_map<string, set_coordinates_t> ctm_tokens = {{"cm", &Coordinates::do_cm},
-                                                                        {"q", &Coordinates::do_q},
-                                                                        {"Q", &Coordinates::do_Q}};
-    ConverterEngine *enc = nullptr;
+    //must be sorted by string. binsearch is used
+    static const pair<string, extract_handler_t> handlers[] = {{"\"", &PagesExtractor::do_double_quote},
+                                                               {"'", &PagesExtractor::do_quote},
+                                                               {"BT", &PagesExtractor::do_BT},
+                                                               {"Do", &PagesExtractor::do_Do},
+                                                               {"ET", &PagesExtractor::do_ET},
+                                                               {"Q", &PagesExtractor::do_Q},
+                                                               {"T*", &PagesExtractor::do_T_star},
+                                                               {"TD", &PagesExtractor::do_TD},
+                                                               {"TJ", &PagesExtractor::do_TJ},
+                                                               {"TL", &PagesExtractor::do_TL},
+                                                               {"Tc", &PagesExtractor::do_Tc},
+                                                               {"Td", &PagesExtractor::do_Td},
+                                                               {"Tf", &PagesExtractor::do_Tf},
+                                                               {"Tj", &PagesExtractor::do_Tj},
+                                                               {"Tm", &PagesExtractor::do_Tm},
+                                                               {"Ts", &PagesExtractor::do_Ts},
+                                                               {"Tw", &PagesExtractor::do_Tw},
+                                                               {"Tz", &PagesExtractor::do_Tz},
+                                                               {"cm", &PagesExtractor::do_cm},
+                                                               {"q", &PagesExtractor::do_q}};
+    ConverterEngine *encoding = nullptr;
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
     stack<pair<pdf_object_t, string>> st;
     bool in = false;
     vector<vector<text_chunk_t>> result(1);
     result[0].reserve(PDF_STRINGS_NUM);
-    unordered_map<string, set_coordinates_t>::const_iterator it;
+    extract_argument_t argument{result, encoding, st, coordinates, resource_id, in};
     for (size_t i = skip_comments(page_content, 0, false);
          i != string::npos && i < page_content.length();
          i = skip_comments(page_content, i, false))
@@ -814,19 +893,8 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         if (in && put2stack(st, page_content, i)) continue;
         const string token = get_token(page_content, i);
         if (is_skip_unused(page_content, i, token)) continue;
-        if (token == "BT") DO_BT(coordinates, in)
-        else if (token == "ET") DO_ET(in)
-        else if ((it = ctm_tokens.find(token)) != ctm_tokens.end()) (coordinates.*it->second)(st);
-        else if (token == "Do") do_do(result, pop(st).second, resource_id, coordinates.get_CTM());
-        else if (token == "Tf") enc = do_tf(coordinates, st, resource_id);
-        //vertical fonts are not implemented
-        else if (in && token == "Tj" && enc && !enc->is_vertical()) do_tj(result[0], enc, st, coordinates, resource_id);
-        else if (in && (it = adjust_tokens.find(token)) != adjust_tokens.end()) (coordinates.*it->second)(st);
-        else if (in && token == "'" && enc) do_quote(result[0], coordinates, enc, st, resource_id);
-        else if (in && token == "Ts") do_ts(resource_id, stof(pop(st).second));
-        else if (in && token == "\"" && enc) do_double_quote(result[0], coordinates, enc, st, resource_id);
-        //vertical fonts are not implemented
-        else if (in && token == "TJ" && enc && !enc->is_vertical()) do_TJ(result[0], enc, st, coordinates, resource_id);
+        extract_handler_t handler = binary_search(handlers, 0, sizeof(handlers) / sizeof(handlers[0]) - 1, token);
+        if (handler) (this->*handler)(argument);
         else st.push(make_pair(VALUE, token));
     }
 

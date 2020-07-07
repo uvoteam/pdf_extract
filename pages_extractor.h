@@ -3,7 +3,7 @@
 
 #include <string>
 #include <utility>
-#include <map>
+
 #include <unordered_set>
 #include <unordered_map>
 #include <vector>
@@ -39,7 +39,7 @@ public:
         const std::string &resource_id;
         bool &in;
         const std::string &content;
-    };
+   };
 public:
     void do_Do(extract_argument_t &arg, size_t &i);
     void do_Tj(extract_argument_t &arg, size_t &i);
@@ -86,13 +86,13 @@ private:
     const dict_t &decrypt_data;
     std::unordered_map<std::string, Fonts> fonts;
     std::vector<unsigned int> pages;
-    std::map<std::string, dict_t> dicts;
-    std::map<std::string, mediabox_t> media_boxes;
-    std::map<std::string, unsigned int> rotates;
-    std::map<std::string, std::map<std::string, ConverterEngine>> converter_engine_cache;
-    std::map<std::string, std::string> XObject_streams;
-    std::map<std::string, matrix_t> XObject_matrices;
-    std::map<unsigned int, cmap_t> cmap_cache;
+    std::unordered_map<std::string, dict_t> dicts;
+    std::unordered_map<std::string, mediabox_t> media_boxes;
+    std::unordered_map<std::string, unsigned int> rotates;
+    std::unordered_map<std::string, std::unordered_map<std::string, ConverterEngine>> converter_engine_cache;
+    std::unordered_map<std::string, std::string> XObject_streams;
+    std::unordered_map<std::string, matrix_t> XObject_matrices;
+    std::unordered_map<unsigned int, cmap_t> cmap_cache;
 };
 
 #endif //PAGES_EXTRACTOR_H

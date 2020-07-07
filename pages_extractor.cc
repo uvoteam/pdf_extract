@@ -537,7 +537,7 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
             fonts.emplace(id_str, get_fonts(dict_data, parent_fonts));
             media_boxes.emplace(id_str, get_box(dict_data, parent_media_box).value());
             rotates.emplace(id_str, get_rotate(dict_data, parent_rotate));
-            converter_engine_cache.emplace(id_str, map<string, ConverterEngine>());
+            converter_engine_cache.emplace(id_str, unordered_map<string, ConverterEngine>());
             dicts.emplace(id_str, std::move(dict_data));
         }
         else
@@ -569,7 +569,7 @@ bool PagesExtractor::get_XObject_data(const string &parent_id,
     if (dict.at("/Subtype").first != "/Form") return false;
     if (!dict.count("/BBox")) return false;
     fonts.emplace(resource_name, get_fonts(dict, fonts.at(parent_id)));
-    converter_engine_cache.emplace(resource_name, map<string, ConverterEngine>());
+    converter_engine_cache.emplace(resource_name, unordered_map<string, ConverterEngine>());
     XObject_streams.emplace(resource_name, get_stream(doc, get_id_gen(XObject->second.first), storage, decrypt_data));
     it = dict.find("Matrix");
     if (it == dict.end())

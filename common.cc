@@ -3,7 +3,6 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <stack>
 #include <cctype>
 #include <utility>
 #include <array>
@@ -418,7 +417,7 @@ string get_array(const string &buffer, size_t &offset)
 {
     string result = "[";
     ++offset;
-    stack<pdf_object_t> prevs;
+    unsigned int prevs = 0;
     while (true)
     {
         switch (buffer[offset])
@@ -433,16 +432,16 @@ string get_array(const string &buffer, size_t &offset)
             break;
         case '[':
             result.push_back(buffer.at(offset));
-            prevs.push(ARRAY);
+            ++prevs;
             break;
         case ']':
             result.push_back(buffer.at(offset));
-            if (prevs.empty())
+            if (!prevs)
             {
                 ++offset;
                 return result;
             }
-            prevs.pop();
+            --prevs;
             break;
         default:
             result.push_back(buffer.at(offset));

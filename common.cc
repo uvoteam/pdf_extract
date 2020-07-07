@@ -6,7 +6,6 @@
 #include <stack>
 #include <cctype>
 #include <utility>
-#include <stack>
 #include <array>
 
 #include <boost/optional.hpp>

@@ -307,7 +307,7 @@ pdf_object_t get_object_type(const string &buffer, size_t &offset)
 
 string get_dictionary(const string &buffer, size_t &offset)
 {
-    stack<pdf_object_t> prevs;
+    unsigned int prevs = 0;
     size_t end_offset = offset + 2;
     while (end_offset < buffer.length())
     {
@@ -315,7 +315,7 @@ string get_dictionary(const string &buffer, size_t &offset)
         char c_next = buffer.at(end_offset + 1);
         if (c == '<' && c_next == '<')
         {
-            prevs.push(DICTIONARY);
+            ++prevs;
             end_offset += 2;
             continue;
         }
@@ -326,14 +326,14 @@ string get_dictionary(const string &buffer, size_t &offset)
         }
         if (c == '>' && c_next == '>')
         {
-            if (prevs.empty())
+            if (!prevs)
             {
                 end_offset += 2;
                 size_t start_offset = offset;
                 offset = end_offset;
                 return buffer.substr(start_offset, end_offset - start_offset);
             }
-            prevs.pop();
+            --prevs;
             end_offset += 2;
             continue;
         }

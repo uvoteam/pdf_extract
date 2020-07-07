@@ -39,7 +39,7 @@ public:
         bool &in;
         const std::string &content;
     };
-private:
+public:
     void do_Do(extract_argument_t &arg, size_t &i);
     void do_Tj(extract_argument_t &arg, size_t &i);
     void do_quote(extract_argument_t &arg, size_t &i);
@@ -61,7 +61,7 @@ private:
     void do_cm(extract_argument_t &arg, size_t &i);
     void do_q(extract_argument_t &arg, size_t &i);
     void do_BI(extract_argument_t &arg, size_t &i);
-
+private:
     DiffConverter get_diff_converter(const boost::optional<std::pair<std::string, pdf_object_t>> &encoding) const;
     ToUnicodeConverter get_to_unicode_converter(const dict_t &font_dict);
     boost::optional<mediabox_t> get_box(const dict_t &dictionary,

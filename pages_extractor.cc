@@ -1,7 +1,6 @@
 #include <utility>
 #include <unordered_set>
 #include <vector>
-#include <stack>
 #include <algorithm>
 #include <unordered_map>
 #include <iostream> //temp
@@ -40,7 +39,7 @@ namespace
         unsigned char c;
     };
 
-    enum { MATRIX_ELEMENTS_NUM = 6, PDF_STRINGS_NUM = 300 /*for optimization*/ };
+    enum { MATRIX_ELEMENTS_NUM = 6, PDF_STRINGS_NUM = 5000 /*for optimization*/ };
     constexpr float LINE_OVERLAP = 0.5;
     constexpr float CHAR_MARGIN = 2.0;
     constexpr float WORD_MARGIN = 0.1;
@@ -436,19 +435,19 @@ namespace
         }
     }
 
-    bool put2stack(stack<pair<pdf_object_t, string>> &st, const string &buffer, size_t &i)
+    bool put2stack(vector<pair<pdf_object_t, string>> &st, const string &buffer, size_t &i)
     {
         switch (buffer[i])
         {
         case '(':
-            st.push(make_pair(STRING, get_string(buffer, i)));
+            st.push_back(make_pair(STRING, get_string(buffer, i)));
             return true;
         case '<':
-            buffer.at(i + 1) == '<'? st.push(make_pair(DICTIONARY, get_dictionary(buffer, i))) :
-                                     st.push(make_pair(STRING, get_string(buffer, i)));
+            buffer.at(i + 1) == '<'? st.push_back(make_pair(DICTIONARY, get_dictionary(buffer, i))) :
+                                     st.push_back(make_pair(STRING, get_string(buffer, i)));
             return true;
         case '[':
-            st.push(make_pair(ARRAY, get_array(buffer, i)));
+            st.push_back(make_pair(ARRAY, get_array(buffer, i)));
             return true;
         default:
             return false;
@@ -857,7 +856,8 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
 {
     ConverterEngine *encoding = nullptr;
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
-    stack<pair<pdf_object_t, string>> st;
+    vector<pair<pdf_object_t, string>> st;
+    st.reserve(PDF_STRINGS_NUM);
     bool in = false;
     vector<vector<text_chunk_t>> result(1);
     result[0].reserve(PDF_STRINGS_NUM);
@@ -870,7 +870,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         string token = get_token(page_content, i);
         extract_handler_t handler = get_extract_handler(token);
         if (handler) (this->*handler)(argument, i);
-        else st.push(make_pair(VALUE, std::move(token)));
+        else st.push_back(make_pair(VALUE, std::move(token)));
     }
 
     return result;

@@ -7,7 +7,6 @@
 #include <unordered_set>
 #include <unordered_map>
 #include <vector>
-#include <stack>
 
 #include <boost/optional.hpp>
 
@@ -34,7 +33,7 @@ public:
     {
         std::vector<std::vector<text_chunk_t>> &result;
         ConverterEngine *encoding;
-        std::stack<std::pair<pdf_object_t, std::string>> &st;
+        std::vector<std::pair<pdf_object_t, std::string>> &st;
         Coordinates &coordinates;
         const std::string &resource_id;
         bool &in;

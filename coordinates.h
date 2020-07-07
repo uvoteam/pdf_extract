@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <string>
-#include <stack>
 #include <utility>
 
 #include "common.h"
@@ -117,20 +116,20 @@ public:
     void set_default();
     matrix_t get_CTM() const;
     text_chunk_t adjust_coordinates(std::string &&s, size_t len, float width, float Tj, const Fonts &fonts);
-    void do_cm(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void do_q(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void do_Q(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void set_Tz(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void set_TL(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void set_Tc(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void set_Tw(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void set_Td(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void set_TD(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void set_Tm(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void set_T_star(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void set_Tf(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void set_quote(std::stack<std::pair<pdf_object_t, std::string>> &st);
-    void set_double_quote(std::stack<std::pair<pdf_object_t, std::string>> &st);
+    void do_cm(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void do_q(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void do_Q(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void set_Tz(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void set_TL(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void set_Tc(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void set_Tw(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void set_Td(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void set_TD(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void set_Tm(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void set_T_star(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void set_Tf(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void set_quote(std::vector<std::pair<pdf_object_t, std::string>> &st);
+    void set_double_quote(std::vector<std::pair<pdf_object_t, std::string>> &st);
 private:
     std::pair<float, float> get_coordinates(const matrix_t &m1, const matrix_t &m2) const;
     void Td(float x, float y);

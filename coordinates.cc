@@ -1,6 +1,6 @@
-#include <stack>
 #include <utility>
 #include <string>
+#include <vector>
 
 #include "coordinates.h"
 #include "common.h"
@@ -15,7 +15,7 @@ namespace
         return matrix_t{m[0], m[1], m[2], m[3], x * m[0] + y * m[2] + m[4], x * m[1] + y * m[3] + m[5]};
     }
 
-    matrix_t get_matrix(stack<pair<pdf_object_t, string>> &st)
+    matrix_t get_matrix(vector<pair<pdf_object_t, string>> &st)
     {
         float f = stof(pop(st).second);
         float e = stof(pop(st).second);
@@ -91,50 +91,50 @@ text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, float width
     return text_chunk_t(std::move(s), coordinates_t(x0, y0, x1, y1));
 }
 
-void Coordinates::do_cm(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::do_cm(vector<pair<pdf_object_t, string>> &st)
 {
     CTM = get_matrix(st) * CTM;
 }
 
-void Coordinates::do_q(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::do_q(vector<pair<pdf_object_t, string>> &st)
 {
     CTMs.push(CTM);
 }
 
-void Coordinates::do_Q(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::do_Q(vector<pair<pdf_object_t, string>> &st)
 {
     if (!CTMs.empty()) CTM = pop(CTMs);
 }
 
-void Coordinates::set_Tz(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_Tz(vector<pair<pdf_object_t, string>> &st)
 {
     //Th in percentages
     Th = stof(pop(st).second) / 100;
 }
 
-void Coordinates::set_TL(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_TL(vector<pair<pdf_object_t, string>> &st)
 {
     TL = stof(pop(st).second);
 }
 
-void Coordinates::set_Tc(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_Tc(vector<pair<pdf_object_t, string>> &st)
 {
     Tc = stof(pop(st).second);
 }
 
-void Coordinates::set_Tw(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_Tw(vector<pair<pdf_object_t, string>> &st)
 {
     Tw = stof(pop(st).second);
 }
 
-void Coordinates::set_Td(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_Td(vector<pair<pdf_object_t, string>> &st)
 {
         float y = stof(pop(st).second);
         float x = stof(pop(st).second);
         Td(x, y);
 }
 
-void Coordinates::set_TD(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_TD(vector<pair<pdf_object_t, string>> &st)
 {
     float y = stof(pop(st).second);
     float x = stof(pop(st).second);
@@ -142,29 +142,29 @@ void Coordinates::set_TD(stack<pair<pdf_object_t, string>> &st)
     TL = -y;
 }
 
-void Coordinates::set_Tm(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_Tm(vector<pair<pdf_object_t, string>> &st)
 {
     Tm = get_matrix(st);
     x = 0;
     y = 0;
 }
 
-void Coordinates::set_T_star(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_T_star(vector<pair<pdf_object_t, string>> &st)
 {
     Td(0, -TL);
 }
 
-void Coordinates::set_Tf(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_Tf(vector<pair<pdf_object_t, string>> &st)
 {
     Tfs = stof(pop(st).second);
 }
 
-void Coordinates::set_quote(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_quote(vector<pair<pdf_object_t, string>> &st)
 {
     set_T_star(st);
 }
 
-void Coordinates::set_double_quote(stack<pair<pdf_object_t, string>> &st)
+void Coordinates::set_double_quote(vector<pair<pdf_object_t, string>> &st)
 {
     Tc = stof(pop(st).second);
     Tw = stof(pop(st).second);

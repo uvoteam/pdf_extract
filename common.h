@@ -124,5 +124,13 @@ template <class T> T pop(std::stack<T> &st)
     return result;
 }
 
+template <class T> T pop(std::vector<T> &st)
+{
+    if (st.empty()) throw pdf_error(FUNC_STRING + "stack is empty");
+    T result = st.back();
+    st.pop_back();
+    return result;
+}
+
 bool is_blank(char c);
 #endif //COMMON

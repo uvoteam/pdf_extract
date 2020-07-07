@@ -5,6 +5,7 @@
 #include <utility>
 #include <map>
 #include <unordered_set>
+#include <unordered_map>
 #include <vector>
 #include <stack>
 
@@ -83,7 +84,7 @@ private:
     const std::string &doc;
     const ObjectStorage &storage;
     const dict_t &decrypt_data;
-    std::map<std::string, Fonts> fonts;
+    std::unordered_map<std::string, Fonts> fonts;
     std::vector<unsigned int> pages;
     std::map<std::string, dict_t> dicts;
     std::map<std::string, mediabox_t> media_boxes;

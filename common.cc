@@ -373,7 +373,7 @@ string get_string(const string &buffer, size_t &offset)
     char delimiter = buffer.at(offset);
     if (delimiter != '(' && delimiter != '<') throw pdf_error(FUNC_STRING + "string must start with '(' or '<'");
     char end_delimiter = delimiter == '('? ')' : '>';
-    stack<pdf_object_t> prevs;
+    unsigned int prevs = 0;
     string result(1, delimiter);
     ++offset;
     for (bool is_escaped = false; ; ++offset)
@@ -393,16 +393,16 @@ string get_string(const string &buffer, size_t &offset)
 
         if (buffer[offset] == delimiter)
         {
-            prevs.push(STRING);
+            ++prevs;
         }
         if (buffer[offset] == end_delimiter)
         {
-            if (prevs.empty())
+            if (!prevs)
             {
                 ++offset;
                 return result;
             }
-            prevs.pop();
+            --prevs;
         }
     }
 }

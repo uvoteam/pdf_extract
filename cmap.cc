@@ -1,6 +1,6 @@
 #include <string>
 #include <utility>
-#include <unordered_map>
+#include <vector>
 #include <algorithm>
 
 #include <boost/optional.hpp>
@@ -13,8 +13,7 @@ using namespace std;
 
 namespace
 {
-    enum { CODE_SPACE_RANGE_TOKEN_NUM = 2 };
-    enum State_t { NONE, BFCHAR, BFRANGE, CODE_SPACE_RANGE, WMODE };
+    enum State_t { NONE, BFCHAR, BFRANGE, WMODE };
     const char *hex_digits = "01234567890abcdefABCDEF";
     struct token_t
     {
@@ -26,6 +25,20 @@ namespace
         token_type_t type;
         string val;
     };
+
+    void get_sizes(vector<unsigned char> &sizes)
+    {
+        sizes[0] = 0;
+        size_t i = 0;
+        for (size_t j = 1; j < cmap_t::MAX_CODE_LENGTH + 1; ++j)
+        {
+            if (!sizes[j]) continue;
+            sizes[i] = j;
+            sizes[j] = 0;
+            i = find(sizes.begin(), sizes.end(), 0) - sizes.begin();
+        }
+        sizes.resize(i);
+    }
 
     size_t trim_leading_zeroes(const string &s)
     {
@@ -153,8 +166,7 @@ namespace
         if (byte == 0) n = '\x01' + n;
     }
 
-    size_t get_bfrange(const string &stream, size_t offset,
-                       unordered_map<string, pair<cmap_t::converted_status_t, string>> &utf_map)
+    size_t get_bfrange(const string &stream, size_t offset, cmap_t &cmap)
     {
         const string first = convert2string(get_token(stream, offset));
         const string second = convert2string(get_token(stream, offset));
@@ -167,7 +179,8 @@ namespace
             string third = convert2string(third_token);
             for (string n = first; is_less_equal(n, second); inc(n), inc(third))
             {
-                utf_map.emplace(n, make_pair(cmap_t::NOT_CONVERTED, third));
+                cmap.utf_map.emplace(n, make_pair(cmap_t::NOT_CONVERTED, third));
+                cmap.sizes[n.length()] = 1;
             }
             break;
         }
@@ -176,8 +189,9 @@ namespace
             size_t token_offset = 0;
             for (string n = first; is_less_equal(n, second); inc(n))
             {
-                utf_map.emplace(n, make_pair(cmap_t::NOT_CONVERTED,
-                                             convert2string(get_token(third_token.val, token_offset))));
+                cmap.utf_map.emplace(n, make_pair(cmap_t::NOT_CONVERTED,
+                                                  convert2string(get_token(third_token.val, token_offset))));
+                cmap.sizes[n.length()] = 1;
             }
             break;
         }
@@ -193,50 +207,12 @@ namespace
         return offset;
     }
 
-    size_t get_bfchar(const string &stream, size_t offset,
-                      unordered_map<string, pair<cmap_t::converted_status_t, string>> &utf_map)
+    size_t get_bfchar(const string &stream, size_t offset, cmap_t &cmap)
     {
         const string src = convert2string(get_token(stream, offset));
         const string dst = convert2string(get_token(stream, offset));
-        utf_map.emplace(src, make_pair(cmap_t::NOT_CONVERTED, dst));
-        return offset + 1;
-    }
-
-    unsigned char get_nbytes(unsigned int a)
-    {
-        if (a == 0) return 1;
-        unsigned char result = 0;
-        for (; a > 0; a = (a >> 8)) ++result;
-
-        return result;
-    }
-
-//return sizes in bytes for code space range
-    size_t get_code_space_range(const string &stream, size_t offset, vector<unsigned char> &sizes)
-    {
-        int base = 0;
-        unsigned char max = 0;
-        for (size_t j = 0; j < CODE_SPACE_RANGE_TOKEN_NUM; ++j)
-        {
-            const token_t token = get_token(stream, offset);
-            switch (token.type)
-            {
-            case token_t::HEX:
-                base = 16;
-                break;
-            case token_t::DEC:
-                base = 10;
-                break;
-            default:
-                throw pdf_error(FUNC_STRING + "wrong token type.");
-            }
-            unsigned char v = base == 10? get_nbytes(strict_stoul(token.val)) : token.val.size() / 2;
-            if (v > sizeof(unsigned int)) throw pdf_error(FUNC_STRING + "wrong size number. val= " + token.val);
-            if (v > max) max = v;
-        }
-
-        for (unsigned char i = 1; i <= max; ++i) sizes.push_back(i);
-
+        cmap.utf_map.emplace(src, make_pair(cmap_t::NOT_CONVERTED, dst));
+        cmap.sizes[src.length()] = 1;
         return offset + 1;
     }
 
@@ -244,8 +220,7 @@ namespace
     {
         if (token == "beginbfchar") return BFCHAR;
         if (token == "beginbfrange") return BFRANGE;
-        if (token == "begincodespacerange") return CODE_SPACE_RANGE;
-        if (token == "endbfchar" || token == "endbfrange" || token == "endcodespacerange") return NONE;
+        if (token == "endbfchar" || token == "endbfrange") return NONE;
         if (token == "/WMode") return WMODE;
 
         return boost::none;
@@ -283,13 +258,10 @@ cmap_t get_cmap(const string &doc,
         case NONE:
             continue;
         case BFCHAR:
-            end = get_bfchar(stream, start, result.utf_map);
+            end = get_bfchar(stream, start, result);
             break;
         case BFRANGE:
-            end = get_bfrange(stream, start, result.utf_map);
-            break;
-        case CODE_SPACE_RANGE:
-            end = get_code_space_range(stream, start, result.sizes);
+            end = get_bfrange(stream, start, result);
             break;
         case WMODE:
             end = get_wmode(stream, start, result.is_vertical);
@@ -299,8 +271,6 @@ cmap_t get_cmap(const string &doc,
         if (end == string::npos || end > (stream.length() - 2)) break;
         start = end + 1;
     }
-    if (result.sizes.empty()) throw pdf_error(FUNC_STRING + "no codespacerange in cmap");
-    sort(result.sizes.begin(), result.sizes.end());
-    result.sizes.erase(unique(result.sizes.begin(), result.sizes.end()), result.sizes.end());
+    get_sizes(result.sizes);
     return result;
 }

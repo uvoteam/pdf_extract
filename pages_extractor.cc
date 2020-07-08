@@ -479,11 +479,10 @@ namespace
 
     string get_token(const string &page_content, size_t &i)
     {
-        size_t end = page_content.find_first_of(" \r\n\t/[(<", i + 1);
-        if (end == string::npos) end = page_content.length();
-        string result = page_content.substr(i, end - i);
-        i = end;
-        return result;
+        size_t start = i;
+        i = page_content.find_first_of(" \r\n\t/[(<", i + 1);
+        if (i == string::npos) i = page_content.length();
+        return page_content.substr(start, i - start);
     }
 }
 

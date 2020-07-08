@@ -1,8 +1,9 @@
 #include <utility>
 #include <string>
-#include <array>
 #include <unordered_map>
 #include <map>
+#include <algorithm>
+#include <vector>
 
 #include "fonts.h"
 #include "object_storage.h"
@@ -13,6 +14,17 @@ using namespace std;
 namespace
 {
     enum { DESCENDANT_ARRAY_NUM = 1 };
+    float binary_search(const vector<pair<unsigned int, float>> *arr, size_t l, size_t r, unsigned int x)
+    {
+        while (l <= r)
+        {
+            size_t m = l + (r - l) / 2;
+            if ((*arr)[m].first == x) return (*arr)[m].second;
+            if ((*arr)[m].first < x) l = m + 1;
+            else r = m - 1;
+        }
+        return -1;
+    }
 }
 
 Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_DEFAULT)
@@ -53,9 +65,11 @@ void Fonts::insert_descendant(dict_t &font, const ObjectStorage &storage)
 
 float Fonts::get_width(unsigned int code) const
 {
-    auto it = widths.at(current_font)->find(code);
-    if (it == widths.at(current_font)->end()) return default_width.at(current_font) * get_scales().first;
-    return it->second * get_scales().first;
+    const vector<pair<unsigned int, float>> *font_width = *widths.at(current_font);
+    if (font_width->empty()) return default_width.at(current_font) * get_scales().first;
+    float result = binary_search(font_width, 0, font_width->size() - 1, code);
+    if (result == -1) return default_width.at(current_font) * get_scales().first;
+    return result * get_scales().first;
 }
 
 float Fonts::get_width(const string &s) const
@@ -76,12 +90,15 @@ void Fonts::insert_widths_from_w(const ObjectStorage &storage, const string &fon
                                           widths.emplace(font_name, Widths());
         return;
     }
-    widths.emplace(font_name, Widths());
     array_t result = get_array_or_indirect_array(it->second, storage);
     for (array_t::value_type &p : result)
     {
         if (p.second == INDIRECT_OBJECT) p = get_indirect_object_data(p.first, storage);
     }
+
+    widths.emplace(font_name, Widths());
+    vector<pair<unsigned int, float>> *font_width = *widths[font_name];
+    font_width->reserve(result.size());
 
     for (size_t i = 0; i < result.size();)
     {
@@ -92,7 +109,7 @@ void Fonts::insert_widths_from_w(const ObjectStorage &storage, const string &fon
             unsigned int first_char = strict_stoul(result[i].first);
             unsigned int last_char = strict_stoul(result[i + 1].first);
             float width = stof(result.at(i + 2).first);
-            for (unsigned int j = first_char; j <= last_char; ++j) widths[font_name]->emplace(j, width);
+            for (unsigned int j = first_char; j <= last_char; ++j) font_width->emplace_back(j, width);
             i += 3;
             break;
         }
@@ -102,7 +119,7 @@ void Fonts::insert_widths_from_w(const ObjectStorage &storage, const string &fon
             const array_t w_array = get_array_data(result[i + 1].first, 0);
             for (const array_t::value_type &p : w_array)
             {
-                widths[font_name]->emplace(start_char, stof(p.first));
+                font_width->emplace_back(start_char, stof(p.first));
                 ++start_char;
             }
             i += 2;
@@ -113,6 +130,7 @@ void Fonts::insert_widths_from_w(const ObjectStorage &storage, const string &fon
                             " type=" + to_string(result[i + 1].second));
         }
     }
+    sort(font_width->begin(), font_width->end());
 }
 
 void Fonts::insert_widths_from_widths(const ObjectStorage &storage,
@@ -130,14 +148,17 @@ void Fonts::insert_widths_from_widths(const ObjectStorage &storage,
                                           widths.emplace(font_name, Widths());
         return;
     }
-    widths.emplace(font_name, Widths());
     const array_t result = get_array_or_indirect_array(it->second, storage);
+    widths.emplace(font_name, Widths());
+    vector<pair<unsigned int, float>> *font_width = *widths[font_name];
+    font_width->reserve(result.size());
     for (unsigned int i = 0; i < result.size(); ++i)
     {
         const pair<string, pdf_object_t> &p = result[i];
         const string val = (p.second == INDIRECT_OBJECT)? get_indirect_object_data(p.first, storage).first : p.first;
-        widths[font_name]->emplace(i + first_char, stof(val));
+        font_width->emplace_back(i + first_char, stof(val));
     }
+    sort(font_width->begin(), font_width->end());
 }
 
 void Fonts::insert_widths(const ObjectStorage &storage,
@@ -350,6 +371,6 @@ const unordered_map<string, Fonts::font_metric_t> Fonts::std_metrics = {
     {"/Times-Roman", font_metric_t(683, -217, 1116)},
     {"/ZapfDingbats", font_metric_t(NO_ASCENT, NO_DESCENT, 963)}};
 
-const unordered_map<string, map<unsigned int, float>> Fonts::standard_widths =
+const unordered_map<string, vector<pair<unsigned int, float>>> Fonts::standard_widths =
     #include "standard_widths.h"
     ;

@@ -73,12 +73,12 @@ private:
     class Widths
     {
     public:
-        Widths() : widths(new std::map<unsigned int, float>), to_be_deleted(true)
+        Widths() : widths(new std::vector<std::pair<unsigned int, float>>), to_be_deleted(true)
         {
         }
 
-        Widths(const std::map<unsigned int, float> *arg) noexcept : widths(const_cast<std::map<unsigned int, float>*>(arg)),
-                                                                    to_be_deleted(false)
+        Widths(const std::vector<std::pair<unsigned int, float>> *arg) noexcept :
+               widths(const_cast<std::vector<std::pair<unsigned int, float>>*>(arg)), to_be_deleted(false)
         {
         }
 
@@ -97,7 +97,7 @@ private:
         {
             if (to_be_deleted)
             {
-                widths = new std::map<unsigned int, float>;
+                widths = new std::vector<std::pair<unsigned int, float>>;
                 *widths = *arg.widths;
                 return;
             }
@@ -107,18 +107,27 @@ private:
         Widths& operator=(const Widths &arg) = delete;
         Widths& operator=(Widths &&arg) = delete;
 
-        const std::map<unsigned int, float>* operator->() const
+        const std::vector<std::pair<unsigned int, float>>* operator->() const
         {
             return widths;
         }
 
-        std::map<unsigned int, float>* operator->()
+        std::vector<std::pair<unsigned int, float>>* operator->()
         {
             return widths;
         }
 
+        const std::vector<std::pair<unsigned int, float>>* operator*() const
+        {
+            return widths;
+        }
+
+        std::vector<std::pair<unsigned int, float>>* operator*()
+        {
+            return widths;
+        }
     private:
-        std::map<unsigned int, float> *widths;
+        std::vector<std::pair<unsigned int, float>> *widths;
         bool to_be_deleted;
     };
 
@@ -143,7 +152,7 @@ private:
     static const float RISE_DEFAULT;
     static const float NO_ASCENT;
     static const std::unordered_map<std::string, font_metric_t> std_metrics;
-    static const std::unordered_map<std::string, std::map<unsigned int, float>> standard_widths;
+    static const std::unordered_map<std::string, std::vector<std::pair<unsigned int, float>>> standard_widths;
 };
 
 #endif

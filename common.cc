@@ -372,17 +372,15 @@ string get_string(const string &buffer, size_t &offset)
     if (delimiter != '(' && delimiter != '<') throw pdf_error(FUNC_STRING + "string must start with '(' or '<'");
     char end_delimiter = delimiter == '('? ')' : '>';
     unsigned int prevs = 0;
-    string result(1, delimiter);
-    ++offset;
-    for (bool is_escaped = false; ; ++offset)
+    size_t init_offset = offset;
+    bool is_escaped = false;
+    for (++offset; ; ++offset)
     {
         if (buffer.at(offset) == '\\')
         {
             is_escaped = !is_escaped;
-            result.push_back(buffer[offset]);
             continue;
         }
-        result.push_back(buffer[offset]);
         if (is_escaped)
         {
             is_escaped = false;
@@ -393,12 +391,12 @@ string get_string(const string &buffer, size_t &offset)
         {
             ++prevs;
         }
-        if (buffer[offset] == end_delimiter)
+        else if (buffer[offset] == end_delimiter)
         {
             if (!prevs)
             {
                 ++offset;
-                return result;
+                return buffer.substr(init_offset, offset - init_offset);
             }
             --prevs;
         }

@@ -64,7 +64,7 @@ namespace
         else if (token.length() == 2) hash = token[0] * 'q' + token[1];
         else return nullptr;
 
-        if (hash <= 0 || hash >= 'q' * 'z') return nullptr;
+        if (hash < '"' || hash > 'c' * 'q' + 'm') return nullptr;
         return handlers[hash];
     }
 

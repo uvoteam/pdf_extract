@@ -14,17 +14,6 @@ using namespace std;
 namespace
 {
     enum { DESCENDANT_ARRAY_NUM = 1 };
-    float binary_search(const vector<pair<unsigned int, float>> *arr, size_t l, size_t r, unsigned int x)
-    {
-        while (l <= r)
-        {
-            size_t m = l + (r - l) / 2;
-            if ((*arr)[m].first == x) return (*arr)[m].second;
-            if ((*arr)[m].first < x) l = m + 1;
-            else r = m - 1;
-        }
-        return -1;
-    }
 }
 
 Fonts::Fonts(const ObjectStorage &storage, const dict_t &fonts_dict): rise(RISE_DEFAULT)
@@ -67,9 +56,9 @@ float Fonts::get_width(unsigned int code) const
 {
     const vector<pair<unsigned int, float>> *font_width = *widths.at(current_font);
     if (font_width->empty()) return default_width.at(current_font) * get_scales().first;
-    float result = binary_search(font_width, 0, font_width->size() - 1, code);
-    if (result == -1) return default_width.at(current_font) * get_scales().first;
-    return result * get_scales().first;
+    int i = binary_search(font_width, 0, font_width->size() - 1, code);
+    if (i == -1) return default_width.at(current_font) * get_scales().first;
+    return (*font_width)[i].second * get_scales().first;
 }
 
 float Fonts::get_width(const string &s) const

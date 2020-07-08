@@ -96,6 +96,8 @@ std::pair<std::string, pdf_object_t> get_content_len_pair(const std::string &buf
 std::pair<std::string, pdf_object_t> get_content_len_pair(const std::string &buffer,
                                                           size_t id,
                                                           const ObjectStorage &storage);
+bool is_blank(char c);
+
 template <class T> size_t get_length(const std::string &buffer, const T &storage, const dict_t &props)
 {
     const std::pair<std::string, pdf_object_t> &r = props.at("/Length");
@@ -132,5 +134,18 @@ template <class T> T pop(std::vector<T> &st)
     return result;
 }
 
-bool is_blank(char c);
+template <class T1, class T2>
+int binary_search(const std::vector<std::pair<T1, T2>> *arr, size_t l, size_t r, const T1 &x)
+{
+    while (l <= r)
+    {
+        size_t m = l + (r - l) / 2;
+        if ((*arr)[m].first == x) return m;
+        if ((*arr)[m].first < x) l = m + 1;
+        else r = m - 1;
+    }
+    return -1;
+}
+
+
 #endif //COMMON

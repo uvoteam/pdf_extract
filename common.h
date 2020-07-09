@@ -135,11 +135,11 @@ template <class T> T pop(std::vector<T> &st)
 }
 
 template <class T1, class T2>
-int binary_search(const std::vector<std::pair<T1, T2>> *arr, size_t l, size_t r, const T1 &x)
+int binary_search(const std::vector<std::pair<T1, T2>> *arr, int l, int r, const T1 &x)
 {
     while (l <= r)
     {
-        size_t m = l + (r - l) / 2;
+        int m = l + (r - l) / 2;
         if ((*arr)[m].first == x) return m;
         if ((*arr)[m].first < x) l = m + 1;
         else r = m - 1;

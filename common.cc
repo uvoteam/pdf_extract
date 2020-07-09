@@ -493,9 +493,9 @@ string predictor_decode(const string &data, const dict_t &opts)
     unsigned int columns     = get_decode_key(opts, "/Columns", 1);
     bool next_byte_is_predictor = predictor >= 10? true: false;
     unsigned int cur_predictor = predictor >= 10? -1 : predictor;
-    unsigned int cur_row_index = 0;
-    unsigned int bpp  = (BPCs * colors) >> 3;
-    unsigned int rows = (columns * colors * BPCs) >> 3;
+    int cur_row_index = 0;
+    int bpp  = (BPCs * colors) >> 3;
+    int rows = (columns * colors * BPCs) >> 3;
     vector<char> prev(rows, 0);
 
     if (predictor == 1) return data;

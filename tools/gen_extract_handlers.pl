@@ -2,7 +2,7 @@
 
 use strict;
 
-my $size = ord('q') * ord('z');
+my $size = ord('c') * ord('q') + ord('m');
 for my $i (0..$size)
 {
     if ($i == ord('"')) { print "&PagesExtractor::do_double_quote, ";}
@@ -22,6 +22,7 @@ for my $i (0..$size)
     elsif ($i == ord('T') * ord('q') + ord('m')) { print "&PagesExtractor::do_Tm, ";}
     elsif ($i == ord('T') * ord('q') + ord('s')) { print "&PagesExtractor::do_Ts, ";}
     elsif ($i == ord('T') * ord('q') + ord('z')) { print "&PagesExtractor::do_Tz, ";}
+    elsif ($i == ord('T') * ord('q') + ord('w')) { print "&PagesExtractor::do_Tw, ";}
     elsif ($i == ord('c') * ord('q') + ord('m')) { print "&PagesExtractor::do_cm, ";}
     elsif ($i == ord('q')) { print "&PagesExtractor::do_q, ";}
     elsif ($i == ord('B') * ord('q') + ord('I')) { print "&PagesExtractor::do_BI, ";}

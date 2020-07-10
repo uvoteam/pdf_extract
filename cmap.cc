@@ -35,7 +35,7 @@ namespace
             if (!sizes[j]) continue;
             sizes[i] = j;
             sizes[j] = 0;
-            i = find(sizes.begin(), sizes.end(), 0) - sizes.begin();
+            i = find(sizes.begin() + i, sizes.end(), 0) - sizes.begin();
         }
         sizes.resize(i);
     }

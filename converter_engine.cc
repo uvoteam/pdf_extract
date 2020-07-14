@@ -79,9 +79,12 @@ vector<text_chunk_t> ConverterEngine::get_strings_from_array(const string &array
             Tj = stof(p.first);
             break;
         case STRING:
-            result.push_back(get_string(decode_string(p.first), coordinates, Tj, fonts));
+        {
+            text_chunk_t chunk = get_string(decode_string(p.first), coordinates, Tj, fonts);
+            if (!chunk.is_empty) result.push_back(std::move(chunk));
             Tj = 0;
             break;
+        }
         default:
             throw pdf_error(FUNC_STRING + "wrong type " + to_string(p.second) + " val=" + p.first);
         }

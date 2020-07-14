@@ -721,10 +721,11 @@ void PagesExtractor::do_Tf(extract_argument_t &arg, size_t &i)
 void PagesExtractor::do_Tj(extract_argument_t &arg, size_t &i)
 {
     if (!arg.in || !arg.encoding || arg.encoding->is_vertical()) return;
-    arg.result[0].push_back(arg.encoding->get_string(decode_string(pop(arg.st).second),
-                                                     arg.coordinates,
-                                                     0,
-                                                     fonts.at(arg.resource_id)));
+    text_chunk_t chunk = arg.encoding->get_string(decode_string(pop(arg.st).second),
+                                                  arg.coordinates,
+                                                  0,
+                                                  fonts.at(arg.resource_id));
+    if (!chunk.is_empty) arg.result[0].push_back(std::move(chunk));
 }
 
 void PagesExtractor::do_Tm(extract_argument_t &arg, size_t &i)

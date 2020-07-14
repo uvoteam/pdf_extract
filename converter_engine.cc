@@ -22,6 +22,7 @@ ConverterEngine::ConverterEngine(CharsetConverter &&charset_converter_arg,
 
 bool ConverterEngine::is_vertical() const
 {
+    if (charset_converter.is_vertical()) return true;
     if (to_unicode_converter.is_empty()) return false;
     return to_unicode_converter.is_vertical();
 }

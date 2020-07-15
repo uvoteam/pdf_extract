@@ -88,9 +88,9 @@ namespace
     {
         string hex;
         hex.reserve(arg.size());
-        for (char c : arg)
+        for (size_t i = 1; i < arg.size() - 1; ++i)
         {
-            if (c != '\n' && c != '\r' && c != ' ') hex += c;
+            if (arg[i] != '\n' && arg[i] != '\r' && arg[i] != ' ') hex += arg[i];
         }
         string result;
         result.reserve(hex.size());
@@ -408,7 +408,7 @@ string get_string(const string &buffer, size_t &offset)
 string decode_string(const string &str)
 {
     if (str.size() < 3) return string();
-    return (str[0] == '<')? hex_decode(str.substr(1, str.size() - 2)) :
+    return (str[0] == '<')? hex_decode(str) :
                             unescape_string(str.substr(1, str.size() - 2));
 }
 

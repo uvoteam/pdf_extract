@@ -87,11 +87,13 @@ namespace
     string hex_decode(const string &arg)
     {
         string hex;
+        hex.reserve(arg.size());
         for (char c : arg)
         {
             if (c != '\n' && c != '\r' && c != ' ') hex += c;
         }
         string result;
+        result.reserve(hex.size());
         for (size_t i = 0; i < hex.length(); i += 2) result.append(1, static_cast<char>(strict_stoul(hex.substr(i, 2), 16)));
 
         return result;

@@ -45,7 +45,7 @@ text_chunk_t ConverterEngine::get_string(const string &s, Coordinates &coordinat
         if (decoded_symbol.first.empty())
         {
             boost::optional<string> c = (diff_converter.is_empty())? charset_converter.get_char(s[i]) :
-                                                              diff_converter.get_char(s[i]);
+                                                                     diff_converter.get_char(s[i]);
             if (c)
             {
                 decoded += *c;

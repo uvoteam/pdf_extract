@@ -76,6 +76,7 @@ namespace
     string unescape_string(const string &str)
     {
         string result;
+        result.reserve(str.size());
         for (size_t i = 1; i < str.size() - 1; ++i)
         {
             if (str[i] == '\\') result += get_unescaped_char(str, i);

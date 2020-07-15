@@ -87,15 +87,18 @@ namespace
 
     string hex_decode(const string &arg)
     {
-        string hex;
-        hex.reserve(arg.size());
-        for (size_t i = 1; i < arg.size() - 1; ++i)
-        {
-            if (arg[i] != '\n' && arg[i] != '\r' && arg[i] != ' ') hex += arg[i];
-        }
         string result;
-        result.reserve(hex.size());
-        for (size_t i = 0; i < hex.length(); i += 2) result.append(1, static_cast<char>(strict_stoul(hex.substr(i, 2), 16)));
+        result.reserve(arg.size());
+        for (size_t i = 1; i < arg.length() - 1;)
+        {
+            if (arg[i] == '\n' || arg[i] == '\r' || arg[i] == ' ')
+            {
+                ++i;
+                continue;
+            }
+            result.append(1, static_cast<char>(strict_stoul(arg.substr(i, 2), 16)));
+            i += 2;
+        }
 
         return result;
     }
@@ -408,8 +411,7 @@ string get_string(const string &buffer, size_t &offset)
 
 string decode_string(const string &str)
 {
-    if (str.size() < 3) return string();
-    return (str[0] == '<')? hex_decode(str) :  unescape_string(str);
+    return (str[0] == '<')? hex_decode(str) : unescape_string(str);
 }
 
 

@@ -47,7 +47,7 @@ namespace
 
     char get_unescaped_char(const string &str, size_t &i)
     {
-        if (i == str.size() - 1) return char();
+        if (i == str.size() - 2) return char();
 //Table 3 –  Escape sequences in literal strings
         ++i;
         switch (str[i])
@@ -76,7 +76,7 @@ namespace
     string unescape_string(const string &str)
     {
         string result;
-        for (size_t i = 0; i < str.size(); ++i)
+        for (size_t i = 1; i < str.size() - 1; ++i)
         {
             if (str[i] == '\\') result += get_unescaped_char(str, i);
             else result += str[i];
@@ -408,8 +408,7 @@ string get_string(const string &buffer, size_t &offset)
 string decode_string(const string &str)
 {
     if (str.size() < 3) return string();
-    return (str[0] == '<')? hex_decode(str) :
-                            unescape_string(str.substr(1, str.size() - 2));
+    return (str[0] == '<')? hex_decode(str) :  unescape_string(str);
 }
 
 

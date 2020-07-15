@@ -408,7 +408,6 @@ string get_string(const string &buffer, size_t &offset)
 
 string decode_string(const string &str)
 {
-    if (str.size() < 3) return string();
     return (str[0] == '<')? hex_decode(str) :  unescape_string(str);
 }
 

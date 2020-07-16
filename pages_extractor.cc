@@ -3,7 +3,6 @@
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
-#include <iostream> //temp
 
 #include <boost/optional.hpp>
 

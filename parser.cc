@@ -4,11 +4,6 @@
 #include <utility>
 #include <vector>
 
-//for test
-#include <fstream>
-#include <iostream>
-
-
 #include "common.h"
 #include "object_storage.h"
 #include "pages_extractor.h"
@@ -394,14 +389,4 @@ string pdf2txt(const string &buffer)
                                                  id2offsets);
     ObjectStorage storage(buffer, std::move(id2offsets), encrypt_data);
     return get_text(buffer, cross_ref_offset, storage, encrypt_data);
-}
-
-int main(int argc, char *argv[])
-{
-    std::ifstream t(argv[1]);
-    std::string str((std::istreambuf_iterator<char>(t)),
-                    std::istreambuf_iterator<char>());
-    cout << pdf2txt(str);
-
-    return 0;
 }

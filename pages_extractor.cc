@@ -42,7 +42,7 @@ namespace
     enum { MATRIX_ELEMENTS_NUM = 6, PDF_STRINGS_NUM = 5000 /*for optimization*/ };
     constexpr float LINE_OVERLAP = 0.5;
     constexpr float CHAR_MARGIN = 2.0;
-    constexpr float WORD_MARGIN = 0.1;
+    constexpr float WORD_MARGIN = 0.21;
     constexpr float LINE_MARGIN = 0.5;
     constexpr float BOXES_FLOW = 0.5;
 

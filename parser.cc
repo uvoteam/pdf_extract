@@ -3,6 +3,7 @@
 #include <map>
 #include <utility>
 #include <vector>
+#include <unordered_set>
 
 #include "common.h"
 #include "object_storage.h"
@@ -78,6 +79,7 @@ size_t get_xref_number(const string &buffer, size_t &offset)
 vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_t cross_ref_offset)
 {
     vector<pair<size_t, size_t>> trailer_offsets;
+    unordered_set<size_t> cross_ref_offsets{cross_ref_offset};
     while (true)
     {
         size_t end_offset;
@@ -95,6 +97,9 @@ vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_
         if (it == data.end()) break;
         if (it->second.second != VALUE) throw pdf_error(FUNC_STRING + "/Prev value is not PDF VALUE type");
         cross_ref_offset = strict_stoul(it->second.first);
+        //protect from endless loop
+        if (cross_ref_offsets.count(cross_ref_offset)) break;
+        cross_ref_offsets.insert(cross_ref_offset);
     }
 
     return trailer_offsets;
@@ -103,6 +108,7 @@ vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_
 vector<pair<size_t, size_t>> get_trailer_offsets_new(const string &buffer, size_t cross_ref_offset)
 {
     vector<pair<size_t, size_t>> trailer_offsets;
+    unordered_set<size_t> cross_ref_offsets{cross_ref_offset};
     while (true)
     {
         size_t end_offset;
@@ -119,6 +125,8 @@ vector<pair<size_t, size_t>> get_trailer_offsets_new(const string &buffer, size_
         if (it == data.end()) break;
         if (it->second.second != VALUE) throw pdf_error(FUNC_STRING + "/Prev value is not PDF VALUE type");
         cross_ref_offset = strict_stoul(it->second.first);
+        if (cross_ref_offsets.count(cross_ref_offset)) break;
+        cross_ref_offsets.insert(cross_ref_offset);
     }
 
     return trailer_offsets;

@@ -143,7 +143,7 @@ namespace
         size_t offset = 0;
         while (true)
         {
-            offset = params_data.find("<<");
+            offset = params_data.find("<<", offset);
             if (offset == string::npos)
             {
                 //7.3.8.2.Stream Extent

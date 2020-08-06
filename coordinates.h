@@ -41,11 +41,13 @@ struct text_t
     explicit text_t(const coordinates_t &coordinates_arg) : coordinates(coordinates_arg)
     {
     }
+
     bool operator==(const text_t &obj) const
     {
         if (!(coordinates == obj.coordinates)) return false;
         return text == obj.text;
     }
+
     text_t& operator=(text_t &&arg) = default;
     text_t& operator=(const text_t &arg) = default;
     text_t(text_t &&arg) = default;

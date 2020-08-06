@@ -38,7 +38,7 @@ namespace
         unsigned char c;
     };
 
-    enum { MATRIX_ELEMENTS_NUM = 6, PDF_STRINGS_NUM = 5000 /*for optimization*/ };
+    enum { MATRIX_ELEMENTS_NUM = 6, PDF_STRINGS_NUM = 5000 /*for optimization*/, MAX_BOXES = 3000 };
     constexpr float LINE_OVERLAP = 0.5;
     constexpr float CHAR_MARGIN = 2.0;
     constexpr float WORD_MARGIN = 0.21;
@@ -335,16 +335,29 @@ namespace
                width(obj1.coordinates) * height(obj1.coordinates) - width(obj2.coordinates) * height(obj2.coordinates);
     }
 
+    text_chunk_t boxes_as_is(const vector<text_chunk_t> &boxes)
+    {
+        text_chunk_t result;
+        result.texts = vector<text_t>{text_t(coordinates_t(0, 0, 1, 1))};
+        for (const text_chunk_t &chunk : boxes)
+        {
+            result.is_empty = false;
+            result.texts[0].text += chunk.texts.at(0).text;
+        }
+        return result;
+    }
+
     text_chunk_t make_plane(vector<text_chunk_t> &&boxes)
     {
         if (boxes.empty()) return text_chunk_t();
+        //prevent huge processing
+        if (boxes.size() > MAX_BOXES) return boxes_as_is(boxes);
         vector<dist_t> dists;
         dists.reserve(boxes.size() * (boxes.size() - 1));
         for (size_t i = 0; i < boxes.size(); ++i)
         {
             for (size_t j = i + 1; j < boxes.size(); ++j) dists.emplace_back(0, get_dist(boxes[i], boxes[j]), i, j);
         }
-
         while (!dists.empty())
         {
             auto it = min_element(dists.begin(), dists.end());

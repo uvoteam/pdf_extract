@@ -548,6 +548,7 @@ void PagesExtractor::get_pages_resources_int(unordered_set<unsigned int> &checke
             media_boxes.emplace(id_str, get_box(dict_data, parent_media_box).value());
             rotates.emplace(id_str, get_rotate(dict_data, parent_rotate));
             converter_engine_cache.emplace(id_str, unordered_map<string, ConverterEngine>());
+            XObjects_cache.emplace(id_str, dict_t());
             dicts.emplace(id_str, std::move(dict_data));
         }
         else
@@ -567,12 +568,17 @@ bool PagesExtractor::get_XObject_data(const string &parent_id,
                                       const string &resource_name)
 {
     const dict_t &parent_dict = dicts.at(parent_id);
-    auto resources_it = parent_dict.find("/Resources");
-    if (resources_it == parent_dict.end()) return false;
-    const dict_t resources = get_dict_or_indirect_dict(resources_it->second, storage);
-    auto it = resources.find("/XObject");
-    if (it == resources.end()) return false;
-    const dict_t XObjects = get_dict_or_indirect_dict(it->second, storage);
+    dict_t &XObjects = XObjects_cache.at(parent_id);
+    if (XObjects.empty())
+    {
+        auto resources_it = parent_dict.find("/Resources");
+        if (resources_it == parent_dict.end()) return false;
+        const dict_t resources = get_dict_or_indirect_dict(resources_it->second, storage);
+        auto it = resources.find("/XObject");
+        if (it == resources.end()) return false;
+        XObjects = get_dict_or_indirect_dict(it->second, storage);
+    }
+
     auto XObject = XObjects.find(XObject_name);
     if (XObject == XObjects.end()) return false;
     dict_t dict = get_dict_or_indirect_dict(XObject->second, storage);
@@ -581,7 +587,7 @@ bool PagesExtractor::get_XObject_data(const string &parent_id,
     fonts.emplace(resource_name, get_fonts(dict, fonts.at(parent_id)));
     converter_engine_cache.emplace(resource_name, unordered_map<string, ConverterEngine>());
     XObject_streams.emplace(resource_name, get_stream(doc, get_id_gen(XObject->second.first), storage, decrypt_data));
-    it = dict.find("Matrix");
+    auto it = dict.find("Matrix");
     if (it == dict.end())
     {
         XObject_matrices.emplace(resource_name, IDENTITY_MATRIX);
@@ -596,7 +602,15 @@ bool PagesExtractor::get_XObject_data(const string &parent_id,
                                                          stof(numbers[2].first), stof(numbers[3].first),
                                                          stof(numbers[4].first), stof(numbers[5].first)});
     }
-    if (!dict.count("/Resources")) dict.emplace("/Resources", resources_it->second);
+    if (dict.count("/Resources"))
+    {
+        XObjects_cache.emplace(resource_name, dict_t());
+    }
+    else
+    {
+        dict.emplace("/Resources", parent_dict.at("/Resources"));
+        XObjects_cache.emplace(resource_name, XObjects_cache.at(parent_id));
+    }
     dicts.emplace(resource_name, std::move(dict));
     return true;
 }

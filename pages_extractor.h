@@ -92,6 +92,7 @@ private:
     std::unordered_map<std::string, std::string> XObject_streams;
     std::unordered_map<std::string, matrix_t> XObject_matrices;
     std::unordered_map<unsigned int, cmap_t> cmap_cache;
+    std::unordered_map<std::string, dict_t> XObjects_cache;
 };
 
 #endif //PAGES_EXTRACTOR_H

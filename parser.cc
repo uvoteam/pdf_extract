@@ -89,7 +89,7 @@ vector<pair<size_t, size_t>> get_trailer_offsets_old(const string &buffer, size_
         {
             throw pdf_error(FUNC_STRING + "Can`t find startxref in pos: " + to_string(cross_ref_offset));
         }
-        trailer_offsets.push_back(make_pair(cross_ref_offset, end_offset));
+        trailer_offsets.emplace_back(cross_ref_offset, end_offset);
         size_t trailer_offset = efind(buffer, "trailer", cross_ref_offset);
         trailer_offset += LEN("trailer");
         const dict_t data = get_dictionary_data(buffer, trailer_offset);
@@ -118,7 +118,7 @@ vector<pair<size_t, size_t>> get_trailer_offsets_new(const string &buffer, size_
         {
             throw pdf_error(FUNC_STRING + "Can`t find startxref in pos: " + to_string(cross_ref_offset));
         }
-        trailer_offsets.push_back(make_pair(cross_ref_offset, end_offset));
+        trailer_offsets.emplace_back(cross_ref_offset, end_offset);
         size_t dict_offset = efind(buffer, "<<", cross_ref_offset);
         const dict_t data = get_dictionary_data(buffer, dict_offset);
         auto it = data.find("/Prev");
@@ -311,7 +311,7 @@ map<size_t, size_t> get_id2offsets(const string &buffer,
     {
         size_t start_offset = efind_number(buffer, skip_comments(buffer, offset));
         size_t end_offset = efind_first(buffer, " \r\n\t", start_offset);
-        id2offsets.insert(make_pair(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset));
+        id2offsets.emplace(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset);
     }
 
     return id2offsets;

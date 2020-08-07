@@ -64,7 +64,7 @@ void ObjectStorage::insert_obj_stream(size_t id, const dict_t &decrypt_data)
     {
         size_t obj_offset = offset + p.second;
         pdf_object_t type = get_object_type(content, obj_offset);
-        id2obj_stm.insert(make_pair(p.first, make_pair(TYPE2FUNC.at(type)(content, obj_offset), type)));
+        id2obj_stm.emplace(p.first, make_pair(TYPE2FUNC.at(type)(content, obj_offset), type));
     }
 }
 
@@ -81,7 +81,7 @@ vector<pair<size_t, size_t>> ObjectStorage::get_id2offsets_obj_stm(const string 
         offset = efind_number(content, end_offset);
         end_offset = efind_first_not(content, "0123456789", offset);
         unsigned int obj_off = strict_stoul(content.substr(offset, end_offset - offset));
-        result.push_back(make_pair(id, obj_off));
+        result.emplace_back(id, obj_off);
         offset = end_offset;
     }
 

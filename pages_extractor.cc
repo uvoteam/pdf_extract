@@ -452,14 +452,14 @@ namespace
         switch (buffer[i])
         {
         case '(':
-            st.push_back(make_pair(STRING, get_string(buffer, i)));
+            st.emplace_back(STRING, get_string(buffer, i));
             return true;
         case '<':
-            buffer.at(i + 1) == '<'? st.push_back(make_pair(DICTIONARY, get_dictionary(buffer, i))) :
-                                     st.push_back(make_pair(STRING, get_string(buffer, i)));
+            buffer.at(i + 1) == '<'? st.emplace_back(DICTIONARY, get_dictionary(buffer, i)) :
+                                     st.emplace_back(STRING, get_string(buffer, i));
             return true;
         case '[':
-            st.push_back(make_pair(ARRAY, get_array(buffer, i)));
+            st.emplace_back(ARRAY, get_array(buffer, i));
             return true;
         default:
             return false;
@@ -896,7 +896,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
         string token = get_token(page_content, i);
         extract_handler_t handler = get_extract_handler(token);
         if (handler) (this->*handler)(argument, i);
-        else st.push_back(make_pair(VALUE, std::move(token)));
+        else st.emplace_back(VALUE, std::move(token));
     }
 
     return result;

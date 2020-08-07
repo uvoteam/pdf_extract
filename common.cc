@@ -466,7 +466,7 @@ dict_t get_dictionary_data(const string &buffer, size_t offset)
         offset = end_offset;
         pdf_object_t type = get_object_type(buffer, offset);
         const string val = TYPE2FUNC.at(type)(buffer, offset);
-        result.insert(make_pair(key, make_pair(val, type)));
+        result.emplace(key, make_pair(val, type));
     }
 }
 
@@ -481,7 +481,7 @@ array_t get_array_data(const string &buffer, size_t offset)
         if (buffer.at(offset) == ']') return result;
         pdf_object_t type = get_object_type(buffer, offset);
         string val = TYPE2FUNC.at(type)(buffer, offset);
-        result.push_back(make_pair(std::move(val), type));
+        result.emplace_back(std::move(val), type);
     }
     return result;
 }
@@ -625,7 +625,7 @@ vector<pair<unsigned int, unsigned int>> get_set(const string &array)
         offset = efind_number(array, end_offset);
         end_offset = efind_first(array, "  \r\n\t", offset);
         unsigned int gen = strict_stoul(array.substr(offset, end_offset - offset));
-        result.push_back(make_pair(id, gen));
+        result.emplace_back(id, gen);
         offset = efind(array, 'R', end_offset);
     }
     return result;

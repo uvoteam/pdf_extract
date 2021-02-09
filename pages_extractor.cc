@@ -15,6 +15,7 @@
 #include "cmap.h"
 #include "pages_extractor.h"
 #include "coordinates.h"
+#include "font_file2.h"
 
 #include "converter_engine.h"
 
@@ -745,7 +746,18 @@ DiffConverter PagesExtractor::get_diff_converter(const optional<pair<string, pdf
 ToUnicodeConverter PagesExtractor::get_to_unicode_converter(const dict_t &font_dict)
 {
     auto it = font_dict.find("/ToUnicode");
-    if (it == font_dict.end()) return ToUnicodeConverter();
+    if (it == font_dict.end())
+    {
+        auto it2 = font_dict.find("/FontDescriptor");
+        if (it2 == font_dict.end()) return ToUnicodeConverter();
+        const dict_t desc_dict = get_dict_or_indirect_dict(it2->second, storage);
+        auto it3 = desc_dict.find("/FontFile2");
+        if (it3 == desc_dict.end()) return ToUnicodeConverter();
+        const pair<unsigned int, unsigned int> id_gen = get_id_gen(it3->second.first);
+        if (!cmap_cache.count(id_gen.first)) cmap_cache.emplace(id_gen.first,
+                                                                get_FontFile2(doc, storage, id_gen, decrypt_data));
+        return ToUnicodeConverter(cmap_cache[id_gen.first]);
+    }
     switch (it->second.second)
     {
     case INDIRECT_OBJECT:

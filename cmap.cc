@@ -107,20 +107,6 @@ namespace
         return token_t(type, line.substr(start, end - start));
     }
 
-    //convert to utf16-be symbol
-    string num2string(unsigned int n)
-    {
-        if (n == 0) return string(2, 0);
-        string result;
-        while (n)
-        {
-            result = static_cast<char>(n & 0xFF) + result;
-            n >>= 8;
-        }
-        if (result.length() == 1) result = '\x00' + result;
-        return result;
-    }
-
     //get utf16be symbols from hex
     string get_hex_val(const string &hex_str)
     {

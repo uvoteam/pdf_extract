@@ -88,7 +88,7 @@ matrix_t operator*(const matrix_t &m1, const matrix_t &m2);
 dict_t get_dict_or_indirect_dict(const std::pair<std::string, pdf_object_t> &data, const ObjectStorage &storage);
 array_t get_array_or_indirect_array(const std::pair<std::string, pdf_object_t> &data, const ObjectStorage &storage);
 unsigned int string2num(const std::string &s);
-
+std::string num2string(unsigned int n);
 
 std::pair<std::string, pdf_object_t> get_content_len_pair(const std::string &buffer,
                                                           size_t id,
@@ -147,5 +147,16 @@ int binary_search(const std::vector<std::pair<T1, T2>> *arr, int l, int r, const
     return -1;
 }
 
+template <class T> T get_integer(const std::string &stream, size_t offset)
+{
+    if (offset + sizeof(T) > stream.length()) throw pdf_error(FUNC_STRING + "wrong offset");
+    union
+    {
+        char bytes[sizeof(T)];
+        T integer;
+    } u;
+    for (size_t i = 0, j = sizeof(T) - 1; i < sizeof(T); ++i, --j) u.bytes[j] = stream[offset + i];
+    return u.integer;
+}
 
 #endif //COMMON

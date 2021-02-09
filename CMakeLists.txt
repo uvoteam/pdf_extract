@@ -17,6 +17,7 @@ set(SOURCES ascii85_decode.cc
             lzw_decode.cc
             object_storage.cc
             pages_extractor.cc
+            font_file2.cc
             parser.cc
             to_unicode_converter.cc)
 
@@ -29,8 +30,8 @@ add_library(${PROGRAM_NAME} SHARED ${SOURCES})
 target_link_libraries(${PROGRAM_NAME}
                       ${BOOST_SYSTEM}
                       ${BOOST_LOCALE}
-                      ${LIBZ}
-                      ${CRYPTO})
+                      crypto
+                      ${LIBZ})
 install(TARGETS ${PROGRAM_NAME}
         LIBRARY DESTINATION lib COMPONENT libraries)
 install(FILES pdf_extractor.h DESTINATION include)

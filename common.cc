@@ -796,4 +796,18 @@ pair<string, pdf_object_t> get_content_len_pair(const string &buffer, size_t id,
     return storage.get_object(id);
 }
 
+//convert to utf16-be symbol
+string num2string(unsigned int n)
+{
+      if (n == 0) return string(2, 0);
+    string result;
+    while (n)
+    {
+        result = static_cast<char>(n & 0xFF) + result;
+        n >>= 8;
+    }
+    if (result.length() == 1) result = '\x00' + result;
+    return result;
+}
+
 const matrix_t IDENTITY_MATRIX = matrix_t{1, 0, 0, 1, 0, 0};

@@ -28,7 +28,6 @@ cmap_t get_FontFile2(const string &doc,
     }
     if (i >= tables_num) return cmap_t();
     uint32_t table_offset = get_integer<uint32_t>(stream, i * 16 + 20);
-//    uint32_t table_length = get_integer<uint32_t>(stream, i * 16 + 28);
     size_t offset = table_offset + sizeof(uint16_t);
     uint16_t subtables_num = get_integer<uint16_t>(stream, offset);
     vector<size_t> mapping_offsets;
@@ -70,6 +69,7 @@ string get_utf8(uint32_t c)
 
 void get_format4_data(cmap_t &cmap, const string &stream, size_t off)
 {
+    enum { FINAL_ENC_VAL = 0xFFFF };
     off += sizeof(uint16_t) * 3;
     uint16_t seg_count = get_integer<uint16_t>(stream, off) / 2;
     off += sizeof(uint16_t) * 4;
@@ -81,6 +81,7 @@ void get_format4_data(cmap_t &cmap, const string &stream, size_t off)
     vector<uint16_t> idrs = get_array<uint16_t>(stream, off, seg_count);
     for (uint16_t i = 0; i < seg_count; ++i)
     {
+        if (ecs[i] == FINAL_ENC_VAL) continue;
         if (idrs[i])
         {
             size_t off2 = pos + idrs[i];

@@ -11,6 +11,7 @@ using namespace std;
 //https://docs.microsoft.com/en-us/typography/opentype/spec/otff
 //https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6cmap.html
 void get_format4_data(cmap_t &cmap, const string &stream, size_t off);
+void get_format0_data(cmap_t &cmap, const string &stream, size_t off);
 
 cmap_t get_FontFile2(const string &doc,
                      const ObjectStorage &storage,
@@ -43,7 +44,7 @@ cmap_t get_FontFile2(const string &doc,
     {
         uint16_t format_id = get_integer<uint16_t>(stream, off);
         if (format_id == 4) get_format4_data(result, stream, off);
-//        if (format_id == 0) get_format0_data(result, stream, off);
+        if (format_id == 0) get_format0_data(result, stream, off);
     }
     return result;
 }
@@ -108,12 +109,15 @@ void get_format4_data(cmap_t &cmap, const string &stream, size_t off)
         }
     }
 }
-/*
+
 void get_format0_data(cmap_t &cmap, const string &stream, size_t off)
 {
-    result.sizes[0] = sizeof(char);
+    cmap.sizes[0] = sizeof(uint16_t);
     off += sizeof(uint16_t) * 3;
-    for (size_t i = 0; i < 256; ++i) cmap.utf_map.emplace(i, make_pair(cmap_t::CONVERTED,
-}
+    for (size_t i = 0; i < 256; ++i)
+    {
+        cmap.utf_map.emplace(string(1, get_integer<char>(stream, off + i)),
+                             make_pair(cmap_t::NOT_CONVERTED, num2string(i & 0xFF)));
 
-*/
+    }
+}

@@ -10,6 +10,7 @@ using namespace std;
 
 //https://docs.microsoft.com/en-us/typography/opentype/spec/otff
 //https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6cmap.html
+void get_format6_data(cmap_t &cmap, const string &stream, size_t off);
 void get_format4_data(cmap_t &cmap, const string &stream, size_t off);
 void get_format0_data(cmap_t &cmap, const string &stream, size_t off);
 
@@ -43,6 +44,7 @@ cmap_t get_FontFile2(const string &doc,
     for (size_t off : mapping_offsets)
     {
         uint16_t format_id = get_integer<uint16_t>(stream, off);
+        if (format_id == 6) get_format6_data(result, stream, off);
         if (format_id == 4) get_format4_data(result, stream, off);
         if (format_id == 0) get_format0_data(result, stream, off);
     }
@@ -118,6 +120,22 @@ void get_format0_data(cmap_t &cmap, const string &stream, size_t off)
     {
         cmap.utf_map.emplace(string(1, get_integer<char>(stream, off + i)),
                              make_pair(cmap_t::NOT_CONVERTED, num2string(i & 0xFF)));
+
+    }
+}
+
+void get_format6_data(cmap_t &cmap, const string &stream, size_t off)
+{
+    cmap.sizes[0] = sizeof(uint16_t);
+    off += sizeof(uint16_t) * 3;
+    uint16_t first_code = get_integer<uint16_t>(stream, off);
+    off += sizeof(uint16_t);
+    uint16_t entry_count = get_integer<uint16_t>(stream, off);
+    off += sizeof(uint16_t);
+    for (uint16_t i = 0; i < entry_count; ++i, off += sizeof(uint16_t))
+    {
+        cmap.utf_map.emplace(num2string(get_integer<uint16_t>(stream, off)),
+                             make_pair(cmap_t::NOT_CONVERTED, num2string(i + first_code)));
 
     }
 }

@@ -1,6 +1,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <limits>
+#include <algorithm>
 
 #include "object_storage.h"
 #include "common.h"
@@ -13,6 +15,7 @@ using namespace std;
 void get_format6_data(cmap_t &cmap, const string &stream, size_t off);
 void get_format4_data(cmap_t &cmap, const string &stream, size_t off);
 void get_format0_data(cmap_t &cmap, const string &stream, size_t off);
+void get_format2_data(cmap_t &cmap, const string &stream, size_t off);
 
 cmap_t get_FontFile2(const string &doc,
                      const ObjectStorage &storage,
@@ -47,6 +50,7 @@ cmap_t get_FontFile2(const string &doc,
         if (format_id == 6) get_format6_data(result, stream, off);
         if (format_id == 4) get_format4_data(result, stream, off);
         if (format_id == 0) get_format0_data(result, stream, off);
+        if (format_id == 2) get_format2_data(result, stream, off);
     }
     return result;
 }
@@ -121,6 +125,49 @@ void get_format0_data(cmap_t &cmap, const string &stream, size_t off)
         cmap.utf_map.emplace(string(1, get_integer<char>(stream, off + i)),
                              make_pair(cmap_t::NOT_CONVERTED, num2string(i & 0xFF)));
 
+    }
+}
+
+void get_format2_data(cmap_t &cmap, const string &stream, size_t off)
+{
+    enum { SUBHEADER_KEYS_NUM = 256 };
+    off += sizeof(uint16_t) * 3;
+    vector<uint16_t> subheader_keys = get_array<uint16_t>(stream, off, SUBHEADER_KEYS_NUM);
+    if (subheader_keys.empty()) return;
+    vector<uint16_t> first_bytes(numeric_limits<uint16_t>::max() / 8, 0);;
+    for (size_t i = 0; i < subheader_keys.size(); ++i) first_bytes[subheader_keys[i] / 8] = i;
+    uint16_t ndhrs = *max_element(subheader_keys.begin(), subheader_keys.end()) / 8 + 1;
+    struct subheader_t
+    {
+        uint16_t first_code;
+        uint16_t entry_count;
+        int16_t id_delta;
+        size_t id_range_offset;
+    };
+    vector<subheader_t> hdrs;
+    hdrs.reserve(ndhrs);
+    for (uint16_t i = 0; i < ndhrs; ++i)
+    {
+        uint16_t first_code = get_integer<uint16_t>(stream, off);
+        off += sizeof(uint16_t);
+        uint16_t entry_count = get_integer<uint16_t>(stream, off);
+        off += sizeof(uint16_t);
+        int16_t id_delta = get_integer<uint16_t>(stream, off);
+        off += sizeof(int16_t);
+        uint16_t id_range_offset = get_integer<uint16_t>(stream, off);
+        off += sizeof(uint16_t);
+        hdrs.push_back(subheader_t{first_code, entry_count, id_delta, off - sizeof(uint16_t) + id_range_offset});
+        for (size_t i = 0; i < hdrs.size(); ++i)
+        {
+            if (hdrs[i].entry_count == 0) continue;
+            uint16_t first = hdrs[i].first_code + (first_bytes[i] << 8);
+            for (size_t j = 0; j < hdrs[i].entry_count; ++j)
+            {
+                uint16_t gid = get_integer<uint16_t>(stream, hdrs[i].id_range_offset);
+                if (gid != 0) gid += hdrs[i].id_delta;
+                cmap.utf_map.emplace(num2string(gid), make_pair(cmap_t::CONVERTED, get_utf8(first + j)));
+            }
+        }
     }
 }
 

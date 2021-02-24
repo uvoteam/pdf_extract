@@ -12,10 +12,11 @@ using namespace std;
 
 //https://docs.microsoft.com/en-us/typography/opentype/spec/otff
 //https://developer.apple.com/fonts/TrueType-Reference-Manual/RM06/Chap6cmap.html
-void get_format6_data(cmap_t &cmap, const string &stream, size_t off);
-void get_format4_data(cmap_t &cmap, const string &stream, size_t off);
 void get_format0_data(cmap_t &cmap, const string &stream, size_t off);
 void get_format2_data(cmap_t &cmap, const string &stream, size_t off);
+void get_format4_data(cmap_t &cmap, const string &stream, size_t off);
+void get_format6_data(cmap_t &cmap, const string &stream, size_t off);
+void get_format12_data(cmap_t &cmap, const string &stream, size_t off);
 
 cmap_t get_FontFile2(const string &doc,
                      const ObjectStorage &storage,
@@ -47,10 +48,11 @@ cmap_t get_FontFile2(const string &doc,
     for (size_t off : mapping_offsets)
     {
         uint16_t format_id = get_integer<uint16_t>(stream, off);
-        if (format_id == 6) get_format6_data(result, stream, off);
-        if (format_id == 4) get_format4_data(result, stream, off);
         if (format_id == 0) get_format0_data(result, stream, off);
         if (format_id == 2) get_format2_data(result, stream, off);
+        if (format_id == 4) get_format4_data(result, stream, off);
+        if (format_id == 6) get_format6_data(result, stream, off);
+        if (format_id == 12) get_format12_data(result, stream, off);
     }
     return result;
 }
@@ -79,6 +81,26 @@ string get_utf8(uint32_t c)
         if (write) result.push_back(u.str[i]);
     }
     return result;
+}
+
+void get_format12_data(cmap_t &cmap, const string &stream, size_t off)
+{
+    off += sizeof(uint16_t) * 2 + sizeof(uint32_t) * 2;
+    uint32_t n_groups = get_integer<uint32_t>(stream, off);
+    off += sizeof(uint32_t);
+    for (uint32_t i = 0; i < n_groups; ++i)
+    {
+        uint32_t start_char_code = get_integer<uint32_t>(stream, off);
+        off += sizeof(uint32_t);
+        uint32_t end_char_code = get_integer<uint32_t>(stream, off);
+        off += sizeof(uint32_t);
+        uint32_t start_glyph_code = get_integer<uint32_t>(stream, off);
+        off += sizeof(uint32_t);
+        for (uint32_t c = start_char_code; c <= end_char_code; ++c)
+        {
+            cmap.utf_map.emplace(num2string(c + start_glyph_code), make_pair(cmap_t::CONVERTED, get_utf8(c)));
+        }
+    }
 }
 
 void get_format4_data(cmap_t &cmap, const string &stream, size_t off)

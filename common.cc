@@ -272,6 +272,14 @@ size_t skip_spaces(const string &buffer, size_t offset, bool validate /*= true *
     return offset;
 }
 
+string get_token(const string &page_content, size_t &i)
+{
+    size_t start = i;
+    i = page_content.find_first_of(" \r\n\t/[(<", i + 1);
+    if (i == string::npos) i = page_content.length();
+    return page_content.substr(start, i - start);
+}
+
 size_t skip_comments(const string &buffer, size_t offset, bool validate /*= true */)
 {
     while (true)
@@ -799,7 +807,7 @@ pair<string, pdf_object_t> get_content_len_pair(const string &buffer, size_t id,
 //convert to utf16-be symbol
 string num2string(unsigned int n)
 {
-      if (n == 0) return string(2, 0);
+    if (n == 0) return string(2, 0);
     string result;
     while (n)
     {

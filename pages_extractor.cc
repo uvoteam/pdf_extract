@@ -16,7 +16,7 @@
 #include "pages_extractor.h"
 #include "coordinates.h"
 #include "font_file2.h"
-
+#include "font_file.h"
 #include "converter_engine.h"
 
 using namespace std;
@@ -541,14 +541,6 @@ namespace
         it = dictionary.find("/BaseEncoding");
         return (it == dictionary.end())? CharsetConverter(string()) : CharsetConverter(it->second.first);
     }
-
-    string get_token(const string &page_content, size_t &i)
-    {
-        size_t start = i;
-        i = page_content.find_first_of(" \r\n\t/[(<", i + 1);
-        if (i == string::npos) i = page_content.length();
-        return page_content.substr(start, i - start);
-    }
 }
 
 PagesExtractor::PagesExtractor(unsigned int catalog_pages_id,
@@ -751,7 +743,15 @@ ToUnicodeConverter PagesExtractor::get_to_unicode_converter(const dict_t &font_d
         auto it2 = font_dict.find("/FontDescriptor");
         if (it2 == font_dict.end()) return ToUnicodeConverter();
         const dict_t desc_dict = get_dict_or_indirect_dict(it2->second, storage);
-        auto it3 = desc_dict.find("/FontFile2");
+        auto it3 = desc_dict.find("/FontFile");
+        if (it3 != desc_dict.end() && font_dict.count("/Encoding") == 0)
+        {
+            const pair<unsigned int, unsigned int> id_gen = get_id_gen(it3->second.first);
+            if (!cmap_cache.count(id_gen.first)) cmap_cache.emplace(id_gen.first,
+                                                                    get_FontFile(doc, storage, id_gen, decrypt_data));
+            return ToUnicodeConverter(cmap_cache[id_gen.first]);
+        }
+        it3 = desc_dict.find("/FontFile2");
         if (it3 == desc_dict.end()) return ToUnicodeConverter();
         const pair<unsigned int, unsigned int> id_gen = get_id_gen(it3->second.first);
         if (!cmap_cache.count(id_gen.first)) cmap_cache.emplace(id_gen.first,

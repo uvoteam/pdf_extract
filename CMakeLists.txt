@@ -18,6 +18,7 @@ set(SOURCES ascii85_decode.cc
             object_storage.cc
             pages_extractor.cc
             font_file2.cc
+            font_file.cc
             parser.cc
             to_unicode_converter.cc)
 

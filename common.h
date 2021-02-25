@@ -97,6 +97,7 @@ std::pair<std::string, pdf_object_t> get_content_len_pair(const std::string &buf
                                                           size_t id,
                                                           const ObjectStorage &storage);
 bool is_blank(char c);
+std::string get_token(const std::string &page_content, size_t &i);
 
 template <class T> size_t get_length(const std::string &buffer, const T &storage, const dict_t &props)
 {

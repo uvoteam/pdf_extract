@@ -12,7 +12,7 @@ buffer - content of pdf file
 
 
 Output:
-extracted text
+extracted utf8 text
 
 In case of error std::exception is thrown
 

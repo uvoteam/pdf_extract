@@ -1,3 +1,4 @@
+project(pdf_extractor)
 cmake_minimum_required(VERSION 2.8)
 set(PROGRAM_NAME pdf_extractor)
 set(LIB_VERSION_STRING 1.0.6)

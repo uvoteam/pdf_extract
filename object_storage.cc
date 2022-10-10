@@ -17,7 +17,7 @@ extern string decrypt(unsigned int n,
 ObjectStorage::ObjectStorage(const string &doc_arg, map<size_t, size_t> &&id2offsets_arg, const dict_t &decrypt_data) :
                              doc(doc_arg), id2offsets(move(id2offsets_arg))
 {
-    for (const pair<size_t, size_t> &p : id2offsets) insert_obj_stream(p.first, decrypt_data);
+    for (const pair<const size_t, size_t> &p : id2offsets) insert_obj_stream(p.first, decrypt_data);
 }
 
 pair<string, pdf_object_t> ObjectStorage::get_object(size_t id) const

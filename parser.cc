@@ -4,6 +4,7 @@
 #include <utility>
 #include <vector>
 #include <unordered_set>
+#include <openssl/provider.h>
 
 #include "common.h"
 #include "object_storage.h"
@@ -11,12 +12,17 @@
 
 using namespace std;
 
-enum
+namespace
 {
-    CROSS_REFERENCE_LINE_SIZE = 20,
-    BYTE_OFFSET_LEN = 10, /* length for byte offset in cross reference record */
-    GENERATION_NUMBER_LEN = 5 /* length for generation number */
-};
+    enum
+    {
+        CROSS_REFERENCE_LINE_SIZE = 20,
+        BYTE_OFFSET_LEN = 10, /* length for byte offset in cross reference record */
+        GENERATION_NUMBER_LEN = 5 /* length for generation number */
+    };
+    OSSL_PROVIDER *legacy;
+    OSSL_PROVIDER *def;
+}
 
 void get_object_offsets_old(const string &buffer, size_t offset, vector<size_t> &result);
 void get_object_offsets_new(const string &buffer, size_t offset, vector<size_t> &result);
@@ -384,6 +390,20 @@ dict_t get_encrypt_data(const string &buffer, size_t start, size_t end, const ma
     result.insert(get_id(buffer, start, end));
 
     return result;
+}
+
+void pdf_extractor_init()
+{
+    legacy = OSSL_PROVIDER_load(NULL, "legacy");
+    if (legacy == NULL) throw pdf_error(FUNC_STRING + "OSSL_PROVIDER_LOAD(NULL, \"legacy\" returned NULL");
+    def = OSSL_PROVIDER_load(NULL, "default");
+    if (def == NULL) throw pdf_error(FUNC_STRING + "OSSL_PROVIDER_LOAD(NULL, \"default\" returned NULL");
+}
+
+void pdf_extractor_deinit()
+{
+    OSSL_PROVIDER_unload(legacy);
+    OSSL_PROVIDER_unload(def);
 }
 
 string pdf2txt(const string &buffer)

@@ -5,7 +5,6 @@
 #include <vector>
 
 #include <openssl/evp.h>
-#include <openssl/md5.h>
 
 #include "common.h"
 
@@ -31,7 +30,7 @@ namespace
         PDF_KEY_LENGTH_256 = 256
     } pdf_key_length_t;
 
-    enum { DEFAULT_LENGTH = 40, AES_IV_LENGTH = 16 };
+    enum { DEFAULT_LENGTH = 40, AES_IV_LENGTH = 16, MD5_DIGEST_LENGTH = 16 };
 
 
     array<unsigned char, 32> get_user_pad(const string& password)
@@ -55,27 +54,27 @@ namespace
     }
 
     int RC4(const unsigned char* key, int key_len, const unsigned char* text_in, int text_len, unsigned char* text_out)
-
     {
-        EVP_CIPHER_CTX rc4;
-        EVP_CIPHER_CTX_init(&rc4);
-        unique_ptr<EVP_CIPHER_CTX, int (*)(EVP_CIPHER_CTX*)>  rc4_scope(&rc4, EVP_CIPHER_CTX_cleanup);
+        EVP_CIPHER_CTX *rc4 = EVP_CIPHER_CTX_new();
+        if (rc4 == NULL) throw pdf_error(FUNC_STRING + "EVP_CIPHER_CTX_new returned NULL");
+        EVP_CIPHER_CTX_init(rc4);
+        unique_ptr<EVP_CIPHER_CTX, void (*)(EVP_CIPHER_CTX*)>  rc4_scope(rc4, EVP_CIPHER_CTX_free);
         // Don't set the key because we will modify the parameters
-        int status = EVP_EncryptInit_ex(&rc4, EVP_rc4(), NULL, NULL, NULL);
-        if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_DecryptInit_ex error");
+        int status = EVP_EncryptInit_ex(rc4, EVP_rc4(), NULL, NULL, NULL);
+        if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_EncryptInit_ex error");
 
-        status = EVP_CIPHER_CTX_set_key_length(&rc4, key_len);
+        status = EVP_CIPHER_CTX_set_key_length(rc4, key_len);
         if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_CIPHER_CTX_set_key_length error");
 
         // We finished modifying parameters so now we can set the key
-        status = EVP_EncryptInit_ex(&rc4, NULL, NULL, key, NULL);
-        if(status != 1)throw pdf_error(FUNC_STRING + "RC4 EVP_DecryptInit_ex error");
+        status = EVP_EncryptInit_ex(rc4, NULL, NULL, key, NULL);
+        if (status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_EncryptInit_ex error");
 
         int data_out_moved;
-        status = EVP_EncryptUpdate(&rc4, text_out, &data_out_moved, text_in, text_len);
+        status = EVP_EncryptUpdate(rc4, text_out, &data_out_moved, text_in, text_len);
         if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_DecryptUpdate error");
         int written = data_out_moved;
-        status = EVP_EncryptFinal_ex(&rc4, &text_out[data_out_moved], &data_out_moved);
+        status = EVP_EncryptFinal_ex(rc4, &text_out[data_out_moved], &data_out_moved);
         if(status != 1) throw pdf_error(FUNC_STRING + "RC4 EVP_EncryptFinal_ex error" );
         written += data_out_moved;
 
@@ -110,41 +109,45 @@ namespace
         return ext;
     }
 
-    void md5_init_exc(MD5_CTX *ctx)
+    unique_ptr<EVP_MD_CTX, decltype(EVP_MD_CTX_free)*> md5_init_exc()
     {
-        if (MD5_Init(ctx) != 1) throw pdf_error(FUNC_STRING + "error initializing MD5 hashing engine" );
+      EVP_MD_CTX *ctx = EVP_MD_CTX_new();
+      if (ctx == NULL) throw pdf_error(FUNC_STRING + "EVP_MD_CTX_new returned NULL" );
+      unique_ptr<EVP_MD_CTX, decltype(EVP_MD_CTX_free)*> uctx(ctx, EVP_MD_CTX_free);
+      if (EVP_DigestInit_ex(ctx, EVP_md5(), NULL) != 1) throw pdf_error(FUNC_STRING + "EVP_MD_CTX error" );
+      return uctx;
     }
 
-    void md5_update_exc(MD5_CTX *ctx, const void *data, unsigned long len)
+    void md5_update_exc(EVP_MD_CTX *ctx, const void *data, unsigned long len)
     {
-        if (MD5_Update(ctx, data, len) != 1) throw pdf_error(FUNC_STRING + "error MD5 update" );
+        if (EVP_DigestUpdate(ctx, data, len) != 1) throw pdf_error(FUNC_STRING + "EVP_DigestUpdate error" );
     }
 
-    void md5_final_exc(unsigned char *md, MD5_CTX *ctx)
+    void md5_final_exc(unsigned char *md, EVP_MD_CTX *ctx)
     {
-        if (MD5_Final(md, ctx) != 1) throw pdf_error(FUNC_STRING + "error MD5 final");
+        unsigned int md5_digest_len = MD5_DIGEST_LENGTH;
+        if (EVP_DigestFinal_ex(ctx, md, &md5_digest_len) != 1)
+        {
+            throw pdf_error(FUNC_STRING + "EVP_DigestFinal_ex error");
+        }
     }
 
-    void get_md5_binary(const unsigned char* data, int length, unsigned char* digest)
+    void get_md5_binary(const unsigned char *data, int length, unsigned char *digest)
     {
-        MD5_CTX ctx;
-        md5_init_exc(&ctx);
-        md5_update_exc(&ctx, data, length);
-        md5_final_exc(digest, &ctx);
+        unique_ptr<EVP_MD_CTX, decltype(EVP_MD_CTX_free)*> ctx = md5_init_exc();
+        md5_update_exc(ctx.get(), data, length);
+        md5_final_exc(digest, ctx.get());
     }
 
     vector<unsigned char> get_decryption_key(const dict_t &decrypt_opts)
     {
         unsigned int key_length = get_length(decrypt_opts);
-        MD5_CTX ctx;
-        md5_init_exc(&ctx);
-
-        md5_update_exc(&ctx, padding, 32);
+        unique_ptr<EVP_MD_CTX, decltype(EVP_MD_CTX_free)*> ctx = md5_init_exc();
+        md5_update_exc(ctx.get(), padding, 32);
         const string o_val = decode_string(decrypt_opts.at("/O").first);
-        md5_update_exc(&ctx, get_user_pad(o_val).data(), 32);
-
+        md5_update_exc(ctx.get(), get_user_pad(o_val).data(), 32);
         array<unsigned char, 4> ext = get_ext(decrypt_opts);
-        md5_update_exc(&ctx, ext.data(), 4);
+        md5_update_exc(ctx.get(), ext.data(), 4);
         //get_first_array_element
         size_t offset = skip_spaces(decrypt_opts.at("/ID").first, 1);
         string document_id = decode_string(get_string(decrypt_opts.at("/ID").first, offset));
@@ -152,18 +155,18 @@ namespace
         if (!document_id.empty())
         {
             doc_id = string2array(document_id);
-            md5_update_exc(&ctx, doc_id.data(), doc_id.size());
+            md5_update_exc(ctx.get(), doc_id.data(), doc_id.size());
         }
 
         // If document metadata is not being encrypted,
         // pass 4 bytes with the value 0xFFFFFFFF to the MD5 hash function.
         if (!is_encrypt_metadata(decrypt_opts))
         {
-            md5_update_exc(&ctx, no_meta_addition, sizeof(no_meta_addition)/sizeof(unsigned char));
+            md5_update_exc(ctx.get(), no_meta_addition, sizeof(no_meta_addition)/sizeof(unsigned char));
         }
 
         unsigned char digest[MD5_DIGEST_LENGTH];
-        md5_final_exc(digest, &ctx);
+        md5_final_exc(digest, ctx.get());
 
         unsigned int revision = strict_stoul(decrypt_opts.at("/R").first);
         // only use the really needed bits as input for the hash
@@ -178,10 +181,10 @@ namespace
         // Setup user key
         if (revision == 3 || revision == 4)
         {
-            md5_init_exc(&ctx);
-            md5_update_exc(&ctx, padding, 32);
-            if (!document_id.empty()) md5_update_exc(&ctx, doc_id.data(), document_id.length());
-            md5_final_exc(digest, &ctx);
+            unique_ptr<EVP_MD_CTX, decltype(EVP_MD_CTX_free)*> ctx = md5_init_exc();
+            md5_update_exc(ctx.get(), padding, 32);
+            if (!document_id.empty()) md5_update_exc(ctx.get(), doc_id.data(), document_id.length());
+            md5_final_exc(digest, ctx.get());
             memcpy(user_key, digest, 16);
             for (int k = 16; k < 32; ++k) user_key[k] = 0;
             for (int k = 0; k < 20; k++)
@@ -291,18 +294,19 @@ namespace
                           unsigned char* text_out,
                           int &out_len)
     {
-        EVP_CIPHER_CTX aes;
-        EVP_CIPHER_CTX_init(&aes);
-        unique_ptr<EVP_CIPHER_CTX, int (*)(EVP_CIPHER_CTX*)>  aes_scope(&aes, EVP_CIPHER_CTX_cleanup);
+        EVP_CIPHER_CTX *aes = EVP_CIPHER_CTX_new();
+        if (aes == NULL) throw pdf_error(FUNC_STRING + "EVP_CIPHER_CTX_new returned NULL");
+        EVP_CIPHER_CTX_init(aes);
+        unique_ptr<EVP_CIPHER_CTX, void (*)(EVP_CIPHER_CTX*)>  aes_scope(aes, EVP_CIPHER_CTX_free);
         if ((text_len % 16) != 0) throw pdf_error(FUNC_STRING + "error: AES data length must be multiple of 16" );
         int status;
         switch (key_len)
         {
         case PDF_KEY_LENGTH_128 / 8:
-            status = EVP_DecryptInit_ex(&aes, EVP_aes_128_cbc(), NULL, key, iv);
+            status = EVP_DecryptInit_ex(aes, EVP_aes_128_cbc(), NULL, key, iv);
             break;
         case PDF_KEY_LENGTH_256 / 8:
-            status = EVP_DecryptInit_ex(&aes, EVP_aes_256_cbc(), NULL, key, iv);
+            status = EVP_DecryptInit_ex(aes, EVP_aes_256_cbc(), NULL, key, iv);
             break;
         default:
             throw pdf_error(FUNC_STRING + "invalid AES key length: " + to_string(key_len));
@@ -311,11 +315,11 @@ namespace
         if(status != 1) throw pdf_error(FUNC_STRING + "error initializing AES decryption engine" );
 
         int data_out_moved;
-        status = EVP_DecryptUpdate(&aes, text_out, &data_out_moved, text_in, text_len);
+        status = EVP_DecryptUpdate(aes, text_out, &data_out_moved, text_in, text_len);
         out_len = data_out_moved;
         if(status != 1) throw pdf_error(FUNC_STRING + "Error AES-decryption data" );
 
-        status = EVP_DecryptFinal_ex(&aes, text_out + out_len, &data_out_moved);
+        status = EVP_DecryptFinal_ex(aes, text_out + out_len, &data_out_moved);
         out_len += data_out_moved;
         if(status != 1) throw pdf_error(FUNC_STRING + "Error AES-decryption data final");
     }

@@ -1,8 +1,7 @@
 project(pdf_extractor)
-cmake_minimum_required(VERSION 2.8)
 set(PROGRAM_NAME pdf_extractor)
-set(LIB_VERSION_STRING 1.0.6)
-set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -std=c++11 -O2")
+set(LIB_VERSION_STRING 1.0.7)
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -O2")
 set(SOURCES ascii85_decode.cc
             ascii_hex_decode.cc
             charset_converter.cc
@@ -26,7 +25,7 @@ set(SOURCES ascii85_decode.cc
 find_library(BOOST_SYSTEM boost_system REQUIRED)
 find_library(BOOST_LOCALE boost_locale REQUIRED)
 find_library(LIBZ z REQUIRED)
-find_package(OpenSSL 1.0 REQUIRED)
+find_package(OpenSSL 3.0 REQUIRED)
 
 add_library(${PROGRAM_NAME} SHARED ${SOURCES})
 target_link_libraries(${PROGRAM_NAME}

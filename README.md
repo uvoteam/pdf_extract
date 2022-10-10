@@ -2,6 +2,7 @@ pdf_extract is a thread-safe library to extract text from pdf files. Vertical te
 document is rendered vertically(each column is drawed separated by \n).
 
 You should call pdf_extractor_init to init library before usage, and pdf_extractor_deinit after usage;
+
 std::string pdf2txt(const std::string &buffer);
 
 Input argument:

@@ -1,4 +1,4 @@
-pdf_extract is the thread-safe library to extract text from pdf files. Vertical text is not rendered. Multicolumn
+pdf_extract is a thread-safe library to extract text from pdf files. Vertical text is not rendered. Multicolumn
 document is rendered vertically(each column is drawed separated by \n).
 
 You should call pdf_extractor_init to init library before usage, and pdf_extractor_deinit after usage;

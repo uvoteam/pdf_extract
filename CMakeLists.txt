@@ -1,3 +1,4 @@
+cmake_minimum_required(VERSION 3.22)
 project(pdf_extractor)
 set(PROGRAM_NAME pdf_extractor)
 set(LIB_VERSION_STRING 1.0.7)

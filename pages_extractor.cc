@@ -41,7 +41,7 @@ namespace
     enum { MATRIX_ELEMENTS_NUM = 6, PDF_STRINGS_NUM = 5000 /*for optimization*/, MAX_BOXES = 300 };
     constexpr float LINE_OVERLAP = 0.5;
     constexpr float CHAR_MARGIN = 2.0;
-    constexpr float WORD_MARGIN = 0.21;
+    constexpr float WORD_MARGIN = 0.1;
     constexpr float LINE_MARGIN = 0.5;
     constexpr float BOXES_FLOW = 0.5;
 
@@ -361,7 +361,7 @@ namespace
                 whole_line[0].text += line.texts[i].text;
                 if ((i != line.texts.size() - 1) &&
                     line.texts[i].coordinates.x1 < line.texts[i + 1].coordinates.x0 -
-                    width(line.texts[i + 1]) * WORD_MARGIN)
+                    max(height(line.texts[i + 1].coordinates), width(line.texts[i + 1])) * WORD_MARGIN)
                 {
                     whole_line[0].text += ' ';
                 }

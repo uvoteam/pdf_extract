@@ -66,11 +66,7 @@ pair<float, float> apply_matrix_pt(const matrix_t &m, float x, float y)
 
 text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, float width, float Tj, const Fonts &fonts)
 {
-    if (Tj != 0)
-    {
-        x -= Tj * Tfs * Th * 0.001;
-        x += Tc * Th;
-    }
+    if (Tj != 0) x -= Tj * Tfs * Th * 0.001;
     float ty = fonts.get_descent() * Tfs + fonts.get_rise() * Tfs;
     float adv = width * Tfs * Th;
     const matrix_t m = Tm * CTM;
@@ -86,7 +82,7 @@ text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, float width
     x += adv;
     if (prev_f != f) return text_chunk_t(); //do not render vertical fonts
     const pair<float, float> start_coordinates = apply_matrix_pt(T_start, 0, ty);
-    const pair<float, float> end_coordinates = apply_matrix_pt(T_end, adv, ty + fonts.get_height() * Tfs);
+    const pair<float, float> end_coordinates = apply_matrix_pt(T_end, adv, ty + Tfs);
     float x0 = min(start_coordinates.first, end_coordinates.first);
     float x1 = max(start_coordinates.first, end_coordinates.first);
     float y0 = min(start_coordinates.second, end_coordinates.second);

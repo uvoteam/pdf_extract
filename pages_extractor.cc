@@ -168,10 +168,15 @@ namespace
 
     bool is_halign(const text_chunk_t &obj1, const text_chunk_t &obj2)
     {
-        return is_voverlap(obj1.coordinates, obj2.coordinates) &&
+        int y0_0 = static_cast<int>(obj1.coordinates.y0);
+        int y0_1 = static_cast<int>(obj1.coordinates.y1);
+        int y1_0 = static_cast<int>(obj2.coordinates.y0);
+        int y1_1 = static_cast<int>(obj2.coordinates.y1);
+        return (y0_0 == y1_0 && y0_1 == y1_1) || (is_voverlap(obj1.coordinates, obj2.coordinates) &&
                (min(height(obj1.coordinates), height(obj2.coordinates)) * LINE_OVERLAP <
                 voverlap(obj1.coordinates, obj2.coordinates)) &&
-               (hdistance(obj1.coordinates, obj2.coordinates) < max(width(obj1), width(obj2)) * CHAR_MARGIN);
+                (hdistance(obj1.coordinates, obj2.coordinates) < max(width(obj1), width(obj2)) * CHAR_MARGIN));
+
     }
 
     optional<pair<chunk_iterator_t, chunk_iterator_t>> get_zero_range(vector<text_chunk_t> &chunks,
@@ -351,11 +356,16 @@ namespace
         {
             if (line.texts.empty()) continue;
             vector<text_t> whole_line{text_t(line.coordinates)};
-            sort(line.texts.begin(), line.texts.end(),
-                 [](const text_t &a, const text_t &b) -> bool
-                 {
-                     return a.coordinates.x0 < b.coordinates.x0;
-                 });
+            /* REMOVED because of weird coordinates like
+            1.2016-012-Kleinberg-etal_MIT-Center_Hobbs.pdf
+            2.Power and the news media.pdf
+            next text has previous x coordinates
+            */
+            // sort(line.texts.begin(), line.texts.end(),
+            //      [](const text_t &a, const text_t &b) -> bool
+            //      {
+            //          return a.coordinates.x0 < b.coordinates.x0;
+            //      });
             for (size_t i = 0; i < line.texts.size(); ++i)
             {
                 whole_line[0].text += line.texts[i].text;

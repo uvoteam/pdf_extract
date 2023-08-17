@@ -3,7 +3,6 @@
 
 #include <string>
 #include <utility>
-
 #include <unordered_set>
 #include <unordered_map>
 #include <vector>
@@ -62,6 +61,9 @@ public:
     void do_q(extract_argument_t &arg, size_t &i);
     void do_BI(extract_argument_t &arg, size_t &i);
 private:
+    std::vector<std::pair<unsigned int, unsigned int>> get_id_gen_ap_n(const dict_t &page_dict, unsigned int page_id);
+    std::string get_stream_contents(unsigned int page_id, const std::vector<std::pair<unsigned int, unsigned int>> &ids_gen, std::unordered_set<unsigned int> &visited_ids);
+    std::string get_stream_contents_no_exception(unsigned int page_id, const std::vector<std::pair<unsigned int, unsigned int>> &ids_gen, std::unordered_set<unsigned int> &visited_ids);
     DiffConverter get_diff_converter(const boost::optional<std::pair<std::string, pdf_object_t>> &encoding) const;
     ToUnicodeConverter get_to_unicode_converter(const dict_t &font_dict);
     boost::optional<mediabox_t> get_box(const dict_t &dictionary,

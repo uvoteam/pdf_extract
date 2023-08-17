@@ -28,6 +28,12 @@ pair<string, pdf_object_t> ObjectStorage::get_object(size_t id) const
     return ::get_object(doc, id, id2offsets);
 }
 
+bool ObjectStorage::is_object_exists(size_t id) const
+{
+    if (!id2obj_stm.count(id) && !id2offsets.count(id)) return false;
+    return true;
+}
+
 const map<size_t, size_t>& ObjectStorage::get_id2offsets() const
 {
     return id2offsets;
@@ -57,7 +63,6 @@ void ObjectStorage::insert_obj_stream(size_t id, const dict_t &decrypt_data)
     string content = get_content(doc, len, offset);
     content = decrypt(id, gen_id, content, decrypt_data);
     content = decode(content, dictionary);
-
     vector<pair<size_t, size_t>> id2offsets_obj_stm = get_id2offsets_obj_stm(content, dictionary);
     offset = strict_stoul(dictionary.at("/First").first);
     for (const pair<size_t, size_t> &p : id2offsets_obj_stm)

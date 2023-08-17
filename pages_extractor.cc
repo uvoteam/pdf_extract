@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <boost/optional.hpp>
+#include <exception>
 
 #include <math.h>
 
@@ -487,12 +488,9 @@ namespace
         return get_stream(buffer, id_gen, storage, decrypt_data);
     }
 
-    vector<pair<unsigned int, unsigned int>> get_contents_id_gen(const pair<string, pdf_object_t> &page_pair)
+    vector<pair<unsigned int, unsigned int>> get_id_gen_from_dictionary(const dict_t &data, const string& key)
     {
-        if (page_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
-        const dict_t data = get_dictionary_data(page_pair.first, 0);
-        auto it = data.find("/Contents");
-        // "/Contents" key can be absent for Page. In this case Page is empty
+        auto it = data.find(key);
         if (it == data.end()) return vector<pair<unsigned int, unsigned int>>();
         vector<pair<unsigned int, unsigned int>> contents_id_gen;
         const string &contents_data = it->second.first;
@@ -706,19 +704,71 @@ optional<mediabox_t> PagesExtractor::get_box(const dict_t &dictionary,
     return parent_media_box;
 }
 
+vector<pair<unsigned int, unsigned int>> PagesExtractor::get_id_gen_ap_n(const dict_t &page_dict, unsigned int page_id) //get annotation stream ids
+{
+
+    auto it = page_dict.find("/Annots");
+    if (it == page_dict.end() || it->second.second != INDIRECT_OBJECT) return vector<pair<unsigned int, unsigned int>>();
+    size_t annots_id = get_id_gen(it->second.first).first;
+    if (!storage.is_object_exists(annots_id)) return vector<pair<unsigned int, unsigned int>>();
+    array_t annots = get_array_data(storage.get_object(annots_id).first, 0);
+    vector<pair<unsigned int, unsigned int>> result;
+    for (const pair<string, pdf_object_t> &el : annots)
+    {
+        const dict_t annot_dict = get_dictionary_data(el.second == DICTIONARY? el.first : storage.get_object(get_id_gen(el.first).first).first, 0);
+        auto it = annot_dict.find("/AP");
+        if (it == annot_dict.end()) continue;
+        const dict_t ap_dict = get_dictionary_data(it->second.second == DICTIONARY? it->second.first : storage.get_object(get_id_gen(it->second.first).first).first, 0);
+        auto it2 = ap_dict.find("/N");
+        if (it2->second.second != INDIRECT_OBJECT) continue;
+        result.push_back(get_id_gen(it2->second.first));
+    }
+    return result;
+}
+
+string PagesExtractor::get_stream_contents_no_exception(unsigned int page_id, const vector<pair<unsigned int, unsigned int>> &ids_gen, unordered_set<unsigned int> &visited_ids)
+{
+    try
+    {
+        return get_stream_contents(page_id, ids_gen, visited_ids);
+    }
+    catch (const std::exception &e)
+    {
+    }
+    return string();
+}
+string PagesExtractor::get_stream_contents(unsigned int page_id, const vector<pair<unsigned int, unsigned int>> &ids_gen, unordered_set<unsigned int> &visited_ids)
+{
+    string text;
+    string page_content;
+    const string page_id_str = to_string(page_id);
+    for (const pair<unsigned int, unsigned int> &id_gen : ids_gen)
+    {
+        const pair<string, pdf_object_t> stream_pair = storage.get_object(id_gen.first);
+        if (stream_pair.second == DICTIONARY)
+        {
+            const dict_t props = get_dictionary_data(stream_pair.first, 0);
+            fonts.at(page_id_str) = get_fonts(props, fonts.at(page_id_str));
+        }
+        page_content += output_content(visited_ids, doc, storage, id_gen, decrypt_data);
+    }
+    for (vector<text_chunk_t> &r : extract_text(page_content, page_id_str, boost::none)) text += render_text(r);
+    return text;
+}
+
 string PagesExtractor::get_text()
 {
     string text;
     for (unsigned int page_id : pages)
     {
-        vector<pair<unsigned int, unsigned int>> contents_id_gen = get_contents_id_gen(storage.get_object(page_id));
-        string page_content;
         unordered_set<unsigned int> visited_contents;
-        for (const pair<unsigned int, unsigned int> &id_gen : contents_id_gen)
-        {
-            page_content += output_content(visited_contents, doc, storage, id_gen, decrypt_data);
-        }
-        for (vector<text_chunk_t> &r : extract_text(page_content, to_string(page_id), boost::none)) text += render_text(r);
+        const pair<string, pdf_object_t> page_pair = storage.get_object(page_id);
+        if (page_pair.second != DICTIONARY) throw pdf_error(FUNC_STRING + "page must be DICTIONARY");
+        const dict_t page_dict = get_dictionary_data(page_pair.first, 0);
+        text += get_stream_contents(page_id, get_id_gen_from_dictionary(page_dict, "/Contents"), visited_contents);
+        //do not use operator+ in one line because operator+ evaluation order is not specified
+        //DS CSS is not implemented, skip Annot streams with this
+        text += get_stream_contents_no_exception(page_id, get_id_gen_ap_n(page_dict, page_id), visited_contents);
     }
     return text;
 }

@@ -14,6 +14,7 @@ public:
     ObjectStorage(const std::string &doc_arg, std::map<size_t, size_t> &&id2offsets_arg, const dict_t &encrypt_data);
     std::pair<std::string, pdf_object_t> get_object(size_t id) const;
     const std::map<size_t, size_t>& get_id2offsets() const;
+    bool is_object_exists(size_t id) const;
 private:
     size_t get_gen_id(size_t offset) const;
     void insert_obj_stream(size_t id, const dict_t &encrypt_data);

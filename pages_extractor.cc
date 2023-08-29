@@ -720,7 +720,7 @@ vector<pair<unsigned int, unsigned int>> PagesExtractor::get_id_gen_ap_n(const d
         if (it == annot_dict.end()) continue;
         const dict_t ap_dict = get_dictionary_data(it->second.second == DICTIONARY? it->second.first : storage.get_object(get_id_gen(it->second.first).first).first, 0);
         auto it2 = ap_dict.find("/N");
-        if (it2->second.second != INDIRECT_OBJECT) continue;
+        if (it2 == ap_dict.end() || it2->second.second != INDIRECT_OBJECT) continue;
         result.push_back(get_id_gen(it2->second.first));
     }
     return result;

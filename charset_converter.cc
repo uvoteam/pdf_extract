@@ -50,7 +50,7 @@ CharsetConverter::CharsetConverter(const std::string &encoding_arg) : encoding(e
         encode = MAC_EXPERT;
         charset = nullptr;
     }
-    else if (encoding == "/Identity-H" || encoding == "/Identity-V")
+    else if (encoding == "/Identity-H" || encoding == "/Identity-V" || !encoding2charset.count(encoding))
     {
         encode = IDENTITY;
         charset = nullptr;

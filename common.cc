@@ -663,7 +663,7 @@ string get_stream(const string &doc,
     get_dictionary(doc, offset);
     string content = get_content(doc, get_length(doc, storage, props), offset);
     content = decrypt(id_gen.first, id_gen.second, content, decrypt_data);
-
+    if (content.empty()) return string();
     return decode(content, props);
 }
 

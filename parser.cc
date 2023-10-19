@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_set>
 #include <openssl/provider.h>
+#include <regex>
 
 #include "common.h"
 #include "object_storage.h"
@@ -138,11 +139,33 @@ vector<pair<size_t, size_t>> get_trailer_offsets_new(const string &buffer, size_
     return trailer_offsets;
 }
 
-
-vector<pair<size_t, size_t>> get_trailer_offsets(const string &buffer, size_t cross_ref_offset)
+//xref offset can be damaged, try to find nearest "xref" keyword and compare position with nearest object to determine new|old PDF format
+//if cross_ref_offset old pdf format does not point to "xref" pdf file is damaged, return this in bool
+pair<vector<pair<size_t, size_t>>, bool> get_trailer_offsets(const string &buffer, size_t &cross_ref_offset)
 {
-    if (is_prefix(buffer.data() + cross_ref_offset, "xref")) return get_trailer_offsets_old(buffer, cross_ref_offset);
-    return get_trailer_offsets_new(buffer, cross_ref_offset);
+    cross_ref_offset = skip_comments(buffer, cross_ref_offset);
+    size_t nearest_xref_offset = buffer.find("xref", cross_ref_offset);
+    size_t nearest_object_offset = buffer.find("<<", cross_ref_offset);
+    bool is_damaged = (cross_ref_offset != nearest_xref_offset);
+    if (nearest_object_offset != string::npos && nearest_xref_offset != string::npos)
+    {
+        if (nearest_xref_offset < nearest_object_offset)
+        {
+            cross_ref_offset = nearest_xref_offset;
+            return make_pair(get_trailer_offsets_old(buffer, nearest_xref_offset), is_damaged) ;
+        }
+        return make_pair(get_trailer_offsets_new(buffer, cross_ref_offset), false);
+    }
+
+    if (nearest_object_offset == string::npos && nearest_xref_offset == string::npos)
+        throw pdf_error(FUNC_STRING + "Wrong cross_ref_offset " + to_string(cross_ref_offset));
+
+    if (nearest_object_offset == string::npos)
+    {
+        cross_ref_offset = nearest_xref_offset;
+        return make_pair(get_trailer_offsets_old(buffer, nearest_xref_offset), is_damaged);
+    }
+    return make_pair(get_trailer_offsets_new(buffer, cross_ref_offset), false);
 }
 
 void get_object_offsets(const string &buffer, size_t offset, vector<size_t> &result)
@@ -293,9 +316,8 @@ void validate_offsets(const string &buffer, const vector<size_t> &offsets)
     }
 }
 
-vector<size_t> get_all_object_offsets(const string &buffer,
-                                      size_t cross_ref_offset,
-                                      const vector<pair<size_t, size_t>> &trailer_offsets)
+
+vector<size_t> get_all_object_offsets(const string &buffer, const vector<pair<size_t, size_t>> &trailer_offsets)
 {
     vector<size_t> object_offsets;
     for (const pair<size_t, size_t> &p : trailer_offsets)
@@ -307,14 +329,20 @@ vector<size_t> get_all_object_offsets(const string &buffer,
     return object_offsets;
 }
 
-map<size_t, size_t> get_id2offsets(const string &buffer,
-                                   size_t cross_ref_offset,
-                                   const vector<pair<size_t, size_t>> &trailer_offsets)
+//is_broken - pdf file is damaged, invalid offset to object
+map<size_t, size_t> get_id2offsets(const string &buffer, const vector<pair<size_t, size_t>> &trailer_offsets, bool is_broken)
 {
-    vector<size_t> offsets = get_all_object_offsets(buffer, cross_ref_offset, trailer_offsets);
+    vector<size_t> offsets = get_all_object_offsets(buffer, trailer_offsets);
     map<size_t, size_t> id2offsets;
     for (size_t offset : offsets)
     {
+        if (is_broken)
+        {
+            smatch m;
+            if (!regex_search(buffer.begin() + offset, buffer.end(), m, regex("\\s*\\d+\\s+\\d+\\s+obj\\s+")))
+                throw pdf_error(FUNC_STRING + "can`t restore damaged pdf file");
+            offset = m.position(0) + offset;
+        }
         size_t start_offset = efind_number(buffer, skip_comments(buffer, offset));
         size_t end_offset = efind_first(buffer, " \r\n\t", start_offset);
         id2offsets.emplace(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset);
@@ -409,11 +437,11 @@ void pdf_extractor_deinit()
 string pdf2txt(const string &buffer)
 {
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
-    const vector<pair<size_t, size_t>> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
-    map<size_t, size_t> id2offsets = get_id2offsets(buffer, cross_ref_offset, trailer_offsets);
+    const pair<vector<pair<size_t, size_t>>, bool> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
+    map<size_t, size_t> id2offsets = get_id2offsets(buffer, trailer_offsets.first, trailer_offsets.second);
     const dict_t encrypt_data = get_encrypt_data(buffer,
-                                                 trailer_offsets.at(0).first,
-                                                 trailer_offsets.at(0).second,
+                                                 trailer_offsets.first.at(0).first,
+                                                 trailer_offsets.first.at(0).second,
                                                  id2offsets);
     ObjectStorage storage(buffer, std::move(id2offsets), encrypt_data);
     return get_text(buffer, cross_ref_offset, storage, encrypt_data);

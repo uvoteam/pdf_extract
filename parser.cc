@@ -17,7 +17,7 @@ namespace
 {
     enum
     {
-        CROSS_REFERENCE_LINE_SIZE = 20,
+        CROSS_REFERENCE_LINE_SIZE = 19,
         BYTE_OFFSET_LEN = 10, /* length for byte offset in cross reference record */
         GENERATION_NUMBER_LEN = 5 /* length for generation number */
     };

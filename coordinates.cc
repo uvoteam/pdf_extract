@@ -93,7 +93,13 @@ text_chunk_t Coordinates::adjust_coordinates(string &&s, size_t len, float width
 
 void Coordinates::do_cm(vector<pair<pdf_object_t, string>> &st)
 {
-    CTM = get_matrix(st) * CTM;
+    try
+    {
+        CTM = get_matrix(st) * CTM;
+    }
+    catch (...)
+    {
+    }
 }
 
 void Coordinates::do_q(vector<pair<pdf_object_t, string>> &st)

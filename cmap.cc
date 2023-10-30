@@ -193,12 +193,26 @@ namespace
         return offset;
     }
 
+    boost::optional<string> try_get_string(const string &stream, size_t &offset)
+    {
+        try
+        {
+            return convert2string(get_token(stream, offset));
+        }
+        catch (...)
+        {
+            return boost::none;
+        }
+        return boost::none;
+    }
+
     size_t get_bfchar(const string &stream, size_t offset, cmap_t &cmap)
     {
-        const string src = convert2string(get_token(stream, offset));
-        const string dst = convert2string(get_token(stream, offset));
-        cmap.utf_map.emplace(src, make_pair(cmap_t::NOT_CONVERTED, dst));
-        cmap.sizes[src.length()] = 1;
+        const boost::optional<string> src = try_get_string(stream, offset);
+        const boost::optional<string> dst = try_get_string(stream, offset);
+        if (!src || !dst) return offset + 1;
+        cmap.utf_map.emplace(*src, make_pair(cmap_t::NOT_CONVERTED, *dst));
+        cmap.sizes[src->length()] = 1;
         return offset + 1;
     }
 

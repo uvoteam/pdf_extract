@@ -6,6 +6,8 @@
 #include <cctype>
 #include <utility>
 #include <array>
+#include <cstdlib>
+#include <regex>
 
 #include <boost/optional.hpp>
 
@@ -817,6 +819,40 @@ string num2string(unsigned int n)
     }
     if (result.length() == 1) result = '\x00' + result;
     return result;
+}
+
+pair<size_t, size_t> get_both_regex(const string &buffer, const char *regex_str_arg, const char *regex_str_reverse_arg, size_t pos)
+{
+    size_t forward_pos = string::npos;
+    smatch m;
+    if (regex_search(buffer.begin() + pos, buffer.end(), m, regex(regex_str_arg)))
+        forward_pos = m.position(0) + pos;
+    size_t backward_pos = string::npos;
+    match_results<std::string::const_reverse_iterator> mb;
+    if (regex_search(buffer.crbegin() + buffer.length() - pos - 1, buffer.crend(), mb, regex(regex_str_reverse_arg)))
+    {
+        backward_pos = pos - mb.position(0) - mb.length(0) + 1;
+    }
+    return make_pair(forward_pos, backward_pos);
+}
+
+size_t get_nearest_regex(const string &buffer, const char *regex_str_arg, const char *regex_str_reverse_arg, size_t pos)
+{
+    size_t forward_pos = string::npos;
+    smatch m;
+    if (regex_search(buffer.begin() + pos, buffer.end(), m, regex(regex_str_arg)))
+        forward_pos = m.position(0) + pos;
+    size_t backward_pos = string::npos;
+    match_results<std::string::const_reverse_iterator> mb;
+    if (regex_search(buffer.crbegin() + buffer.length() - pos - 1, buffer.crend(), mb, regex(regex_str_reverse_arg)))
+    {
+        backward_pos = pos - mb.position(0) - mb.length(0) + 1;
+    }
+    if (forward_pos == string::npos && backward_pos == string::npos) return string::npos;
+    if (forward_pos == string::npos) return backward_pos;
+    if (backward_pos == string::npos) return forward_pos;
+    int ipos = static_cast<int>(pos);
+    return (abs(static_cast<int>(forward_pos) - ipos) < abs(static_cast<int>(backward_pos) - ipos))? forward_pos : backward_pos;
 }
 
 const matrix_t IDENTITY_MATRIX = matrix_t{1, 0, 0, 1, 0, 0};

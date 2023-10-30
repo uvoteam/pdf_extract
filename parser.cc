@@ -5,7 +5,6 @@
 #include <vector>
 #include <unordered_set>
 #include <openssl/provider.h>
-#include <regex>
 
 #include "common.h"
 #include "object_storage.h"
@@ -144,7 +143,7 @@ vector<pair<size_t, size_t>> get_trailer_offsets_new(const string &buffer, size_
 pair<vector<pair<size_t, size_t>>, bool> get_trailer_offsets(const string &buffer, size_t &cross_ref_offset)
 {
     cross_ref_offset = skip_comments(buffer, cross_ref_offset);
-    size_t nearest_xref_offset = buffer.find("xref", cross_ref_offset);
+    size_t nearest_xref_offset = skip_comments(buffer, get_nearest_regex(buffer, "xref\\s", "\\sferx\\s", cross_ref_offset));
     size_t nearest_object_offset = buffer.find("<<", cross_ref_offset);
     bool is_damaged = (cross_ref_offset != nearest_xref_offset);
     if (nearest_object_offset != string::npos && nearest_xref_offset != string::npos)
@@ -329,6 +328,14 @@ vector<size_t> get_all_object_offsets(const string &buffer, const vector<pair<si
     return object_offsets;
 }
 
+void insert2offsets(map<size_t, size_t> &id2offsets, const string &buffer, size_t offset)
+{
+    if (offset == string::npos) return;
+    size_t start_offset = efind_number(buffer, skip_comments(buffer, offset));
+    size_t end_offset = efind_first(buffer, " \r\n\t", start_offset);
+    id2offsets.emplace(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset);
+}
+
 //is_broken - pdf file is damaged, invalid offset to object
 map<size_t, size_t> get_id2offsets(const string &buffer, const vector<pair<size_t, size_t>> &trailer_offsets, bool is_broken)
 {
@@ -338,14 +345,12 @@ map<size_t, size_t> get_id2offsets(const string &buffer, const vector<pair<size_
     {
         if (is_broken)
         {
-            smatch m;
-            if (!regex_search(buffer.begin() + offset, buffer.end(), m, regex("\\s*\\d+\\s+\\d+\\s+obj\\s+")))
-                throw pdf_error(FUNC_STRING + "can`t restore damaged pdf file");
-            offset = m.position(0) + offset;
+            pair<size_t, size_t> both_offsets = get_both_regex(buffer, "\\s*\\d+\\s+\\d+\\s+obj\\s+", "\\s+jbo\\s+\\d+\\s+\\d+\\s*", offset);
+            insert2offsets(id2offsets, buffer, both_offsets.first);
+            insert2offsets(id2offsets, buffer, both_offsets.second);
+            continue;
         }
-        size_t start_offset = efind_number(buffer, skip_comments(buffer, offset));
-        size_t end_offset = efind_first(buffer, " \r\n\t", start_offset);
-        id2offsets.emplace(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset);
+        insert2offsets(id2offsets, buffer, offset);
     }
 
     return id2offsets;

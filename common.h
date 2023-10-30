@@ -84,6 +84,8 @@ std::pair<float, float> apply_matrix_norm(const matrix_t &matrix, float x, float
 unsigned int get_dict_val(const dict_t &dict, const std::string &key, unsigned int def);
 float get_dict_val(const dict_t &dict, const std::string &key, float def);
 size_t utf8_length(const std::string &s);
+size_t get_nearest_regex(const std::string &buffer, const char *regex, const char *regex_reverse, size_t pos);
+std::pair<size_t, size_t> get_both_regex(const std::string &buffer, const char *regex, const char *regex_reverse, size_t pos);
 matrix_t operator*(const matrix_t &m1, const matrix_t &m2);
 dict_t get_dict_or_indirect_dict(const std::pair<std::string, pdf_object_t> &data, const ObjectStorage &storage);
 array_t get_array_or_indirect_array(const std::pair<std::string, pdf_object_t> &data, const ObjectStorage &storage);

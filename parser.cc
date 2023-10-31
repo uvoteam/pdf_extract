@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_set>
 #include <openssl/provider.h>
+#include <regex>
 
 #include "common.h"
 #include "object_storage.h"
@@ -336,22 +337,21 @@ void insert2offsets(map<size_t, size_t> &id2offsets, const string &buffer, size_
     id2offsets.emplace(strict_stoul(buffer.substr(start_offset, end_offset - start_offset)), offset);
 }
 
-//is_broken - pdf file is damaged, invalid offset to object
-map<size_t, size_t> get_id2offsets(const string &buffer, const vector<pair<size_t, size_t>> &trailer_offsets, bool is_broken)
+//broken - pdf file is damaged, invalid offsets to object
+map<size_t, size_t> get_id2offsets_broken(const string &buffer, const vector<pair<size_t, size_t>> &trailer_offsets)
+{
+    map<size_t, size_t> id2offsets;
+    regex obj_regex("\\d+\\s+\\d+\\s+obj\\s+");
+    for(sregex_iterator i = sregex_iterator(buffer.begin(), buffer.end(), obj_regex); i != sregex_iterator(); ++i)
+        insert2offsets(id2offsets, buffer, i->position());
+    return id2offsets;
+}
+
+map<size_t, size_t> get_id2offsets(const string &buffer, const vector<pair<size_t, size_t>> &trailer_offsets)
 {
     vector<size_t> offsets = get_all_object_offsets(buffer, trailer_offsets);
     map<size_t, size_t> id2offsets;
-    for (size_t offset : offsets)
-    {
-        if (is_broken)
-        {
-            pair<size_t, size_t> both_offsets = get_both_regex(buffer, "\\s*\\d+\\s+\\d+\\s+obj\\s+", "\\s+jbo\\s+\\d+\\s+\\d+\\s*", offset);
-            insert2offsets(id2offsets, buffer, both_offsets.first);
-            insert2offsets(id2offsets, buffer, both_offsets.second);
-            continue;
-        }
-        insert2offsets(id2offsets, buffer, offset);
-    }
+    for (size_t offset : offsets) insert2offsets(id2offsets, buffer, offset);
 
     return id2offsets;
 }
@@ -443,7 +443,8 @@ string pdf2txt(const string &buffer)
 {
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     const pair<vector<pair<size_t, size_t>>, bool> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
-    map<size_t, size_t> id2offsets = get_id2offsets(buffer, trailer_offsets.first, trailer_offsets.second);
+    map<size_t, size_t> id2offsets = trailer_offsets.second? get_id2offsets_broken(buffer, trailer_offsets.first):
+                                                             get_id2offsets(buffer, trailer_offsets.first);
     const dict_t encrypt_data = get_encrypt_data(buffer,
                                                  trailer_offsets.first.at(0).first,
                                                  trailer_offsets.first.at(0).second,

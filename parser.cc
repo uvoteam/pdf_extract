@@ -338,7 +338,7 @@ void insert2offsets(map<size_t, size_t> &id2offsets, const string &buffer, size_
 }
 
 //broken - pdf file is damaged, invalid offsets to object
-map<size_t, size_t> get_id2offsets_broken(const string &buffer, const vector<pair<size_t, size_t>> &trailer_offsets)
+map<size_t, size_t> get_id2offsets_broken(const string &buffer)
 {
     map<size_t, size_t> id2offsets;
     regex obj_regex("\\d+\\s+\\d+\\s+obj\\s+");
@@ -349,9 +349,16 @@ map<size_t, size_t> get_id2offsets_broken(const string &buffer, const vector<pai
 
 map<size_t, size_t> get_id2offsets(const string &buffer, const vector<pair<size_t, size_t>> &trailer_offsets)
 {
-    vector<size_t> offsets = get_all_object_offsets(buffer, trailer_offsets);
     map<size_t, size_t> id2offsets;
-    for (size_t offset : offsets) insert2offsets(id2offsets, buffer, offset);
+    try
+    {
+        vector<size_t> offsets = get_all_object_offsets(buffer, trailer_offsets);
+        for (size_t offset : offsets) insert2offsets(id2offsets, buffer, offset);
+    }
+    catch (...)
+    {
+        return get_id2offsets_broken(buffer);
+    }
 
     return id2offsets;
 }
@@ -443,8 +450,7 @@ string pdf2txt(const string &buffer)
 {
     size_t cross_ref_offset = get_cross_ref_offset(buffer);
     const pair<vector<pair<size_t, size_t>>, bool> trailer_offsets = get_trailer_offsets(buffer, cross_ref_offset);
-    map<size_t, size_t> id2offsets = trailer_offsets.second? get_id2offsets_broken(buffer, trailer_offsets.first):
-                                                             get_id2offsets(buffer, trailer_offsets.first);
+    map<size_t, size_t> id2offsets = trailer_offsets.second? get_id2offsets_broken(buffer) : get_id2offsets(buffer, trailer_offsets.first);
     const dict_t encrypt_data = get_encrypt_data(buffer,
                                                  trailer_offsets.first.at(0).first,
                                                  trailer_offsets.first.at(0).second,

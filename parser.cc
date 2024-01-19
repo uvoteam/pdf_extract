@@ -341,7 +341,7 @@ void insert2offsets(map<size_t, size_t> &id2offsets, const string &buffer, size_
 map<size_t, size_t> get_id2offsets_broken(const string &buffer)
 {
     map<size_t, size_t> id2offsets;
-    regex obj_regex("\\d+\\s+\\d+\\s+obj\\s+");
+    regex obj_regex("\\d+?\\s+?\\d+?\\s+?obj\\s");
     for(sregex_iterator i = sregex_iterator(buffer.begin(), buffer.end(), obj_regex); i != sregex_iterator(); ++i)
         insert2offsets(id2offsets, buffer, i->position());
     return id2offsets;

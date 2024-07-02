@@ -163,7 +163,15 @@ namespace
         case token_t::DEC:
         {
             string third = convert2string(third_token);
-            for (string n = first; is_less_equal(n, second); inc(n), inc(third))
+            // 9.10.3 ToUnicode CMaps
+            // Likewise, mappings after the beginbfrange operator may
+            // be defined as:
+            // n beginbfrange
+            // srcCode1 srcCode2 dstString
+            // endbfrange
+            // In this case, the last byte of the string shall be incremented for each consecutive code in the source code range
+            unsigned char &last_byte = reinterpret_cast<unsigned char&>(third.back());
+            for (string n = first; is_less_equal(n, second); inc(n), ++last_byte)
             {
                 cmap.utf_map.emplace(n, make_pair(cmap_t::NOT_CONVERTED, third));
                 cmap.sizes[n.length()] = 1;

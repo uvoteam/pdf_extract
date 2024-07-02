@@ -163,6 +163,7 @@ namespace
         case token_t::DEC:
         {
             string third = convert2string(third_token);
+            if (third.empty()) throw pdf_error(FUNC_STRING + "third string is empty");
             // 9.10.3 ToUnicode CMaps
             // Likewise, mappings after the beginbfrange operator may
             // be defined as:

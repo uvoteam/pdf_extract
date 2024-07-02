@@ -175,6 +175,11 @@ namespace
             {
                 cmap.utf_map.emplace(n, make_pair(cmap_t::NOT_CONVERTED, third));
                 cmap.sizes[n.length()] = 1;
+                // 9.10.3 ToUnicode CMaps
+                // When defining ranges of this type, the value of the last byte in the string shall be less than or equal to
+                // 255 − (srcCode2 − srcCode1). This ensures that the last byte of the string shall not be incremented past 255;
+                // otherwise, the result of mapping is undefined.
+                if (last_byte == 255) break;
             }
             break;
         }

@@ -39,7 +39,7 @@ namespace
         unsigned char c;
     };
 
-    enum { MATRIX_ELEMENTS_NUM = 6, PDF_STRINGS_NUM = 5000 /*for optimization*/, MAX_BOXES = 300 };
+    enum { MATRIX_ELEMENTS_NUM = 6, PDF_STRINGS_NUM = 5000 /*for optimization*/, MAX_BOXES = 300, MAX_XOBJECT_NESTED = 30 };
     constexpr float LINE_OVERLAP = 0.5;
     constexpr float CHAR_MARGIN = 2.0;
     constexpr float WORD_MARGIN = 0.1;
@@ -726,7 +726,9 @@ vector<pair<unsigned int, unsigned int>> PagesExtractor::get_id_gen_ap_n(const d
     return result;
 }
 
-string PagesExtractor::get_stream_contents_no_exception(unsigned int page_id, const vector<pair<unsigned int, unsigned int>> &ids_gen, unordered_set<unsigned int> &visited_ids)
+string PagesExtractor::get_stream_contents_no_exception(unsigned int page_id,
+                                                        const vector<pair<unsigned int, unsigned int>> &ids_gen,
+                                                        unordered_set<unsigned int> &visited_ids)
 {
     try
     {
@@ -737,7 +739,10 @@ string PagesExtractor::get_stream_contents_no_exception(unsigned int page_id, co
     }
     return string();
 }
-string PagesExtractor::get_stream_contents(unsigned int page_id, const vector<pair<unsigned int, unsigned int>> &ids_gen, unordered_set<unsigned int> &visited_ids)
+
+string PagesExtractor::get_stream_contents(unsigned int page_id,
+                                           const vector<pair<unsigned int, unsigned int>> &ids_gen,
+                                           unordered_set<unsigned int> &visited_ids)
 {
     string text;
     string page_content;
@@ -752,7 +757,7 @@ string PagesExtractor::get_stream_contents(unsigned int page_id, const vector<pa
         }
         page_content += output_content(visited_ids, doc, storage, id_gen, decrypt_data);
     }
-    for (vector<text_chunk_t> &r : extract_text(page_content, page_id_str, boost::none)) text += render_text(r);
+    for (vector<text_chunk_t> &r : extract_text(page_content, page_id_str, boost::none, 0)) text += render_text(r);
     return text;
 }
 
@@ -921,8 +926,10 @@ void PagesExtractor::do_Do(extract_argument_t &arg, size_t &i)
     auto it = XObject_streams.find(resource_name);
     if (it != XObject_streams.end())
     {
+        ++arg.xobject_nested;
         const matrix_t ctm = XObject_matrices.at(resource_name) * arg.coordinates.get_CTM();
-        for (vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm)) arg.result.push_back(std::move(r));
+        for (vector<text_chunk_t> &r : extract_text(it->second, resource_name, ctm, arg.xobject_nested)) arg.result.push_back(std::move(r));
+        --arg.xobject_nested;
     }
 }
 
@@ -1002,8 +1009,10 @@ void PagesExtractor::do_q(extract_argument_t &arg, size_t &i)
 
 vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_content,
                                                           const string &resource_id,
-                                                          const optional<matrix_t> CTM)
+                                                          const optional<matrix_t> CTM,
+                                                          int xobject_nested)
 {
+    if (xobject_nested > MAX_XOBJECT_NESTED) return vector<vector<text_chunk_t>>();
     ConverterEngine *encoding = nullptr;
     Coordinates coordinates(CTM? *CTM : init_CTM(rotates.at(resource_id), media_boxes.at(resource_id)));
     vector<pair<pdf_object_t, string>> st;
@@ -1011,7 +1020,7 @@ vector<vector<text_chunk_t>> PagesExtractor::extract_text(const string &page_con
     bool in = false;
     vector<vector<text_chunk_t>> result(1);
     result[0].reserve(PDF_STRINGS_NUM);
-    extract_argument_t argument{result, encoding, st, coordinates, resource_id, in, page_content};
+    extract_argument_t argument{result, encoding, st, coordinates, resource_id, in, page_content, xobject_nested};
     for (size_t i = skip_comments(page_content, 0, false);
          i != string::npos && i < page_content.length();
          i = skip_comments(page_content, i, false))

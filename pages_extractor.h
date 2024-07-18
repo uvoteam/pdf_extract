@@ -37,6 +37,7 @@ public:
         const std::string &resource_id;
         bool &in;
         const std::string &content;
+        int xobject_nested;
    };
 public:
     void do_Do(extract_argument_t &arg, size_t &i);
@@ -71,7 +72,8 @@ private:
     mediabox_t parse_rectangle(const std::pair<std::string, pdf_object_t> &rectangle) const;
     std::vector<std::vector<text_chunk_t>> extract_text(const std::string &page_content,
                                                         const std::string &resource_id,
-                                                        const boost::optional<matrix_t> CTM);
+                                                        const boost::optional<matrix_t> CTM,
+                                                        int xobject_nested);
     void get_pages_resources_int(std::unordered_set<unsigned int> &checked_nodes,
                                  const dict_t &parent_dict,
                                  const Fonts &parent_fonts,

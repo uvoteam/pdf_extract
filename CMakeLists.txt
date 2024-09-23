@@ -25,6 +25,7 @@ set(SOURCES ascii85_decode.cc
 
 find_library(BOOST_SYSTEM boost_system REQUIRED)
 find_library(BOOST_LOCALE boost_locale REQUIRED)
+find_library(BOOST_REGEX boost_regex REQUIRED)
 find_library(LIBZ z REQUIRED)
 find_package(OpenSSL 3.0 REQUIRED)
 
@@ -32,6 +33,7 @@ add_library(${PROGRAM_NAME} SHARED ${SOURCES})
 target_link_libraries(${PROGRAM_NAME}
                       ${BOOST_SYSTEM}
                       ${BOOST_LOCALE}
+                      ${BOOST_REGEX}
                       crypto
                       ${LIBZ})
 install(TARGETS ${PROGRAM_NAME}

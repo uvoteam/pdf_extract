@@ -118,7 +118,7 @@ namespace
 
     size_t find_value_end_delimiter(const string &buffer, size_t offset)
     {
-        size_t ret = buffer.find_first_of("\r\t\n /][(<>", offset);
+        size_t ret = buffer.find_first_of("\r\t\n /][(<>", offset + 1);
         return (ret == string::npos)? buffer.length() : ret;
     }
 
